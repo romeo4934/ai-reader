@@ -5,11 +5,8 @@
   if (!chapterEl) return;
 
   var popover = document.getElementById('translate-popover');
-  var elPhrase = document.getElementById('tp-phrase');
   var elLoading = document.getElementById('tp-loading');
   var elError = document.getElementById('tp-error');
-  var elResult = document.getElementById('tp-result');
-  var elTranslation = document.getElementById('tp-translation');
   var elSentence = document.getElementById('tp-sentence');
   var elClose = document.getElementById('tp-close');
 
@@ -25,7 +22,49 @@
   function resetPopoverBody() {
     elLoading.hidden = true;
     elError.hidden = true;
-    elResult.hidden = true;
+    elSentence.hidden = true;
+  }
+
+  // Renders `sentence` as text, with the exact substring `highlight` (if it
+  // actually occurs in it) wrapped for emphasis — the word's translation
+  // shown in place instead of as a separate line.
+  function renderSentence(el, sentence, highlight) {
+    if (!highlight) {
+      el.textContent = sentence;
+      return;
+    }
+    var idx = sentence.indexOf(highlight);
+    if (idx < 0) {
+      el.textContent = sentence;
+      return;
+    }
+    el.innerHTML =
+      escapeHtml(sentence.slice(0, idx)) +
+      '<mark class="word-highlight">' + escapeHtml(sentence.slice(idx, idx + highlight.length)) + '</mark>' +
+      escapeHtml(sentence.slice(idx + highlight.length));
+  }
+
+  // Positions the popover near the selection rather than pinned to the
+  // bottom of the screen, so it doesn't end up far from what it's about.
+  // Called twice: once on open (loading state) and again once the result
+  // renders, since the taller content can push it past a viewport edge.
+  function positionPopover(rect) {
+    if (!rect) return;
+    var margin = 12;
+    var w = popover.offsetWidth;
+    var h = popover.offsetHeight;
+
+    var left = rect.left + rect.width / 2 - w / 2;
+    left = Math.max(margin, Math.min(left, window.innerWidth - w - margin));
+
+    var top = rect.bottom + margin;
+    if (top + h > window.innerHeight - margin) {
+      top = rect.top - h - margin; // no room below — flip above the selection
+    }
+    top = Math.max(margin, top);
+
+    popover.style.left = left + 'px';
+    popover.style.top = top + 'px';
   }
 
   function closestPara(node) {
@@ -34,9 +73,9 @@
     return el;
   }
 
-  // --- highlight the sentence being translated, not just the selected word ---
-  // The reply already shows a translated sentence; without this there's no
-  // way to tell which sentence in the book it corresponds to.
+  // --- highlight both the selected word and the sentence it sits in ---
+  // The reply shows a translated sentence as well as the word; without a
+  // visual anchor for each there's no way to tell which is which in the text.
 
   var highlightedPara = null;
 
@@ -46,7 +85,7 @@
 
   function clearHighlight() {
     if (!highlightedPara) return;
-    highlightedPara.textContent = highlightedPara.textContent; // drops the <mark>, keeps the text
+    highlightedPara.textContent = highlightedPara.textContent; // drops the <mark>s, keeps the text
     highlightedPara = null;
   }
 
@@ -75,16 +114,18 @@
     return { start: s, end: e };
   }
 
-  function highlightSentence(paraEl, range) {
+  // Wraps the sentence in one color and the word inside it in another,
+  // nested — the sentence mark still shows either side of the word.
+  function highlightSentence(paraEl, wordStart, wordEnd, bounds) {
     var text = paraEl.textContent;
-    var start = offsetInPara(paraEl, range.startContainer, range.startOffset);
-    var end = offsetInPara(paraEl, range.endContainer, range.endOffset);
-    var bounds = sentenceBounds(text, start, end);
-
     clearHighlight();
     paraEl.innerHTML =
       escapeHtml(text.slice(0, bounds.start)) +
-      '<mark class="sentence-highlight">' + escapeHtml(text.slice(bounds.start, bounds.end)) + '</mark>' +
+      '<mark class="sentence-highlight">' +
+        escapeHtml(text.slice(bounds.start, wordStart)) +
+        '<mark class="word-highlight">' + escapeHtml(text.slice(wordStart, wordEnd)) + '</mark>' +
+        escapeHtml(text.slice(wordEnd, bounds.end)) +
+      '</mark>' +
       escapeHtml(text.slice(bounds.end));
     highlightedPara = paraEl;
   }
@@ -108,21 +149,26 @@
       var range = sel.getRangeAt(0);
       var paraEl = closestPara(range.startContainer);
       if (!paraEl) return;
-      var context = paraEl.textContent;
-      highlightSentence(paraEl, range);
 
-      openPopoverFor(text, context);
+      var rect = range.getBoundingClientRect();
+      var context = paraEl.textContent;
+      var wordStart = offsetInPara(paraEl, range.startContainer, range.startOffset);
+      var wordEnd = offsetInPara(paraEl, range.endContainer, range.endOffset);
+      var bounds = sentenceBounds(context, wordStart, wordEnd);
+      highlightSentence(paraEl, wordStart, wordEnd, bounds);
+
+      openPopoverFor(text, context, rect);
     }, SETTLE_MS);
   });
 
   var requestSeq = 0;
 
-  function openPopoverFor(phrase, context) {
+  function openPopoverFor(phrase, context, rect) {
     var myReq = ++requestSeq;
     resetPopoverBody();
-    elPhrase.textContent = phrase;
     popover.hidden = false;
     elLoading.hidden = false;
+    positionPopover(rect);
 
     fetch('/api/translate', {
       method: 'POST',
@@ -143,18 +189,19 @@
         if (!r.ok) {
           elError.hidden = false;
           elError.textContent = (r.body && r.body.error) || 'Erreur de traduction';
+          positionPopover(rect);
           return;
         }
-        elTranslation.textContent = r.body.translation;
-        elSentence.textContent = r.body.sentence_translation || '';
+        renderSentence(elSentence, r.body.sentence_translation || '', r.body.sentence_translation_highlight);
         elSentence.hidden = !r.body.sentence_translation;
-        elResult.hidden = false;
+        positionPopover(rect); // content grew — re-clamp to the viewport
       })
       .catch(function () {
         if (myReq !== requestSeq) return;
         elLoading.hidden = true;
         elError.hidden = false;
         elError.textContent = 'Connexion impossible';
+        positionPopover(rect);
       });
   }
 
