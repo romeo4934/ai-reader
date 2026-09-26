@@ -98,6 +98,19 @@
     return r.toString().length;
   }
 
+  // Double-click/double-tap word selection stops at hyphens (native browser
+  // behavior), so clicking "arms" in "man-at-arms" only selects "arms". Widen
+  // any selection edge that lands mid-word out to the full hyphenated token,
+  // since that's the actual lexical unit worth translating. Harmless for
+  // ordinary multi-word selections too, since a space always stops it.
+  var WORD_CHAR = /[\p{L}\p{N}'-]/u;
+
+  function expandToWordBoundaries(text, start, end) {
+    while (start > 0 && WORD_CHAR.test(text[start - 1])) start--;
+    while (end < text.length && WORD_CHAR.test(text[end])) end++;
+    return { start: start, end: end };
+  }
+
   // Naive sentence-boundary heuristic: walk out to the enclosing ". ! ?" on
   // each side. Good enough for narrative prose; the odd abbreviation will
   // occasionally over- or under-shoot, which is a fine trade for no NLP
@@ -143,8 +156,7 @@
       settleTimer = null;
       var sel = window.getSelection();
       if (!sel || sel.isCollapsed || sel.rangeCount === 0) return;
-      var text = sel.toString().trim();
-      if (!text || !chapterEl.contains(sel.anchorNode)) return;
+      if (!chapterEl.contains(sel.anchorNode)) return;
 
       var range = sel.getRangeAt(0);
       var paraEl = closestPara(range.startContainer);
@@ -152,10 +164,13 @@
 
       var rect = range.getBoundingClientRect();
       var context = paraEl.textContent;
-      var wordStart = offsetInPara(paraEl, range.startContainer, range.startOffset);
-      var wordEnd = offsetInPara(paraEl, range.endContainer, range.endOffset);
-      var bounds = sentenceBounds(context, wordStart, wordEnd);
-      highlightSentence(paraEl, wordStart, wordEnd, bounds);
+      var rawStart = offsetInPara(paraEl, range.startContainer, range.startOffset);
+      var rawEnd = offsetInPara(paraEl, range.endContainer, range.endOffset);
+      var word = expandToWordBoundaries(context, rawStart, rawEnd);
+      var text = context.slice(word.start, word.end).trim();
+      if (!text) return;
+      var bounds = sentenceBounds(context, word.start, word.end);
+      highlightSentence(paraEl, word.start, word.end, bounds);
 
       openPopoverFor(text, context, rect);
     }, SETTLE_MS);
