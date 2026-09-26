@@ -12,6 +12,7 @@
   var elTranslation = document.getElementById('tp-translation');
   var elLemma = document.getElementById('tp-lemma');
   var elNote = document.getElementById('tp-note');
+  var elSentence = document.getElementById('tp-sentence');
   var elSaved = document.getElementById('tp-saved');
   var elClose = document.getElementById('tp-close');
 
@@ -91,6 +92,8 @@
         elLemma.hidden = !r.body.lemma;
         elNote.textContent = r.body.note || '';
         elNote.hidden = !r.body.note;
+        elSentence.textContent = r.body.sentence_translation || '';
+        elSentence.hidden = !r.body.sentence_translation;
         elSaved.textContent = r.body.saved ? '✓ enregistré dans mes mots' : '✓ déjà dans mes mots';
         elResult.hidden = false;
       })
