@@ -135,6 +135,7 @@ h1 { font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
 }
 .chapter .para { margin: 0 0 1.1em; }
 .chapter .para::selection { background: var(--mark); }
+.chapter .sentence-highlight { background: var(--mark); border-radius: 3px; }
 
 .chapter-nav {
   display: flex;

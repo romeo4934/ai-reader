@@ -22,6 +22,7 @@
   function closePopover() {
     popover.hidden = true;
     window.getSelection().removeAllRanges();
+    clearHighlight();
   }
 
   function resetPopoverBody() {
@@ -31,10 +32,65 @@
     elSaved.textContent = '';
   }
 
-  function contextFor(node) {
+  function closestPara(node) {
     var el = node.nodeType === 1 ? node : node.parentElement;
     while (el && !el.classList.contains('para')) el = el.parentElement;
-    return el ? el.textContent.trim() : '';
+    return el;
+  }
+
+  // --- highlight the sentence being translated, not just the selected word ---
+  // The reply already shows a translated sentence; without this there's no
+  // way to tell which sentence in the book it corresponds to.
+
+  var highlightedPara = null;
+
+  function escapeHtml(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  function clearHighlight() {
+    if (!highlightedPara) return;
+    highlightedPara.textContent = highlightedPara.textContent; // drops the <mark>, keeps the text
+    highlightedPara = null;
+  }
+
+  // Character offset of a range's boundary within paraEl's full text, however
+  // many text nodes the paragraph is made of.
+  function offsetInPara(paraEl, container, offset) {
+    var r = document.createRange();
+    r.selectNodeContents(paraEl);
+    r.setEnd(container, offset);
+    return r.toString().length;
+  }
+
+  // Naive sentence-boundary heuristic: walk out to the enclosing ". ! ?" on
+  // each side. Good enough for narrative prose; the odd abbreviation will
+  // occasionally over- or under-shoot, which is a fine trade for no NLP
+  // dependency in a personal reading app.
+  function sentenceBounds(text, start, end) {
+    var enders = /[.!?]/;
+    var s = start;
+    while (s > 0 && !enders.test(text[s - 1])) s--;
+    while (s < text.length && /[\s"'“‘]/.test(text[s])) s++;
+    var e = end;
+    while (e < text.length && !enders.test(text[e])) e++;
+    if (e < text.length) e++; // include the punctuation
+    while (e < text.length && /["'”’]/.test(text[e])) e++;
+    return { start: s, end: e };
+  }
+
+  function highlightSentence(paraEl, range) {
+    var text = paraEl.textContent;
+    var start = offsetInPara(paraEl, range.startContainer, range.startOffset);
+    var end = offsetInPara(paraEl, range.endContainer, range.endOffset);
+    var bounds = sentenceBounds(text, start, end);
+
+    clearHighlight();
+    paraEl.innerHTML =
+      escapeHtml(text.slice(0, bounds.start)) +
+      '<mark class="sentence-highlight">' + escapeHtml(text.slice(bounds.start, bounds.end)) + '</mark>' +
+      escapeHtml(text.slice(bounds.end));
+    highlightedPara = paraEl;
   }
 
   // selectionchange fires continuously while a selection is being dragged —
@@ -53,7 +109,13 @@
       var text = sel.toString().trim();
       if (!text || !chapterEl.contains(sel.anchorNode)) return;
 
-      openPopoverFor(text, contextFor(sel.anchorNode));
+      var range = sel.getRangeAt(0);
+      var paraEl = closestPara(range.startContainer);
+      if (!paraEl) return;
+      var context = paraEl.textContent;
+      highlightSentence(paraEl, range);
+
+      openPopoverFor(text, context);
     }, SETTLE_MS);
   });
 
