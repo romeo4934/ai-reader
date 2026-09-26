@@ -8,6 +8,7 @@
   --card-bg: #ffffff;
   --border: #e2ded4;
   --mark: #fde9a8;
+  --mark-sentence: #d3e6f5;
   --danger: #b3472b;
 }
 
@@ -21,6 +22,7 @@
     --card-bg: #222325;
     --border: #34353a;
     --mark: #5a4a1a;
+    --mark-sentence: #2b4a63;
     --danger: #d97a5f;
   }
 }
@@ -135,7 +137,7 @@ h1 { font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
 }
 .chapter .para { margin: 0 0 1.1em; }
 .chapter .para::selection { background: var(--mark); }
-.chapter .sentence-highlight { background: var(--mark); border-radius: 3px; }
+.chapter .sentence-highlight { background: var(--mark-sentence); border-radius: 3px; }
 
 .chapter-nav {
   display: flex;
@@ -217,7 +219,6 @@ h1 { font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
   font-style: italic;
   color: var(--muted);
 }
-.tp-saved { margin-top: 0.8rem; color: var(--accent); font-weight: 600; }
 .tp-close {
   position: absolute;
   top: 0.6rem;

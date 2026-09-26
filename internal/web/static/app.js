@@ -13,7 +13,6 @@
   var elLemma = document.getElementById('tp-lemma');
   var elNote = document.getElementById('tp-note');
   var elSentence = document.getElementById('tp-sentence');
-  var elSaved = document.getElementById('tp-saved');
   var elClose = document.getElementById('tp-close');
 
   var bookID = chapterEl.dataset.bookId;
@@ -29,7 +28,6 @@
     elLoading.hidden = true;
     elError.hidden = true;
     elResult.hidden = true;
-    elSaved.textContent = '';
   }
 
   function closestPara(node) {
@@ -156,7 +154,6 @@
         elNote.hidden = !r.body.note;
         elSentence.textContent = r.body.sentence_translation || '';
         elSentence.hidden = !r.body.sentence_translation;
-        elSaved.textContent = r.body.saved ? '✓ enregistré dans mes mots' : '✓ déjà dans mes mots';
         elResult.hidden = false;
       })
       .catch(function () {
