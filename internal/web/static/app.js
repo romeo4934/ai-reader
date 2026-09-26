@@ -36,17 +36,30 @@
     return el ? el.textContent.trim() : '';
   }
 
-  document.addEventListener('selectionchange', function () {
-    var sel = window.getSelection();
-    if (!sel || sel.isCollapsed || sel.rangeCount === 0) return;
-    var text = sel.toString().trim();
-    if (!text || !chapterEl.contains(sel.anchorNode)) return;
+  // selectionchange fires continuously while a selection is being dragged —
+  // once per character on a touch drag, or on every handle nudge on iPad.
+  // Debounce so a translate call (and the auto-save it triggers) only
+  // happens once the selection has actually settled, not once per fragment.
+  var settleTimer = null;
+  var SETTLE_MS = 500;
 
-    var context = contextFor(sel.anchorNode);
-    openPopoverFor(text, context);
+  document.addEventListener('selectionchange', function () {
+    if (settleTimer) clearTimeout(settleTimer);
+    settleTimer = setTimeout(function () {
+      settleTimer = null;
+      var sel = window.getSelection();
+      if (!sel || sel.isCollapsed || sel.rangeCount === 0) return;
+      var text = sel.toString().trim();
+      if (!text || !chapterEl.contains(sel.anchorNode)) return;
+
+      openPopoverFor(text, contextFor(sel.anchorNode));
+    }, SETTLE_MS);
   });
 
+  var requestSeq = 0;
+
   function openPopoverFor(phrase, context) {
+    var myReq = ++requestSeq;
     resetPopoverBody();
     elPhrase.textContent = phrase;
     popover.hidden = false;
@@ -66,6 +79,7 @@
         return res.json().then(function (body) { return { ok: res.ok, body: body }; });
       })
       .then(function (r) {
+        if (myReq !== requestSeq) return; // superseded by a newer selection
         elLoading.hidden = true;
         if (!r.ok) {
           elError.hidden = false;
@@ -81,6 +95,7 @@
         elResult.hidden = false;
       })
       .catch(function () {
+        if (myReq !== requestSeq) return;
         elLoading.hidden = true;
         elError.hidden = false;
         elError.textContent = 'Connexion impossible';
