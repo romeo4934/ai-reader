@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <title>{{.Title}}</title>
+  {{template "head" .}}
+</head>
+<body>
+  {{template "nav" .}}
+
+  <main class="page review-page">
+    <h1>Révision</h1>
+
+    {{if not .Data.Card}}
+      <p class="empty">Rien à réviser pour l'instant — reviens plus tard, ou lis un peu plus 📖</p>
+    {{else}}
+      {{$card := .Data.Card}}
+      <div class="card">
+        <div class="card-source">{{$card.BookTitle}}</div>
+        <p class="card-context">{{highlight $card.Context $card.Phrase}}</p>
+
+        <button id="reveal" type="button" class="btn">Voir la traduction</button>
+
+        <div id="answer" hidden>
+          <div class="card-translation">{{$card.Translation}}</div>
+          {{if $card.Lemma}}<div class="card-lemma">{{$card.Lemma}}</div>{{end}}
+          {{if $card.Note}}<div class="card-note">{{$card.Note}}</div>{{end}}
+
+          <div class="card-buttons">
+            <form action="/review/{{$card.ID}}/answer" method="post">
+              <input type="hidden" name="result" value="again">
+              <button type="submit" class="btn btn-again">Je ne savais pas</button>
+            </form>
+            <form action="/review/{{$card.ID}}/answer" method="post">
+              <input type="hidden" name="result" value="good">
+              <button type="submit" class="btn btn-good">Je savais</button>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <script>
+        document.getElementById('reveal').addEventListener('click', function () {
+          document.getElementById('answer').hidden = false;
+          this.hidden = true;
+        });
+      </script>
+    {{end}}
+  </main>
+</body>
+</html>

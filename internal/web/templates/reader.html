@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <title>{{.Title}}</title>
+  {{template "head" .}}
+</head>
+<body>
+  {{template "nav" .}}
+
+  <main class="page reader-page">
+    <header class="reader-head">
+      <a href="/">← bibliothèque</a>
+      <h1>{{.Data.Book.Title}}</h1>
+      <span class="chapter-label">{{.Data.Chapter.Title}}</span>
+    </header>
+
+    <article id="chapter" class="chapter"
+      data-book-id="{{.Data.Book.ID}}"
+      data-chapter-id="{{.Data.Chapter.ID}}">
+      {{range .Data.Paragraphs}}
+      <p class="para">{{.}}</p>
+      {{end}}
+    </article>
+
+    <nav class="chapter-nav">
+      {{if .Data.HasPrev}}
+        <a href="/books/{{.Data.Book.ID}}?ch={{sub .Data.ChapterIdx 1}}" class="btn">← chapitre précédent</a>
+      {{else}}<span></span>{{end}}
+      {{if .Data.HasNext}}
+        <a href="/books/{{.Data.Book.ID}}?ch={{add .Data.ChapterIdx 1}}" class="btn">chapitre suivant →</a>
+      {{end}}
+    </nav>
+  </main>
+
+  <div id="translate-popover" class="popover" hidden>
+    <div class="popover-phrase" id="tp-phrase"></div>
+    <div id="tp-loading" class="tp-loading" hidden>traduction…</div>
+    <div id="tp-error" class="tp-error" hidden></div>
+    <div id="tp-result" hidden>
+      <div class="tp-translation" id="tp-translation"></div>
+      <div class="tp-lemma" id="tp-lemma"></div>
+      <div class="tp-note" id="tp-note"></div>
+      <button id="tp-save" type="button" class="btn btn-primary">Enregistrer dans mes mots</button>
+      <div id="tp-saved" class="tp-saved" hidden>✓ enregistré</div>
+    </div>
+    <button id="tp-close" type="button" class="tp-close" aria-label="Fermer">×</button>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

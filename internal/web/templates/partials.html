@@ -1,0 +1,14 @@
+{{define "head"}}
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="stylesheet" href="/static/style.css">
+{{end}}
+
+{{define "nav"}}
+<nav class="topnav">
+  <a href="/" class="brand">📖 ai-reader</a>
+  <a href="/words">mes mots</a>
+  <a href="/review">révision{{if gt .DueCount 0}} <span class="badge">{{.DueCount}}</span>{{end}}</a>
+  <a href="/settings">réglages</a>
+</nav>
+{{end}}

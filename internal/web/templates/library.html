@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <title>{{.Title}}</title>
+  {{template "head" .}}
+</head>
+<body>
+  {{template "nav" .}}
+
+  <main class="page">
+    <h1>Bibliothèque</h1>
+
+    <form class="upload" action="/books" method="post" enctype="multipart/form-data">
+      <input type="file" name="epub" accept=".epub" required>
+      <button type="submit">Ajouter un livre</button>
+    </form>
+
+    {{if not .Data}}
+      <p class="empty">Aucun livre pour l'instant — ajoute un fichier .epub ci-dessus.</p>
+    {{else}}
+      <ul class="book-list">
+        {{range .Data}}
+        <li>
+          <a href="/books/{{.ID}}">
+            <span class="book-title">{{.Title}}</span>
+            {{if .Author}}<span class="book-author">{{.Author}}</span>{{end}}
+            <span class="book-meta">{{.ChapterCount}} chapitres{{if .Language}} · {{.Language}}{{end}}</span>
+          </a>
+        </li>
+        {{end}}
+      </ul>
+    {{end}}
+  </main>
+</body>
+</html>

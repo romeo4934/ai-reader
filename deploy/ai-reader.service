@@ -1,0 +1,35 @@
+[Unit]
+Description=ai-reader — lecture epub avec traduction contextuelle et révision
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ai-reader
+Group=ai-reader
+
+EnvironmentFile=/opt/ai-reader/.env
+ExecStart=/usr/local/bin/ai-reader
+Restart=always
+RestartSec=2
+
+# N'a besoin d'écrire que ses propres données.
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+ReadWritePaths=/opt/ai-reader/data
+
+# Sortant HTTPS uniquement (Anthropic) ; écoute en Tailscale, jamais publique.
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+
+[Install]
+WantedBy=multi-user.target

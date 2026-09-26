@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <title>{{.Title}}</title>
+  {{template "head" .}}
+</head>
+<body>
+  {{template "nav" .}}
+
+  <main class="page">
+    <h1>Réglages</h1>
+
+    <form action="/settings" method="post" class="settings-form">
+      <label for="native_lang">Ma langue maternelle</label>
+      <input type="text" id="native_lang" name="native_lang" value="{{.Data}}" required>
+      <p class="hint">Utilisée pour toutes les traductions, quel que soit le livre.</p>
+      <button type="submit" class="btn btn-primary">Enregistrer</button>
+    </form>
+  </main>
+</body>
+</html>

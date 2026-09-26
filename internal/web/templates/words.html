@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <title>{{.Title}}</title>
+  {{template "head" .}}
+</head>
+<body>
+  {{template "nav" .}}
+
+  <main class="page">
+    <h1>Mes mots</h1>
+
+    {{if not .Data}}
+      <p class="empty">Aucun mot enregistré pour l'instant — clique sur un mot en lisant pour commencer.</p>
+    {{else}}
+      <ul class="word-list">
+        {{range .Data}}
+        <li>
+          <div class="word-row">
+            <span class="word-phrase">{{.Phrase}}</span>
+            <span class="word-translation">{{.Translation}}</span>
+            <span class="word-box">boîte {{.Box}}/5</span>
+          </div>
+          <div class="word-source">{{.BookTitle}}</div>
+        </li>
+        {{end}}
+      </ul>
+    {{end}}
+  </main>
+</body>
+</html>

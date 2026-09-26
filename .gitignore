@@ -1,0 +1,7 @@
+# Binaire compilé à la racine seulement — pas le paquet cmd/ai-reader.
+/ai-reader
+.env
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+/data/
