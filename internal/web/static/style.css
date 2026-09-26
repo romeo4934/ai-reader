@@ -208,8 +208,7 @@ h1 { font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
 .tp-translation { font-size: 1.05rem; }
 .tp-lemma { color: var(--muted); font-size: 0.85em; margin-top: 0.2rem; }
 .tp-note { margin-top: 0.5rem; font-size: 0.92rem; }
-#tp-save { margin-top: 0.9rem; width: 100%; }
-.tp-saved { margin-top: 0.6rem; color: var(--accent); font-weight: 600; }
+.tp-saved { margin-top: 0.8rem; color: var(--accent); font-weight: 600; }
 .tp-close {
   position: absolute;
   top: 0.6rem;

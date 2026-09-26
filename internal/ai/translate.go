@@ -47,12 +47,15 @@ type Translation struct {
 	Translation string `json:"translation"`
 	Lemma       string `json:"lemma"`
 	Note        string `json:"note"`
+	// Frequency: 1 = extremely common (top ~1000 words), 5 = rare/literary.
+	// Lets the review deck prioritize the words most worth knowing.
+	Frequency int `json:"frequency"`
 }
 
 var translateSchema = map[string]any{
 	"type":                 "object",
 	"additionalProperties": false,
-	"required":             []string{"translation", "lemma", "note"},
+	"required":             []string{"translation", "lemma", "note", "frequency"},
 	"properties": map[string]any{
 		"translation": map[string]any{
 			"type":        "string",
@@ -65,6 +68,11 @@ var translateSchema = map[string]any{
 		"note": map[string]any{
 			"type":        "string",
 			"description": "One or two short sentences, in the reader's native language, on grammar or usage a learner would want: tense, gender, idiom, register. Empty if there's nothing worth adding.",
+		},
+		"frequency": map[string]any{
+			"type":        "integer",
+			"enum":        []int{1, 2, 3, 4, 5},
+			"description": "How common the lemma is in everyday use of the language: 1 = extremely common (top ~1000 words), 3 = ordinary vocabulary, 5 = rare, literary, or specialized.",
 		},
 	},
 }

@@ -30,7 +30,39 @@ func Open(path string) (*Store, error) {
 		db.Close()
 		return nil, fmt.Errorf("migration : %w", err)
 	}
+	if err := ensureColumn(db, "vocab", "frequency", "INTEGER NOT NULL DEFAULT 3"); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("migration vocab.frequency : %w", err)
+	}
 	return &Store{db: db}, nil
+}
+
+// ensureColumn adds a column to a table already created by an earlier version
+// of schema.sql — CREATE TABLE IF NOT EXISTS doesn't alter existing tables.
+func ensureColumn(db *sql.DB, table, column, decl string) error {
+	rows, err := db.Query(fmt.Sprintf(`PRAGMA table_info(%s)`, table))
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var (
+			cid, notnull, pk int
+			name, ctype      string
+			dflt             sql.NullString
+		)
+		if err := rows.Scan(&cid, &name, &ctype, &notnull, &dflt, &pk); err != nil {
+			return err
+		}
+		if name == column {
+			return nil
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	_, err = db.Exec(fmt.Sprintf(`ALTER TABLE %s ADD COLUMN %s %s`, table, column, decl))
+	return err
 }
 
 func (s *Store) Close() error { return s.db.Close() }
@@ -181,6 +213,7 @@ type Vocab struct {
 	Context        string
 	Translation    string
 	Note           string
+	Frequency      int
 	Box            int
 	NextReviewAt   time.Time
 	CreatedAt      time.Time
@@ -189,10 +222,14 @@ type Vocab struct {
 
 func (s *Store) InsertVocab(v Vocab) (int64, error) {
 	now := time.Now().UTC()
+	freq := v.Frequency
+	if freq < 1 || freq > 5 {
+		freq = 3
+	}
 	res, err := s.db.Exec(`
-		INSERT INTO vocab (book_id, chapter_id, phrase, lemma, context, translation, note, box, next_review_at, created_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
-		v.BookID, v.ChapterID, v.Phrase, v.Lemma, v.Context, v.Translation, v.Note,
+		INSERT INTO vocab (book_id, chapter_id, phrase, lemma, context, translation, note, frequency, box, next_review_at, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
+		v.BookID, v.ChapterID, v.Phrase, v.Lemma, v.Context, v.Translation, v.Note, freq,
 		now.Format(timeLayout), now.Format(timeLayout))
 	if err != nil {
 		return 0, err
@@ -200,14 +237,30 @@ func (s *Store) InsertVocab(v Vocab) (int64, error) {
 	return res.LastInsertId()
 }
 
-// DueVocab returns up to `limit` cards whose next_review_at has passed, oldest first.
+// FindVocabByPhrase returns the id of an existing card for this phrase
+// (case-insensitive), so looking a word up twice doesn't create two cards.
+func (s *Store) FindVocabByPhrase(phrase string) (id int64, found bool, err error) {
+	err = s.db.QueryRow(`SELECT id FROM vocab WHERE phrase = ? COLLATE NOCASE LIMIT 1`, phrase).Scan(&id)
+	switch {
+	case err == sql.ErrNoRows:
+		return 0, false, nil
+	case err != nil:
+		return 0, false, err
+	default:
+		return id, true, nil
+	}
+}
+
+// DueVocab returns up to `limit` due cards, most frequent words first — the
+// point of the deck is to spend review time where it pays off in reading,
+// not on a word that showed up once.
 func (s *Store) DueVocab(now time.Time, limit int) ([]Vocab, error) {
 	rows, err := s.db.Query(`
 		SELECT v.id, v.book_id, b.title, v.chapter_id, v.phrase, v.lemma, v.context,
-		       v.translation, v.note, v.box, v.next_review_at, v.created_at, v.last_reviewed_at
+		       v.translation, v.note, v.frequency, v.box, v.next_review_at, v.created_at, v.last_reviewed_at
 		FROM vocab v JOIN books b ON b.id = v.book_id
 		WHERE v.next_review_at <= ?
-		ORDER BY v.next_review_at ASC
+		ORDER BY v.frequency ASC, v.next_review_at ASC
 		LIMIT ?`, now.Format(timeLayout), limit)
 	if err != nil {
 		return nil, err
@@ -225,7 +278,7 @@ func (s *Store) CountDueVocab(now time.Time) (int, error) {
 func (s *Store) ListVocab() ([]Vocab, error) {
 	rows, err := s.db.Query(`
 		SELECT v.id, v.book_id, b.title, v.chapter_id, v.phrase, v.lemma, v.context,
-		       v.translation, v.note, v.box, v.next_review_at, v.created_at, v.last_reviewed_at
+		       v.translation, v.note, v.frequency, v.box, v.next_review_at, v.created_at, v.last_reviewed_at
 		FROM vocab v JOIN books b ON b.id = v.book_id
 		ORDER BY v.created_at DESC`)
 	if err != nil {
@@ -242,7 +295,7 @@ func scanVocabRows(rows *sql.Rows) ([]Vocab, error) {
 		var nextReview, created string
 		var lastReviewed sql.NullString
 		if err := rows.Scan(&v.ID, &v.BookID, &v.BookTitle, &v.ChapterID, &v.Phrase, &v.Lemma, &v.Context,
-			&v.Translation, &v.Note, &v.Box, &nextReview, &created, &lastReviewed); err != nil {
+			&v.Translation, &v.Note, &v.Frequency, &v.Box, &nextReview, &created, &lastReviewed); err != nil {
 			return nil, err
 		}
 		v.NextReviewAt, _ = time.Parse(timeLayout, nextReview)
@@ -262,10 +315,10 @@ func (s *Store) GetVocab(id int64) (Vocab, error) {
 	var lastReviewed sql.NullString
 	err := s.db.QueryRow(`
 		SELECT v.id, v.book_id, b.title, v.chapter_id, v.phrase, v.lemma, v.context,
-		       v.translation, v.note, v.box, v.next_review_at, v.created_at, v.last_reviewed_at
+		       v.translation, v.note, v.frequency, v.box, v.next_review_at, v.created_at, v.last_reviewed_at
 		FROM vocab v JOIN books b ON b.id = v.book_id WHERE v.id = ?`, id).
 		Scan(&v.ID, &v.BookID, &v.BookTitle, &v.ChapterID, &v.Phrase, &v.Lemma, &v.Context,
-			&v.Translation, &v.Note, &v.Box, &nextReview, &created, &lastReviewed)
+			&v.Translation, &v.Note, &v.Frequency, &v.Box, &nextReview, &created, &lastReviewed)
 	if err != nil {
 		return Vocab{}, err
 	}

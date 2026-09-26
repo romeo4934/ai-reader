@@ -72,7 +72,6 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("POST /settings", s.handleSettingsPost)
 
 	mux.HandleFunc("POST /api/translate", s.handleAPITranslate)
-	mux.HandleFunc("POST /api/vocab", s.handleAPISaveVocab)
 
 	return mux
 }
@@ -295,13 +294,22 @@ type translateRequest struct {
 	Context   string `json:"context"`
 }
 
+type translateResponse struct {
+	ai.Translation
+	Saved bool `json:"saved"` // false when this phrase was already in the deck
+}
+
+// handleAPITranslate translates the selection and saves it as a review card
+// in the same call — a lookup while reading is treated as "I want to learn
+// this", so there's no separate save step for the reader to remember.
 func (s *Server) handleAPITranslate(w http.ResponseWriter, r *http.Request) {
 	var req translateRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		s.failJSON(w, http.StatusBadRequest, err)
 		return
 	}
-	if strings.TrimSpace(req.Phrase) == "" {
+	phrase := strings.TrimSpace(req.Phrase)
+	if phrase == "" {
 		s.failJSON(w, http.StatusBadRequest, errors.New("phrase vide"))
 		return
 	}
@@ -321,7 +329,7 @@ func (s *Server) handleAPITranslate(w http.ResponseWriter, r *http.Request) {
 		BookLanguage: book.Language,
 		NativeLang:   native,
 		Context:      req.Context,
-		Phrase:       req.Phrase,
+		Phrase:       phrase,
 	})
 	if err != nil {
 		if errors.Is(err, ai.ErrNoKey) {
@@ -331,43 +339,28 @@ func (s *Server) handleAPITranslate(w http.ResponseWriter, r *http.Request) {
 		s.failJSON(w, http.StatusBadGateway, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, tr)
-}
 
-type saveVocabRequest struct {
-	BookID      int64  `json:"book_id"`
-	ChapterID   int64  `json:"chapter_id"`
-	Phrase      string `json:"phrase"`
-	Lemma       string `json:"lemma"`
-	Context     string `json:"context"`
-	Translation string `json:"translation"`
-	Note        string `json:"note"`
-}
-
-func (s *Server) handleAPISaveVocab(w http.ResponseWriter, r *http.Request) {
-	var req saveVocabRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		s.failJSON(w, http.StatusBadRequest, err)
-		return
-	}
-	if strings.TrimSpace(req.Phrase) == "" || strings.TrimSpace(req.Translation) == "" {
-		s.failJSON(w, http.StatusBadRequest, errors.New("phrase ou traduction manquante"))
-		return
-	}
-	id, err := s.store.InsertVocab(store.Vocab{
-		BookID:      req.BookID,
-		ChapterID:   req.ChapterID,
-		Phrase:      req.Phrase,
-		Lemma:       req.Lemma,
-		Context:     req.Context,
-		Translation: req.Translation,
-		Note:        req.Note,
-	})
+	_, alreadySaved, err := s.store.FindVocabByPhrase(phrase)
 	if err != nil {
 		s.failJSON(w, http.StatusInternalServerError, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]int64{"id": id})
+	if !alreadySaved {
+		if _, err := s.store.InsertVocab(store.Vocab{
+			BookID:      req.BookID,
+			ChapterID:   req.ChapterID,
+			Phrase:      phrase,
+			Lemma:       tr.Lemma,
+			Context:     req.Context,
+			Translation: tr.Translation,
+			Note:        tr.Note,
+			Frequency:   tr.Frequency,
+		}); err != nil {
+			s.failJSON(w, http.StatusInternalServerError, err)
+			return
+		}
+	}
+	writeJSON(w, http.StatusOK, translateResponse{Translation: tr, Saved: !alreadySaved})
 }
 
 // --- helpers ---

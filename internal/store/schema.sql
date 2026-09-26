@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS vocab (
     context          TEXT NOT NULL,
     translation      TEXT NOT NULL,
     note             TEXT NOT NULL DEFAULT '',
+    frequency        INTEGER NOT NULL DEFAULT 3,
     box              INTEGER NOT NULL DEFAULT 1,
     next_review_at   TEXT NOT NULL,
     created_at       TEXT NOT NULL,

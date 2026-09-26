@@ -12,26 +12,22 @@
   var elTranslation = document.getElementById('tp-translation');
   var elLemma = document.getElementById('tp-lemma');
   var elNote = document.getElementById('tp-note');
-  var elSave = document.getElementById('tp-save');
   var elSaved = document.getElementById('tp-saved');
   var elClose = document.getElementById('tp-close');
 
   var bookID = chapterEl.dataset.bookId;
   var chapterID = chapterEl.dataset.chapterId;
-  var current = null; // {phrase, context, translation, lemma, note}
 
   function closePopover() {
     popover.hidden = true;
     window.getSelection().removeAllRanges();
-    current = null;
   }
 
   function resetPopoverBody() {
     elLoading.hidden = true;
     elError.hidden = true;
     elResult.hidden = true;
-    elSaved.hidden = true;
-    elSave.hidden = false;
+    elSaved.textContent = '';
   }
 
   function contextFor(node) {
@@ -51,7 +47,6 @@
   });
 
   function openPopoverFor(phrase, context) {
-    current = { phrase: phrase, context: context };
     resetPopoverBody();
     elPhrase.textContent = phrase;
     popover.hidden = false;
@@ -77,14 +72,12 @@
           elError.textContent = (r.body && r.body.error) || 'Erreur de traduction';
           return;
         }
-        current.translation = r.body.translation;
-        current.lemma = r.body.lemma;
-        current.note = r.body.note;
         elTranslation.textContent = r.body.translation;
         elLemma.textContent = r.body.lemma || '';
         elLemma.hidden = !r.body.lemma;
         elNote.textContent = r.body.note || '';
         elNote.hidden = !r.body.note;
+        elSaved.textContent = r.body.saved ? '✓ enregistré dans mes mots' : '✓ déjà dans mes mots';
         elResult.hidden = false;
       })
       .catch(function () {
@@ -93,31 +86,6 @@
         elError.textContent = 'Connexion impossible';
       });
   }
-
-  elSave.addEventListener('click', function () {
-    if (!current || !current.translation) return;
-    fetch('/api/vocab', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        book_id: Number(bookID),
-        chapter_id: Number(chapterID),
-        phrase: current.phrase,
-        lemma: current.lemma || '',
-        context: current.context,
-        translation: current.translation,
-        note: current.note || '',
-      }),
-    })
-      .then(function (res) { return res.ok; })
-      .then(function (ok) {
-        if (ok) {
-          elSave.hidden = true;
-          elSaved.hidden = false;
-          setTimeout(closePopover, 900);
-        }
-      });
-  });
 
   elClose.addEventListener('click', closePopover);
 })();
