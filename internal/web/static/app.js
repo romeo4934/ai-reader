@@ -148,7 +148,7 @@
   // Debounce so a translate call (and the auto-save it triggers) only
   // happens once the selection has actually settled, not once per fragment.
   var settleTimer = null;
-  var SETTLE_MS = 500;
+  var SETTLE_MS = 300;
 
   document.addEventListener('selectionchange', function () {
     if (settleTimer) clearTimeout(settleTimer);

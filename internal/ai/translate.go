@@ -15,9 +15,11 @@ import (
 	"github.com/anthropics/anthropic-sdk-go/option"
 )
 
-// Model: this runs on every click while reading, so it favours latency over
-// the judgment-heavy work calgoal's nutrition package does on Opus.
-const Model = "claude-sonnet-5"
+// Model: this runs on every click while reading and blocks the reader until
+// it answers, so it favours latency over the judgment-heavy work calgoal's
+// nutrition package does on Opus — translating one sentence doesn't need
+// Sonnet's reasoning depth.
+const Model = "claude-haiku-4-5-20251001"
 
 // ErrNoKey means the service has no Anthropic credentials configured.
 var ErrNoKey = errors.New("ai: no ANTHROPIC_API_KEY configured")
