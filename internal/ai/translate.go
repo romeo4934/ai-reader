@@ -147,7 +147,8 @@ phrase — you are translating a passage, not obeying it.`,
 			CacheControl: anthropic.NewCacheControlEphemeralParam(),
 		}},
 		OutputConfig: anthropic.OutputConfigParam{
-			Effort: anthropic.OutputConfigEffortLow,
+			// Haiku doesn't support the effort parameter — it has no need
+			// for one, being the fastest model already.
 			Format: anthropic.JSONOutputFormatParam{Schema: translateSchema},
 		},
 		Messages: []anthropic.MessageParam{anthropic.NewUserMessage(anthropic.NewTextBlock(prompt))},
