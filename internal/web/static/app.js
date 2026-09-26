@@ -10,8 +10,6 @@
   var elError = document.getElementById('tp-error');
   var elResult = document.getElementById('tp-result');
   var elTranslation = document.getElementById('tp-translation');
-  var elLemma = document.getElementById('tp-lemma');
-  var elNote = document.getElementById('tp-note');
   var elSentence = document.getElementById('tp-sentence');
   var elClose = document.getElementById('tp-close');
 
@@ -148,10 +146,6 @@
           return;
         }
         elTranslation.textContent = r.body.translation;
-        elLemma.textContent = r.body.lemma || '';
-        elLemma.hidden = !r.body.lemma;
-        elNote.textContent = r.body.note || '';
-        elNote.hidden = !r.body.note;
         elSentence.textContent = r.body.sentence_translation || '';
         elSentence.hidden = !r.body.sentence_translation;
         elResult.hidden = false;
