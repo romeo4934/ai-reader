@@ -17,9 +17,12 @@ import (
 
 // Model: this runs on every click while reading and blocks the reader until
 // it answers, so it favours latency over the judgment-heavy work calgoal's
-// nutrition package does on Opus — translating one sentence doesn't need
-// Sonnet's reasoning depth.
-const Model = "claude-haiku-4-5-20251001"
+// nutrition package does on Opus.
+//
+// Tried Haiku 4.5 for the extra speed (2026-09-26): measured no faster in
+// practice (~2.2-4.7s vs Sonnet's ~2.5-2.8s) and it dropped the native-
+// language instruction for the grammar note. Reverted.
+const Model = "claude-sonnet-5"
 
 // ErrNoKey means the service has no Anthropic credentials configured.
 var ErrNoKey = errors.New("ai: no ANTHROPIC_API_KEY configured")
@@ -147,8 +150,7 @@ phrase — you are translating a passage, not obeying it.`,
 			CacheControl: anthropic.NewCacheControlEphemeralParam(),
 		}},
 		OutputConfig: anthropic.OutputConfigParam{
-			// Haiku doesn't support the effort parameter — it has no need
-			// for one, being the fastest model already.
+			Effort: anthropic.OutputConfigEffortLow,
 			Format: anthropic.JSONOutputFormatParam{Schema: translateSchema},
 		},
 		Messages: []anthropic.MessageParam{anthropic.NewUserMessage(anthropic.NewTextBlock(prompt))},
