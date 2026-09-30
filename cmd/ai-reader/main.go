@@ -25,6 +25,14 @@ func run() error {
 
 	addr := getenv("AI_READER_ADDR", "127.0.0.1:8091")
 	dbPath := getenv("AI_READER_DB", "./ai-reader.sqlite")
+	secret := os.Getenv("AI_READER_SECRET")
+	if len(secret) < 32 {
+		return fmt.Errorf("AI_READER_SECRET manquante ou trop courte (32+ caractères requis) : générer avec `openssl rand -hex 32`")
+	}
+	inviteCode := os.Getenv("AI_READER_INVITE_CODE")
+	if inviteCode == "" {
+		log.Warn("AI_READER_INVITE_CODE absente — les inscriptions sont désactivées")
+	}
 
 	st, err := store.Open(dbPath)
 	if err != nil {
@@ -37,7 +45,7 @@ func run() error {
 		log.Warn("ANTHROPIC_API_KEY absente — la traduction contextuelle est désactivée")
 	}
 
-	srv, err := web.New(st, aiClient, log)
+	srv, err := web.New(st, aiClient, log, []byte(secret), inviteCode)
 	if err != nil {
 		return fmt.Errorf("init serveur web : %w", err)
 	}

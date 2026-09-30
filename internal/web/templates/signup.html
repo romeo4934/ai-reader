@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <title>{{.Title}}</title>
+  {{template "head" .}}
+</head>
+<body>
+  {{template "nav" .}}
+
+  <main class="page">
+    <h1>Créer un compte</h1>
+
+    {{if .Data.Error}}<p class="form-error">{{.Data.Error}}</p>{{end}}
+
+    <form action="/signup" method="post" class="settings-form">
+      <label for="username">Identifiant</label>
+      <input type="text" id="username" name="username" autocomplete="username" required autofocus minlength="3">
+      <label for="password">Mot de passe</label>
+      <input type="password" id="password" name="password" autocomplete="new-password" required minlength="8">
+      <label for="invite_code">Code d'invitation</label>
+      <input type="text" id="invite_code" name="invite_code" required>
+      <button type="submit" class="btn btn-primary">Créer le compte</button>
+    </form>
+
+    <p class="hint" style="margin-top:1.5rem">Déjà un compte ? <a href="/login">se connecter</a></p>
+  </main>
+</body>
+</html>

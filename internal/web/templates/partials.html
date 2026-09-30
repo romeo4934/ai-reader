@@ -7,8 +7,12 @@
 {{define "nav"}}
 <nav class="topnav">
   <a href="/" class="brand">📖 ai-reader</a>
-  <a href="/words">mes mots</a>
-  <a href="/review">révision{{if gt .DueCount 0}} <span class="badge">{{.DueCount}}</span>{{end}}</a>
-  <a href="/settings">réglages</a>
+  {{if .LoggedIn}}
+    <a href="/words">mes mots</a>
+    <a href="/review">révision{{if gt .DueCount 0}} <span class="badge">{{.DueCount}}</span>{{end}}</a>
+    <a href="/settings">réglages</a>
+  {{else}}
+    <a href="/login">connexion</a>
+  {{end}}
 </nav>
 {{end}}

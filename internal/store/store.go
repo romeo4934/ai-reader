@@ -39,6 +39,25 @@ func Open(path string) (*Store, error) {
 		db.Close()
 		return nil, fmt.Errorf("migration vocab.frequency : %w", err)
 	}
+	if err := ensureColumn(db, "books", "user_id", "INTEGER NOT NULL DEFAULT 0"); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("migration books.user_id : %w", err)
+	}
+	if err := ensureColumn(db, "vocab", "user_id", "INTEGER NOT NULL DEFAULT 0"); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("migration vocab.user_id : %w", err)
+	}
+	// These index the user_id columns just added above — created here rather
+	// than in schema.sql so they never run before ensureColumn has had a
+	// chance to add the column on an upgraded database.
+	if _, err := db.Exec(`CREATE INDEX IF NOT EXISTS idx_books_user ON books(user_id)`); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("index idx_books_user : %w", err)
+	}
+	if _, err := db.Exec(`CREATE INDEX IF NOT EXISTS idx_vocab_due ON vocab(user_id, next_review_at)`); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("index idx_vocab_due : %w", err)
+	}
 	return &Store{db: db}, nil
 }
 
@@ -90,10 +109,87 @@ func (s *Store) SetSetting(key, value string) error {
 	return err
 }
 
+// --- users ---
+
+type User struct {
+	ID           int64
+	Username     string
+	PasswordHash string
+	NativeLang   string
+	CreatedAt    time.Time
+}
+
+// CreateUser inserts a new account. The caller has already hashed the
+// password. If this is the very first user, everything created before
+// accounts existed (user_id = 0) is claimed for them automatically —
+// there's no separate migration step to run by hand.
+func (s *Store) CreateUser(username, passwordHash, nativeLang string) (int64, error) {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback()
+
+	var n int
+	if err := tx.QueryRow(`SELECT COUNT(*) FROM users`).Scan(&n); err != nil {
+		return 0, err
+	}
+
+	res, err := tx.Exec(`INSERT INTO users (username, password_hash, native_lang, created_at) VALUES (?, ?, ?, ?)`,
+		username, passwordHash, nativeLang, time.Now().UTC().Format(timeLayout))
+	if err != nil {
+		return 0, err
+	}
+	userID, err := res.LastInsertId()
+	if err != nil {
+		return 0, err
+	}
+
+	if n == 0 {
+		if _, err := tx.Exec(`UPDATE books SET user_id = ? WHERE user_id = 0`, userID); err != nil {
+			return 0, err
+		}
+		if _, err := tx.Exec(`UPDATE vocab SET user_id = ? WHERE user_id = 0`, userID); err != nil {
+			return 0, err
+		}
+	}
+	return userID, tx.Commit()
+}
+
+func (s *Store) GetUserByUsername(username string) (User, error) {
+	var u User
+	var createdAt string
+	err := s.db.QueryRow(`SELECT id, username, password_hash, native_lang, created_at FROM users WHERE username = ? COLLATE NOCASE`, username).
+		Scan(&u.ID, &u.Username, &u.PasswordHash, &u.NativeLang, &createdAt)
+	if err != nil {
+		return User{}, err
+	}
+	u.CreatedAt, _ = time.Parse(timeLayout, createdAt)
+	return u, nil
+}
+
+func (s *Store) GetUserByID(id int64) (User, error) {
+	var u User
+	var createdAt string
+	err := s.db.QueryRow(`SELECT id, username, password_hash, native_lang, created_at FROM users WHERE id = ?`, id).
+		Scan(&u.ID, &u.Username, &u.PasswordHash, &u.NativeLang, &createdAt)
+	if err != nil {
+		return User{}, err
+	}
+	u.CreatedAt, _ = time.Parse(timeLayout, createdAt)
+	return u, nil
+}
+
+func (s *Store) SetUserNativeLang(userID int64, lang string) error {
+	_, err := s.db.Exec(`UPDATE users SET native_lang = ? WHERE id = ?`, lang, userID)
+	return err
+}
+
 // --- books & chapters ---
 
 type Book struct {
 	ID           int64
+	UserID       int64
 	Title        string
 	Author       string
 	Language     string
@@ -110,15 +206,15 @@ type Chapter struct {
 }
 
 // InsertBook stores a book and all of its chapters (idx 0-based, in reading order).
-func (s *Store) InsertBook(title, author, language string, chapters []struct{ Title, Content string }) (int64, error) {
+func (s *Store) InsertBook(userID int64, title, author, language string, chapters []struct{ Title, Content string }) (int64, error) {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return 0, err
 	}
 	defer tx.Rollback()
 
-	res, err := tx.Exec(`INSERT INTO books (title, author, language, added_at) VALUES (?, ?, ?, ?)`,
-		title, author, language, time.Now().UTC().Format(timeLayout))
+	res, err := tx.Exec(`INSERT INTO books (user_id, title, author, language, added_at) VALUES (?, ?, ?, ?, ?)`,
+		userID, title, author, language, time.Now().UTC().Format(timeLayout))
 	if err != nil {
 		return 0, err
 	}
@@ -135,11 +231,12 @@ func (s *Store) InsertBook(title, author, language string, chapters []struct{ Ti
 	return bookID, tx.Commit()
 }
 
-func (s *Store) ListBooks() ([]Book, error) {
+func (s *Store) ListBooks(userID int64) ([]Book, error) {
 	rows, err := s.db.Query(`
-		SELECT b.id, b.title, b.author, b.language, b.added_at, COUNT(c.id)
+		SELECT b.id, b.user_id, b.title, b.author, b.language, b.added_at, COUNT(c.id)
 		FROM books b LEFT JOIN chapters c ON c.book_id = b.id
-		GROUP BY b.id ORDER BY b.added_at DESC`)
+		WHERE b.user_id = ?
+		GROUP BY b.id ORDER BY b.added_at DESC`, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -149,7 +246,7 @@ func (s *Store) ListBooks() ([]Book, error) {
 	for rows.Next() {
 		var b Book
 		var addedAt string
-		if err := rows.Scan(&b.ID, &b.Title, &b.Author, &b.Language, &addedAt, &b.ChapterCount); err != nil {
+		if err := rows.Scan(&b.ID, &b.UserID, &b.Title, &b.Author, &b.Language, &addedAt, &b.ChapterCount); err != nil {
 			return nil, err
 		}
 		b.AddedAt, _ = time.Parse(timeLayout, addedAt)
@@ -158,14 +255,16 @@ func (s *Store) ListBooks() ([]Book, error) {
 	return out, rows.Err()
 }
 
-func (s *Store) GetBook(id int64) (Book, error) {
+// GetBook fetches a book, scoped to its owner — a wrong userID behaves like
+// the book doesn't exist (sql.ErrNoRows), never leaking another user's data.
+func (s *Store) GetBook(id, userID int64) (Book, error) {
 	var b Book
 	var addedAt string
 	err := s.db.QueryRow(`
-		SELECT b.id, b.title, b.author, b.language, b.added_at, COUNT(c.id)
+		SELECT b.id, b.user_id, b.title, b.author, b.language, b.added_at, COUNT(c.id)
 		FROM books b LEFT JOIN chapters c ON c.book_id = b.id
-		WHERE b.id = ? GROUP BY b.id`, id).
-		Scan(&b.ID, &b.Title, &b.Author, &b.Language, &addedAt, &b.ChapterCount)
+		WHERE b.id = ? AND b.user_id = ? GROUP BY b.id`, id, userID).
+		Scan(&b.ID, &b.UserID, &b.Title, &b.Author, &b.Language, &addedAt, &b.ChapterCount)
 	if err != nil {
 		return Book{}, err
 	}
@@ -210,6 +309,7 @@ func (s *Store) GetProgress(bookID int64) (int, error) {
 
 type Vocab struct {
 	ID             int64
+	UserID         int64
 	BookID         int64
 	BookTitle      string
 	ChapterID      int64
@@ -235,9 +335,9 @@ func (s *Store) InsertVocab(v Vocab) (int64, error) {
 		freq = 3000
 	}
 	res, err := s.db.Exec(`
-		INSERT INTO vocab (book_id, chapter_id, phrase, lemma, context, translation, note, frequency, box, next_review_at, created_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
-		v.BookID, v.ChapterID, v.Phrase, v.Lemma, v.Context, v.Translation, v.Note, freq,
+		INSERT INTO vocab (user_id, book_id, chapter_id, phrase, lemma, context, translation, note, frequency, box, next_review_at, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
+		v.UserID, v.BookID, v.ChapterID, v.Phrase, v.Lemma, v.Context, v.Translation, v.Note, freq,
 		now.Format(timeLayout), now.Format(timeLayout))
 	if err != nil {
 		return 0, err
@@ -245,10 +345,11 @@ func (s *Store) InsertVocab(v Vocab) (int64, error) {
 	return res.LastInsertId()
 }
 
-// FindVocabByPhrase returns the id of an existing card for this phrase
-// (case-insensitive), so looking a word up twice doesn't create two cards.
-func (s *Store) FindVocabByPhrase(phrase string) (id int64, found bool, err error) {
-	err = s.db.QueryRow(`SELECT id FROM vocab WHERE phrase = ? COLLATE NOCASE LIMIT 1`, phrase).Scan(&id)
+// FindVocabByPhrase returns the id of an existing card for this phrase for
+// this user (case-insensitive), so looking a word up twice doesn't create
+// two cards — scoped per user so two people don't collide on a common word.
+func (s *Store) FindVocabByPhrase(userID int64, phrase string) (id int64, found bool, err error) {
+	err = s.db.QueryRow(`SELECT id FROM vocab WHERE user_id = ? AND phrase = ? COLLATE NOCASE LIMIT 1`, userID, phrase).Scan(&id)
 	switch {
 	case err == sql.ErrNoRows:
 		return 0, false, nil
@@ -259,17 +360,17 @@ func (s *Store) FindVocabByPhrase(phrase string) (id int64, found bool, err erro
 	}
 }
 
-// DueVocab returns up to `limit` due cards, most frequent words first — the
-// point of the deck is to spend review time where it pays off in reading,
-// not on a word that showed up once.
-func (s *Store) DueVocab(now time.Time, limit int) ([]Vocab, error) {
+// DueVocab returns up to `limit` due cards for this user, most frequent
+// words first — the point of the deck is to spend review time where it pays
+// off in reading, not on a word that showed up once.
+func (s *Store) DueVocab(userID int64, now time.Time, limit int) ([]Vocab, error) {
 	rows, err := s.db.Query(`
-		SELECT v.id, v.book_id, b.title, v.chapter_id, v.phrase, v.lemma, v.context,
+		SELECT v.id, v.user_id, v.book_id, b.title, v.chapter_id, v.phrase, v.lemma, v.context,
 		       v.translation, v.note, v.frequency, v.box, v.next_review_at, v.created_at, v.last_reviewed_at
 		FROM vocab v JOIN books b ON b.id = v.book_id
-		WHERE v.next_review_at <= ?
+		WHERE v.user_id = ? AND v.next_review_at <= ?
 		ORDER BY v.frequency ASC, v.next_review_at ASC
-		LIMIT ?`, now.Format(timeLayout), limit)
+		LIMIT ?`, userID, now.Format(timeLayout), limit)
 	if err != nil {
 		return nil, err
 	}
@@ -277,18 +378,20 @@ func (s *Store) DueVocab(now time.Time, limit int) ([]Vocab, error) {
 	return scanVocabRows(rows)
 }
 
-func (s *Store) CountDueVocab(now time.Time) (int, error) {
+func (s *Store) CountDueVocab(userID int64, now time.Time) (int, error) {
 	var n int
-	err := s.db.QueryRow(`SELECT COUNT(*) FROM vocab WHERE next_review_at <= ?`, now.Format(timeLayout)).Scan(&n)
+	err := s.db.QueryRow(`SELECT COUNT(*) FROM vocab WHERE user_id = ? AND next_review_at <= ?`,
+		userID, now.Format(timeLayout)).Scan(&n)
 	return n, err
 }
 
-func (s *Store) ListVocab() ([]Vocab, error) {
+func (s *Store) ListVocab(userID int64) ([]Vocab, error) {
 	rows, err := s.db.Query(`
-		SELECT v.id, v.book_id, b.title, v.chapter_id, v.phrase, v.lemma, v.context,
+		SELECT v.id, v.user_id, v.book_id, b.title, v.chapter_id, v.phrase, v.lemma, v.context,
 		       v.translation, v.note, v.frequency, v.box, v.next_review_at, v.created_at, v.last_reviewed_at
 		FROM vocab v JOIN books b ON b.id = v.book_id
-		ORDER BY v.frequency ASC`)
+		WHERE v.user_id = ?
+		ORDER BY v.frequency ASC`, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -302,7 +405,7 @@ func scanVocabRows(rows *sql.Rows) ([]Vocab, error) {
 		var v Vocab
 		var nextReview, created string
 		var lastReviewed sql.NullString
-		if err := rows.Scan(&v.ID, &v.BookID, &v.BookTitle, &v.ChapterID, &v.Phrase, &v.Lemma, &v.Context,
+		if err := rows.Scan(&v.ID, &v.UserID, &v.BookID, &v.BookTitle, &v.ChapterID, &v.Phrase, &v.Lemma, &v.Context,
 			&v.Translation, &v.Note, &v.Frequency, &v.Box, &nextReview, &created, &lastReviewed); err != nil {
 			return nil, err
 		}
@@ -317,15 +420,17 @@ func scanVocabRows(rows *sql.Rows) ([]Vocab, error) {
 	return out, rows.Err()
 }
 
-func (s *Store) GetVocab(id int64) (Vocab, error) {
+// GetVocab fetches a card scoped to its owner — a wrong userID behaves like
+// the card doesn't exist.
+func (s *Store) GetVocab(id, userID int64) (Vocab, error) {
 	var v Vocab
 	var nextReview, created string
 	var lastReviewed sql.NullString
 	err := s.db.QueryRow(`
-		SELECT v.id, v.book_id, b.title, v.chapter_id, v.phrase, v.lemma, v.context,
+		SELECT v.id, v.user_id, v.book_id, b.title, v.chapter_id, v.phrase, v.lemma, v.context,
 		       v.translation, v.note, v.frequency, v.box, v.next_review_at, v.created_at, v.last_reviewed_at
-		FROM vocab v JOIN books b ON b.id = v.book_id WHERE v.id = ?`, id).
-		Scan(&v.ID, &v.BookID, &v.BookTitle, &v.ChapterID, &v.Phrase, &v.Lemma, &v.Context,
+		FROM vocab v JOIN books b ON b.id = v.book_id WHERE v.id = ? AND v.user_id = ?`, id, userID).
+		Scan(&v.ID, &v.UserID, &v.BookID, &v.BookTitle, &v.ChapterID, &v.Phrase, &v.Lemma, &v.Context,
 			&v.Translation, &v.Note, &v.Frequency, &v.Box, &nextReview, &created, &lastReviewed)
 	if err != nil {
 		return Vocab{}, err
@@ -339,8 +444,8 @@ func (s *Store) GetVocab(id int64) (Vocab, error) {
 	return v, nil
 }
 
-func (s *Store) UpdateVocabReview(id int64, box int, nextReview, now time.Time) error {
-	_, err := s.db.Exec(`UPDATE vocab SET box = ?, next_review_at = ?, last_reviewed_at = ? WHERE id = ?`,
-		box, nextReview.Format(timeLayout), now.Format(timeLayout), id)
+func (s *Store) UpdateVocabReview(id, userID int64, box int, nextReview, now time.Time) error {
+	_, err := s.db.Exec(`UPDATE vocab SET box = ?, next_review_at = ?, last_reviewed_at = ? WHERE id = ? AND user_id = ?`,
+		box, nextReview.Format(timeLayout), now.Format(timeLayout), id, userID)
 	return err
 }

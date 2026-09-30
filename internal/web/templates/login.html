@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <title>{{.Title}}</title>
+  {{template "head" .}}
+</head>
+<body>
+  {{template "nav" .}}
+
+  <main class="page">
+    <h1>Connexion</h1>
+
+    {{if .Data.Error}}<p class="form-error">{{.Data.Error}}</p>{{end}}
+
+    <form action="/login" method="post" class="settings-form">
+      <label for="username">Identifiant</label>
+      <input type="text" id="username" name="username" autocomplete="username" required autofocus>
+      <label for="password">Mot de passe</label>
+      <input type="password" id="password" name="password" autocomplete="current-password" required>
+      <button type="submit" class="btn btn-primary">Se connecter</button>
+    </form>
+
+    <p class="hint" style="margin-top:1.5rem">Pas encore de compte ? <a href="/signup">en créer un</a></p>
+  </main>
+</body>
+</html>

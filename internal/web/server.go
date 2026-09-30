@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/romeo4934/ai-reader/internal/ai"
+	"github.com/romeo4934/ai-reader/internal/auth"
 	"github.com/romeo4934/ai-reader/internal/epub"
 	"github.com/romeo4934/ai-reader/internal/frequency"
 	"github.com/romeo4934/ai-reader/internal/srs"
@@ -30,19 +31,25 @@ var templateFS embed.FS
 //go:embed static/*
 var staticFS embed.FS
 
-const settingNativeLang = "native_lang"
 const defaultNativeLang = "français"
 
 const maxUploadBytes = 30 << 20 // 30 MiB — plenty for a novel-length epub
 
+// maxVocabWords caps what gets auto-saved as a review card. A short clause
+// ("grey-eyed and graceful and slender as a knife") is still worth
+// drilling; a full sentence is a comprehension check, not a vocab item.
+const maxVocabWords = 12
+
 type Server struct {
-	store *store.Store
-	ai    *ai.Client
-	tmpl  *template.Template
-	log   *slog.Logger
+	store      *store.Store
+	ai         *ai.Client
+	tmpl       *template.Template
+	log        *slog.Logger
+	secret     []byte
+	inviteCode string
 }
 
-func New(st *store.Store, aiClient *ai.Client, log *slog.Logger) (*Server, error) {
+func New(st *store.Store, aiClient *ai.Client, log *slog.Logger, secret []byte, inviteCode string) (*Server, error) {
 	tmpl, err := template.New("").Funcs(template.FuncMap{
 		"add":       func(a, b int) int { return a + b },
 		"sub":       func(a, b int) int { return a - b },
@@ -52,7 +59,7 @@ func New(st *store.Store, aiClient *ai.Client, log *slog.Logger) (*Server, error
 	if err != nil {
 		return nil, fmt.Errorf("parse templates : %w", err)
 	}
-	return &Server{store: st, ai: aiClient, tmpl: tmpl, log: log}, nil
+	return &Server{store: st, ai: aiClient, tmpl: tmpl, log: log, secret: secret, inviteCode: inviteCode}, nil
 }
 
 func (s *Server) Routes() http.Handler {
@@ -61,21 +68,160 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("GET /ready", s.handleReady)
 	mux.Handle("GET /static/", http.FileServerFS(staticFS))
 
-	mux.HandleFunc("GET /{$}", s.handleLibrary)
-	mux.HandleFunc("POST /books", s.handleUploadBook)
-	mux.HandleFunc("GET /books/{id}", s.handleReader)
+	mux.HandleFunc("GET /login", s.handleLoginGet)
+	mux.HandleFunc("POST /login", s.handleLoginPost)
+	mux.HandleFunc("GET /signup", s.handleSignupGet)
+	mux.HandleFunc("POST /signup", s.handleSignupPost)
+	mux.HandleFunc("POST /logout", s.handleLogout)
 
-	mux.HandleFunc("GET /review", s.handleReviewPage)
-	mux.HandleFunc("POST /review/{id}/answer", s.handleReviewAnswer)
+	mux.HandleFunc("GET /{$}", s.requireAuth(s.handleLibrary))
+	mux.HandleFunc("POST /books", s.requireAuth(s.handleUploadBook))
+	mux.HandleFunc("GET /books/{id}", s.requireAuth(s.handleReader))
 
-	mux.HandleFunc("GET /words", s.handleWords)
+	mux.HandleFunc("GET /review", s.requireAuth(s.handleReviewPage))
+	mux.HandleFunc("POST /review/{id}/answer", s.requireAuth(s.handleReviewAnswer))
 
-	mux.HandleFunc("GET /settings", s.handleSettingsGet)
-	mux.HandleFunc("POST /settings", s.handleSettingsPost)
+	mux.HandleFunc("GET /words", s.requireAuth(s.handleWords))
 
-	mux.HandleFunc("POST /api/translate", s.handleAPITranslate)
+	mux.HandleFunc("GET /settings", s.requireAuth(s.handleSettingsGet))
+	mux.HandleFunc("POST /settings", s.requireAuth(s.handleSettingsPost))
+
+	mux.HandleFunc("POST /api/translate", s.requireAuth(s.handleAPITranslate))
 
 	return mux
+}
+
+// --- auth ---
+
+type ctxKey int
+
+const ctxUser ctxKey = 0
+
+func userFromContext(r *http.Request) *store.User {
+	u, _ := r.Context().Value(ctxUser).(*store.User)
+	return u
+}
+
+// requireAuth resolves the session cookie to a user and makes it available
+// via userFromContext, or redirects to /login (GET) / 401s (everything
+// else, i.e. the JSON API) when there's no valid session.
+func (s *Server) requireAuth(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		c, err := r.Cookie(auth.SessionCookie)
+		if err != nil {
+			s.unauthenticated(w, r)
+			return
+		}
+		userID, ok := auth.Verify(s.secret, c.Value)
+		if !ok {
+			s.unauthenticated(w, r)
+			return
+		}
+		user, err := s.store.GetUserByID(userID)
+		if err != nil {
+			s.unauthenticated(w, r)
+			return
+		}
+		next(w, r.WithContext(context.WithValue(r.Context(), ctxUser, &user)))
+	}
+}
+
+func (s *Server) unauthenticated(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodGet && !strings.HasPrefix(r.URL.Path, "/api/") {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+	http.Error(w, "non connecté", http.StatusUnauthorized)
+}
+
+func (s *Server) issueSession(w http.ResponseWriter, userID int64) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     auth.SessionCookie,
+		Value:    auth.Sign(s.secret, userID),
+		Path:     "/",
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+		Expires:  time.Now().Add(auth.SessionTTL),
+	})
+}
+
+type authPageView struct {
+	Error string
+}
+
+func (s *Server) handleLoginGet(w http.ResponseWriter, r *http.Request) {
+	s.render(w, r, "login.html", "Connexion", authPageView{})
+}
+
+func (s *Server) handleLoginPost(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		s.fail(w, http.StatusBadRequest, err)
+		return
+	}
+	username := strings.TrimSpace(r.FormValue("username"))
+	password := r.FormValue("password")
+
+	user, err := s.store.GetUserByUsername(username)
+	if err != nil || !auth.CheckPassword(user.PasswordHash, password) {
+		s.render(w, r, "login.html", "Connexion", authPageView{Error: "identifiant ou mot de passe incorrect"})
+		return
+	}
+	s.issueSession(w, user.ID)
+	http.Redirect(w, r, "/", http.StatusSeeOther)
+}
+
+func (s *Server) handleSignupGet(w http.ResponseWriter, r *http.Request) {
+	s.render(w, r, "signup.html", "Créer un compte", authPageView{})
+}
+
+func (s *Server) handleSignupPost(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		s.fail(w, http.StatusBadRequest, err)
+		return
+	}
+	username := strings.TrimSpace(r.FormValue("username"))
+	password := r.FormValue("password")
+	invite := r.FormValue("invite_code")
+
+	fail := func(msg string) {
+		s.render(w, r, "signup.html", "Créer un compte", authPageView{Error: msg})
+	}
+	switch {
+	case s.inviteCode == "":
+		fail("inscriptions désactivées (pas de code d'invitation configuré sur le serveur)")
+		return
+	case invite != s.inviteCode:
+		fail("code d'invitation incorrect")
+		return
+	case len(username) < 3:
+		fail("identifiant trop court (3 caractères minimum)")
+		return
+	case len(password) < 8:
+		fail("mot de passe trop court (8 caractères minimum)")
+		return
+	}
+	if _, err := s.store.GetUserByUsername(username); err == nil {
+		fail("cet identifiant est déjà pris")
+		return
+	}
+
+	hash, err := auth.HashPassword(password)
+	if err != nil {
+		s.fail(w, http.StatusInternalServerError, err)
+		return
+	}
+	userID, err := s.store.CreateUser(username, hash, defaultNativeLang)
+	if err != nil {
+		s.fail(w, http.StatusInternalServerError, err)
+		return
+	}
+	s.issueSession(w, userID)
+	http.Redirect(w, r, "/", http.StatusSeeOther)
+}
+
+func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
+	http.SetCookie(w, &http.Cookie{Name: auth.SessionCookie, Value: "", Path: "/", MaxAge: -1})
+	http.Redirect(w, r, "/login", http.StatusSeeOther)
 }
 
 func (s *Server) handleReady(w http.ResponseWriter, r *http.Request) {
@@ -87,27 +233,37 @@ func (s *Server) handleReady(w http.ResponseWriter, r *http.Request) {
 type pageData struct {
 	Title    string
 	DueCount int
+	LoggedIn bool
 	Data     any
 }
 
-func (s *Server) render(w http.ResponseWriter, name, title string, data any) {
-	due, err := s.store.CountDueVocab(time.Now().UTC())
-	if err != nil {
-		s.log.Error("count due vocab", "err", err)
+// render looks the user up from the request itself (rather than taking it as
+// a parameter) so every call site — including the unauthenticated login and
+// signup pages — stays uniform.
+func (s *Server) render(w http.ResponseWriter, r *http.Request, name, title string, data any) {
+	pd := pageData{Title: title, Data: data}
+	if user := userFromContext(r); user != nil {
+		due, err := s.store.CountDueVocab(user.ID, time.Now().UTC())
+		if err != nil {
+			s.log.Error("count due vocab", "err", err)
+		}
+		pd.DueCount = due
+		pd.LoggedIn = true
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := s.tmpl.ExecuteTemplate(w, name, pageData{Title: title, DueCount: due, Data: data}); err != nil {
+	if err := s.tmpl.ExecuteTemplate(w, name, pd); err != nil {
 		s.log.Error("render template", "template", name, "err", err)
 	}
 }
 
 func (s *Server) handleLibrary(w http.ResponseWriter, r *http.Request) {
-	books, err := s.store.ListBooks()
+	user := userFromContext(r)
+	books, err := s.store.ListBooks(user.ID)
 	if err != nil {
 		s.fail(w, http.StatusInternalServerError, err)
 		return
 	}
-	s.render(w, "library.html", "Bibliothèque", books)
+	s.render(w, r, "library.html", "Bibliothèque", books)
 }
 
 func (s *Server) handleUploadBook(w http.ResponseWriter, r *http.Request) {
@@ -138,7 +294,8 @@ func (s *Server) handleUploadBook(w http.ResponseWriter, r *http.Request) {
 	for i, ch := range book.Chapters {
 		chapters[i] = struct{ Title, Content string }{ch.Title, ch.Content}
 	}
-	bookID, err := s.store.InsertBook(book.Title, book.Author, book.Language, chapters)
+	user := userFromContext(r)
+	bookID, err := s.store.InsertBook(user.ID, book.Title, book.Author, book.Language, chapters)
 	if err != nil {
 		s.fail(w, http.StatusInternalServerError, err)
 		return
@@ -157,12 +314,13 @@ type readerView struct {
 }
 
 func (s *Server) handleReader(w http.ResponseWriter, r *http.Request) {
+	user := userFromContext(r)
 	bookID, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
 		s.fail(w, http.StatusBadRequest, err)
 		return
 	}
-	book, err := s.store.GetBook(bookID)
+	book, err := s.store.GetBook(bookID, user.ID)
 	if err != nil {
 		s.fail(w, http.StatusNotFound, fmt.Errorf("livre introuvable : %w", err))
 		return
@@ -188,12 +346,12 @@ func (s *Server) handleReader(w http.ResponseWriter, r *http.Request) {
 	}
 	_ = s.store.SetProgress(bookID, chIdx)
 
-	native, _ := s.store.GetSetting(settingNativeLang)
+	native := user.NativeLang
 	if native == "" {
 		native = defaultNativeLang
 	}
 
-	s.render(w, "reader.html", book.Title, readerView{
+	s.render(w, r, "reader.html", book.Title, readerView{
 		Book:       book,
 		Chapter:    chapter,
 		Paragraphs: strings.Split(chapter.Content, "\n\n"),
@@ -214,7 +372,8 @@ type reviewView struct {
 }
 
 func (s *Server) handleReviewPage(w http.ResponseWriter, r *http.Request) {
-	cards, err := s.store.DueVocab(time.Now().UTC(), 1)
+	user := userFromContext(r)
+	cards, err := s.store.DueVocab(user.ID, time.Now().UTC(), 1)
 	if err != nil {
 		s.fail(w, http.StatusInternalServerError, err)
 		return
@@ -222,22 +381,22 @@ func (s *Server) handleReviewPage(w http.ResponseWriter, r *http.Request) {
 	view := reviewView{}
 	if len(cards) > 0 {
 		view.Card = &cards[0]
-		view.Recall = s.generateRecallCard(r.Context(), view.Card)
+		view.Recall = s.generateRecallCard(r.Context(), user, view.Card)
 	}
-	s.render(w, "review.html", "Révision", view)
+	s.render(w, r, "review.html", "Révision", view)
 }
 
 // generateRecallCard asks Claude for a fresh fill-in-the-blank exercise for
 // this card. Returns nil on any failure (no API key, network error, refusal)
 // so the review page falls back to the static context+translation card
 // instead of breaking review entirely.
-func (s *Server) generateRecallCard(ctx context.Context, card *store.Vocab) *ai.RecallCard {
-	book, err := s.store.GetBook(card.BookID)
+func (s *Server) generateRecallCard(ctx context.Context, user *store.User, card *store.Vocab) *ai.RecallCard {
+	book, err := s.store.GetBook(card.BookID, user.ID)
 	bookLang := ""
 	if err == nil {
 		bookLang = book.Language
 	}
-	native, _ := s.store.GetSetting(settingNativeLang)
+	native := user.NativeLang
 	if native == "" {
 		native = defaultNativeLang
 	}
@@ -262,6 +421,7 @@ func (s *Server) generateRecallCard(ctx context.Context, card *store.Vocab) *ai.
 }
 
 func (s *Server) handleReviewAnswer(w http.ResponseWriter, r *http.Request) {
+	user := userFromContext(r)
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
 		s.fail(w, http.StatusBadRequest, err)
@@ -276,14 +436,14 @@ func (s *Server) handleReviewAnswer(w http.ResponseWriter, r *http.Request) {
 		result = srs.Again
 	}
 
-	card, err := s.store.GetVocab(id)
+	card, err := s.store.GetVocab(id, user.ID)
 	if err != nil {
 		s.fail(w, http.StatusNotFound, err)
 		return
 	}
 	now := time.Now().UTC()
 	nextBox, nextReview := srs.Next(card.Box, result, now)
-	if err := s.store.UpdateVocabReview(id, nextBox, nextReview, now); err != nil {
+	if err := s.store.UpdateVocabReview(id, user.ID, nextBox, nextReview, now); err != nil {
 		s.fail(w, http.StatusInternalServerError, err)
 		return
 	}
@@ -291,25 +451,33 @@ func (s *Server) handleReviewAnswer(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleWords(w http.ResponseWriter, r *http.Request) {
-	words, err := s.store.ListVocab()
+	user := userFromContext(r)
+	words, err := s.store.ListVocab(user.ID)
 	if err != nil {
 		s.fail(w, http.StatusInternalServerError, err)
 		return
 	}
-	s.render(w, "words.html", "Mes mots", words)
+	s.render(w, r, "words.html", "Mes mots", words)
 }
 
 // --- settings ---
 
 func (s *Server) handleSettingsGet(w http.ResponseWriter, r *http.Request) {
-	native, _ := s.store.GetSetting(settingNativeLang)
+	user := userFromContext(r)
+	native := user.NativeLang
 	if native == "" {
 		native = defaultNativeLang
 	}
-	s.render(w, "settings.html", "Réglages", native)
+	s.render(w, r, "settings.html", "Réglages", settingsView{NativeLang: native, Username: user.Username})
+}
+
+type settingsView struct {
+	NativeLang string
+	Username   string
 }
 
 func (s *Server) handleSettingsPost(w http.ResponseWriter, r *http.Request) {
+	user := userFromContext(r)
 	if err := r.ParseForm(); err != nil {
 		s.fail(w, http.StatusBadRequest, err)
 		return
@@ -318,7 +486,7 @@ func (s *Server) handleSettingsPost(w http.ResponseWriter, r *http.Request) {
 	if native == "" {
 		native = defaultNativeLang
 	}
-	if err := s.store.SetSetting(settingNativeLang, native); err != nil {
+	if err := s.store.SetUserNativeLang(user.ID, native); err != nil {
 		s.fail(w, http.StatusInternalServerError, err)
 		return
 	}
@@ -343,6 +511,7 @@ type translateResponse struct {
 // in the same call — a lookup while reading is treated as "I want to learn
 // this", so there's no separate save step for the reader to remember.
 func (s *Server) handleAPITranslate(w http.ResponseWriter, r *http.Request) {
+	user := userFromContext(r)
 	var req translateRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		s.failJSON(w, http.StatusBadRequest, err)
@@ -353,12 +522,12 @@ func (s *Server) handleAPITranslate(w http.ResponseWriter, r *http.Request) {
 		s.failJSON(w, http.StatusBadRequest, errors.New("phrase vide"))
 		return
 	}
-	book, err := s.store.GetBook(req.BookID)
+	book, err := s.store.GetBook(req.BookID, user.ID)
 	if err != nil {
 		s.failJSON(w, http.StatusNotFound, err)
 		return
 	}
-	native, _ := s.store.GetSetting(settingNativeLang)
+	native := user.NativeLang
 	if native == "" {
 		native = defaultNativeLang
 	}
@@ -380,12 +549,18 @@ func (s *Server) handleAPITranslate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, alreadySaved, err := s.store.FindVocabByPhrase(phrase)
+	_, alreadySaved, err := s.store.FindVocabByPhrase(user.ID, phrase)
 	if err != nil {
 		s.failJSON(w, http.StatusInternalServerError, err)
 		return
 	}
-	if !alreadySaved {
+	// A deliberate clause selection (checking syntax, not just a word) is
+	// still worth translating and is handled above — but past a certain
+	// length it's a whole sentence, not a vocab item, and saving it just
+	// clutters the deck (especially the growing near-duplicates a slow
+	// touch-drag can produce despite the selection debounce).
+	tooLongForVocab := len(strings.Fields(phrase)) > maxVocabWords
+	if !alreadySaved && !tooLongForVocab {
 		freq := tr.Frequency
 		if rank, found := frequency.Rank(book.Language, tr.Lemma); found {
 			freq = rank
@@ -393,6 +568,7 @@ func (s *Server) handleAPITranslate(w http.ResponseWriter, r *http.Request) {
 			freq = frequency.FallbackFromEstimate(tr.Frequency)
 		}
 		if _, err := s.store.InsertVocab(store.Vocab{
+			UserID:      user.ID,
 			BookID:      req.BookID,
 			ChapterID:   req.ChapterID,
 			Phrase:      phrase,
@@ -406,7 +582,7 @@ func (s *Server) handleAPITranslate(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	writeJSON(w, http.StatusOK, translateResponse{Translation: tr, Saved: !alreadySaved})
+	writeJSON(w, http.StatusOK, translateResponse{Translation: tr, Saved: !alreadySaved && !tooLongForVocab})
 }
 
 // --- helpers ---

@@ -12,10 +12,16 @@
 
     <form action="/settings" method="post" class="settings-form">
       <label for="native_lang">Ma langue maternelle</label>
-      <input type="text" id="native_lang" name="native_lang" value="{{.Data}}" required>
+      <input type="text" id="native_lang" name="native_lang" value="{{.Data.NativeLang}}" required>
       <p class="hint">Utilisée pour toutes les traductions, quel que soit le livre.</p>
       <button type="submit" class="btn btn-primary">Enregistrer</button>
     </form>
+
+    <p class="hint" style="margin-top:2rem">Connecté en tant que <strong>{{.Data.Username}}</strong>.
+      <form action="/logout" method="post" style="display:inline">
+        <button type="submit" class="btn-link">se déconnecter</button>
+      </form>
+    </p>
   </main>
 </body>
 </html>
