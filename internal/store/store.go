@@ -288,7 +288,7 @@ func (s *Store) ListVocab() ([]Vocab, error) {
 		SELECT v.id, v.book_id, b.title, v.chapter_id, v.phrase, v.lemma, v.context,
 		       v.translation, v.note, v.frequency, v.box, v.next_review_at, v.created_at, v.last_reviewed_at
 		FROM vocab v JOIN books b ON b.id = v.book_id
-		ORDER BY v.created_at DESC`)
+		ORDER BY v.frequency ASC`)
 	if err != nil {
 		return nil, err
 	}
