@@ -227,9 +227,12 @@ type Vocab struct {
 
 func (s *Store) InsertVocab(v Vocab) (int64, error) {
 	now := time.Now().UTC()
+	// Frequency is a corpus rank now (1 = most common; up to frequency.NotInList
+	// for words outside the list) rather than the old 1-5 scale — just guard
+	// against a missing/invalid value rather than clamp to a narrow range.
 	freq := v.Frequency
-	if freq < 1 || freq > 5 {
-		freq = 3
+	if freq < 1 {
+		freq = 3000
 	}
 	res, err := s.db.Exec(`
 		INSERT INTO vocab (book_id, chapter_id, phrase, lemma, context, translation, note, frequency, box, next_review_at, created_at)

@@ -19,6 +19,7 @@ import (
 
 	"github.com/romeo4934/ai-reader/internal/ai"
 	"github.com/romeo4934/ai-reader/internal/epub"
+	"github.com/romeo4934/ai-reader/internal/frequency"
 	"github.com/romeo4934/ai-reader/internal/srs"
 	"github.com/romeo4934/ai-reader/internal/store"
 )
@@ -46,6 +47,7 @@ func New(st *store.Store, aiClient *ai.Client, log *slog.Logger) (*Server, error
 		"add":       func(a, b int) int { return a + b },
 		"sub":       func(a, b int) int { return a - b },
 		"highlight": highlightPhrase,
+		"freqLabel": frequency.Label,
 	}).ParseFS(templateFS, "templates/*.html")
 	if err != nil {
 		return nil, fmt.Errorf("parse templates : %w", err)
@@ -206,6 +208,9 @@ func (s *Server) handleReader(w http.ResponseWriter, r *http.Request) {
 
 type reviewView struct {
 	Card *store.Vocab
+	// Recall is nil when generation failed or no API key is set — the
+	// template falls back to the plain translation-reveal card.
+	Recall *ai.RecallCard
 }
 
 func (s *Server) handleReviewPage(w http.ResponseWriter, r *http.Request) {
@@ -217,8 +222,43 @@ func (s *Server) handleReviewPage(w http.ResponseWriter, r *http.Request) {
 	view := reviewView{}
 	if len(cards) > 0 {
 		view.Card = &cards[0]
+		view.Recall = s.generateRecallCard(r.Context(), view.Card)
 	}
 	s.render(w, "review.html", "Révision", view)
+}
+
+// generateRecallCard asks Claude for a fresh fill-in-the-blank exercise for
+// this card. Returns nil on any failure (no API key, network error, refusal)
+// so the review page falls back to the static context+translation card
+// instead of breaking review entirely.
+func (s *Server) generateRecallCard(ctx context.Context, card *store.Vocab) *ai.RecallCard {
+	book, err := s.store.GetBook(card.BookID)
+	bookLang := ""
+	if err == nil {
+		bookLang = book.Language
+	}
+	native, _ := s.store.GetSetting(settingNativeLang)
+	if native == "" {
+		native = defaultNativeLang
+	}
+	lemma := card.Lemma
+	if strings.TrimSpace(lemma) == "" {
+		lemma = card.Phrase
+	}
+
+	callCtx, cancel := context.WithTimeout(ctx, 25*time.Second)
+	defer cancel()
+	rc, err := s.ai.RecallCard(callCtx, ai.RecallCardOptions{
+		BookLanguage: bookLang,
+		NativeLang:   native,
+		Lemma:        lemma,
+		Translation:  card.Translation,
+	})
+	if err != nil {
+		s.log.Warn("recall card generation failed, falling back to static card", "vocab_id", card.ID, "err", err)
+		return nil
+	}
+	return &rc
 }
 
 func (s *Server) handleReviewAnswer(w http.ResponseWriter, r *http.Request) {
@@ -346,6 +386,12 @@ func (s *Server) handleAPITranslate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !alreadySaved {
+		freq := tr.Frequency
+		if rank, found := frequency.Rank(book.Language, tr.Lemma); found {
+			freq = rank
+		} else {
+			freq = frequency.FallbackFromEstimate(tr.Frequency)
+		}
 		if _, err := s.store.InsertVocab(store.Vocab{
 			BookID:      req.BookID,
 			ChapterID:   req.ChapterID,
@@ -354,7 +400,7 @@ func (s *Server) handleAPITranslate(w http.ResponseWriter, r *http.Request) {
 			Context:     req.Context,
 			Translation: tr.Translation,
 			Note:        tr.Note,
-			Frequency:   tr.Frequency,
+			Frequency:   freq,
 		}); err != nil {
 			s.failJSON(w, http.StatusInternalServerError, err)
 			return

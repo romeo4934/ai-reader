@@ -157,8 +157,23 @@ mark.word-highlight { background: var(--mark); border-radius: 3px; padding: 0 2p
 .card-source { color: var(--muted); font-size: 0.85em; font-family: sans-serif; margin-bottom: 0.8rem; }
 .card-context { font-size: 1.2rem; line-height: 1.6; }
 .card-context mark { background: var(--mark); color: inherit; border-radius: 3px; padding: 0 2px; }
+.card-blank { font-weight: 600; }
+.card-hint { margin-top: 0.5rem; font-family: sans-serif; font-size: 0.95rem; color: var(--muted); font-style: italic; }
 .card-translation { font-size: 1.3rem; font-weight: 600; margin: 1rem 0 0.3rem; }
 .card-lemma { color: var(--muted); font-family: sans-serif; font-size: 0.9em; }
+.card-original {
+  margin-top: 0.9rem;
+  padding-top: 0.7rem;
+  border-top: 1px solid var(--border);
+  font-size: 1rem;
+}
+.card-original-label {
+  display: block;
+  font-family: sans-serif;
+  font-size: 0.8em;
+  color: var(--muted);
+  margin-bottom: 0.2rem;
+}
 .card-note { margin-top: 0.6rem; font-family: sans-serif; font-size: 0.95rem; }
 .card-buttons { display: flex; gap: 0.75rem; margin-top: 1.3rem; }
 .card-buttons form { flex: 1; }
