@@ -134,12 +134,13 @@ func (s *Server) unauthenticated(w http.ResponseWriter, r *http.Request) {
 	http.Error(w, "non connecté", http.StatusUnauthorized)
 }
 
-func (s *Server) issueSession(w http.ResponseWriter, userID int64) {
+func (s *Server) issueSession(w http.ResponseWriter, r *http.Request, userID int64) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     auth.SessionCookie,
 		Value:    auth.Sign(s.secret, userID),
 		Path:     "/",
 		HttpOnly: true,
+		Secure:   r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https",
 		SameSite: http.SameSiteLaxMode,
 		Expires:  time.Now().Add(auth.SessionTTL),
 	})
@@ -166,7 +167,7 @@ func (s *Server) handleLoginPost(w http.ResponseWriter, r *http.Request) {
 		s.render(w, r, "login.html", "Connexion", authPageView{Error: "identifiant ou mot de passe incorrect"})
 		return
 	}
-	s.issueSession(w, user.ID)
+	s.issueSession(w, r, user.ID)
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
@@ -215,7 +216,7 @@ func (s *Server) handleSignupPost(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, http.StatusInternalServerError, err)
 		return
 	}
-	s.issueSession(w, userID)
+	s.issueSession(w, r, userID)
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
