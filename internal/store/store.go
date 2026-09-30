@@ -25,7 +25,12 @@ func Open(path string) (*Store, error) {
 	if err != nil {
 		return nil, err
 	}
-	db.SetMaxOpenConns(1) // modernc.org/sqlite: one writer, avoids "database is locked"
+	// WAL mode (below) allows concurrent readers alongside one writer, so cap
+	// at a handful of connections rather than 1 — 1 serialized every request
+	// in the app behind a single connection, including simple page reads, so
+	// one slow request (an epub upload, a translate call) stalled everything
+	// else. busy_timeout handles the rare write/write contention.
+	db.SetMaxOpenConns(8)
 	if _, err := db.Exec(schema); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("migration : %w", err)
