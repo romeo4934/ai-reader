@@ -23,16 +23,22 @@
     </article>
 
     <nav class="chapter-nav">
+      {{if .Data.HasPrev}}
+        <a href="/books/{{.Data.Book.ID}}?ch={{sub .Data.ChapterIdx 1}}" class="btn btn-icon" aria-label="{{.T.ReaderPrevChapter}}">«</a>
+      {{else}}<span></span>{{end}}
       {{if .Data.HasPrevSection}}
-        <a href="/books/{{.Data.Book.ID}}?ch={{.Data.ChapterIdx}}&sec={{sub .Data.SectionIdx 1}}" class="btn">{{.T.ReaderPrev}}</a>
+        <a href="/books/{{.Data.Book.ID}}?ch={{.Data.ChapterIdx}}&sec={{sub .Data.SectionIdx 1}}" class="btn btn-icon" aria-label="{{.T.ReaderPrev}}">‹</a>
       {{else if .Data.HasPrev}}
-        <a href="/books/{{.Data.Book.ID}}?ch={{sub .Data.ChapterIdx 1}}&enter=end" class="btn">{{.T.ReaderPrev}}</a>
+        <a href="/books/{{.Data.Book.ID}}?ch={{sub .Data.ChapterIdx 1}}&enter=end" class="btn btn-icon" aria-label="{{.T.ReaderPrev}}">‹</a>
       {{else}}<span></span>{{end}}
       <span class="page-indicator">{{add .Data.SectionIdx 1}} / {{.Data.SectionCount}}</span>
       {{if .Data.HasNextSection}}
-        <a href="/books/{{.Data.Book.ID}}?ch={{.Data.ChapterIdx}}&sec={{add .Data.SectionIdx 1}}" class="btn">{{.T.ReaderNext}}</a>
+        <a href="/books/{{.Data.Book.ID}}?ch={{.Data.ChapterIdx}}&sec={{add .Data.SectionIdx 1}}" class="btn btn-icon" aria-label="{{.T.ReaderNext}}">›</a>
       {{else if .Data.HasNext}}
-        <a href="/books/{{.Data.Book.ID}}?ch={{add .Data.ChapterIdx 1}}" class="btn">{{.T.ReaderNext}}</a>
+        <a href="/books/{{.Data.Book.ID}}?ch={{add .Data.ChapterIdx 1}}" class="btn btn-icon" aria-label="{{.T.ReaderNext}}">›</a>
+      {{else}}<span></span>{{end}}
+      {{if .Data.HasNext}}
+        <a href="/books/{{.Data.Book.ID}}?ch={{add .Data.ChapterIdx 1}}" class="btn btn-icon" aria-label="{{.T.ReaderNextChapter}}">»</a>
       {{else}}<span></span>{{end}}
     </nav>
   </main>

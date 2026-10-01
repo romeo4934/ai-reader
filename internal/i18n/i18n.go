@@ -43,6 +43,7 @@ var fr = Dict{
 
 	"ReaderBack": "← bibliothèque", "ReaderPrev": "← précédent",
 	"ReaderNext": "suivant →", "ReaderTranslating": "traduction…", "ReaderClose": "Fermer",
+	"ReaderPrevChapter": "chapitre précédent", "ReaderNextChapter": "chapitre suivant",
 
 	"ReviewTitle":      "Révision",
 	"ReviewEmpty":      "Rien à réviser pour l'instant — reviens plus tard, ou lis un peu plus 📖",
@@ -75,6 +76,7 @@ var en = Dict{
 
 	"ReaderBack": "← library", "ReaderPrev": "← previous",
 	"ReaderNext": "next →", "ReaderTranslating": "translating…", "ReaderClose": "Close",
+	"ReaderPrevChapter": "previous chapter", "ReaderNextChapter": "next chapter",
 
 	"ReviewTitle":      "Review",
 	"ReviewEmpty":      "Nothing to review right now — come back later, or keep reading 📖",
@@ -107,6 +109,7 @@ var es = Dict{
 
 	"ReaderBack": "← biblioteca", "ReaderPrev": "← anterior",
 	"ReaderNext": "siguiente →", "ReaderTranslating": "traduciendo…", "ReaderClose": "Cerrar",
+	"ReaderPrevChapter": "capítulo anterior", "ReaderNextChapter": "capítulo siguiente",
 
 	"ReviewTitle":      "Repaso",
 	"ReviewEmpty":      "Nada que repasar por ahora — vuelve más tarde, o sigue leyendo 📖",
@@ -139,6 +142,7 @@ var pt = Dict{
 
 	"ReaderBack": "← biblioteca", "ReaderPrev": "← anterior",
 	"ReaderNext": "próximo →", "ReaderTranslating": "traduzindo…", "ReaderClose": "Fechar",
+	"ReaderPrevChapter": "capítulo anterior", "ReaderNextChapter": "próximo capítulo",
 
 	"ReviewTitle":      "Revisão",
 	"ReviewEmpty":      "Nada para revisar agora — volte mais tarde, ou continue lendo 📖",
@@ -171,6 +175,7 @@ var it = Dict{
 
 	"ReaderBack": "← libreria", "ReaderPrev": "← precedente",
 	"ReaderNext": "successivo →", "ReaderTranslating": "traduzione…", "ReaderClose": "Chiudi",
+	"ReaderPrevChapter": "capitolo precedente", "ReaderNextChapter": "capitolo successivo",
 
 	"ReviewTitle":      "Ripasso",
 	"ReviewEmpty":      "Niente da ripassare per ora — torna più tardi, o continua a leggere 📖",
@@ -203,6 +208,7 @@ var de = Dict{
 
 	"ReaderBack": "← Bibliothek", "ReaderPrev": "← zurück",
 	"ReaderNext": "weiter →", "ReaderTranslating": "Übersetzung läuft…", "ReaderClose": "Schließen",
+	"ReaderPrevChapter": "vorheriges Kapitel", "ReaderNextChapter": "nächstes Kapitel",
 
 	"ReviewTitle":      "Wiederholung",
 	"ReviewEmpty":      "Gerade nichts zu wiederholen — komm später wieder oder lies weiter 📖",
@@ -235,6 +241,7 @@ var nl = Dict{
 
 	"ReaderBack": "← bibliotheek", "ReaderPrev": "← vorige",
 	"ReaderNext": "volgende →", "ReaderTranslating": "vertalen…", "ReaderClose": "Sluiten",
+	"ReaderPrevChapter": "vorig hoofdstuk", "ReaderNextChapter": "volgend hoofdstuk",
 
 	"ReviewTitle":      "Herhaling",
 	"ReviewEmpty":      "Niets te herhalen op dit moment — kom later terug, of lees verder 📖",

@@ -193,10 +193,16 @@ mark.word-highlight { background: var(--mark); border-radius: 3px; padding: 0 2p
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 0.4rem;
   margin-top: 1rem;
   font-family: sans-serif;
 }
-.page-indicator { color: var(--muted); font-size: 0.85em; }
+.btn-icon {
+  padding: 0.65rem 0.9rem;
+  font-size: 1.1rem;
+  line-height: 1;
+}
+.page-indicator { color: var(--muted); font-size: 0.85em; white-space: nowrap; }
 
 /* review */
 .card {
