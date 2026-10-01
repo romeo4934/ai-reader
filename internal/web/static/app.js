@@ -51,13 +51,12 @@
   //
   // Picks whichever side (above/below the selection) actually has more
   // room, rather than always preferring below and only flipping when it
-  // doesn't fit at all — a word near the bottom of the (now fixed-height,
-  // paginated) reading area would otherwise flip to "above" even when
-  // there isn't really room there either, landing the popover on top of
-  // the sentence it's explaining. Height stays the plain CSS max-height
-  // (70vh of the whole window) — shrinking it to the local gap near the
-  // click made the popover scroll internally far more often, which is
-  // worse than the occasional overlap it was meant to fix.
+  // doesn't fit at all. "Room below" stops at the prev/next section bar
+  // when that's on screen, not just the bottom of the viewport — the
+  // popover is position:fixed and sits above everything, so without this
+  // it would happily cover the nav buttons for the last word of a section
+  // (reported live: word right above the nav, popover opened below it and
+  // hid "précédent/suivant" underneath).
   function positionPopover(rect) {
     if (!rect) return;
     var margin = 12;
@@ -67,10 +66,17 @@
     var left = rect.left + rect.width / 2 - w / 2;
     left = Math.max(margin, Math.min(left, window.innerWidth - w - margin));
 
-    var spaceBelow = window.innerHeight - margin - rect.bottom;
+    var bottomLimit = window.innerHeight - margin;
+    var navEl = document.querySelector('.chapter-nav');
+    if (navEl) {
+      var navTop = navEl.getBoundingClientRect().top;
+      if (navTop < bottomLimit) bottomLimit = navTop - margin;
+    }
+
+    var spaceBelow = bottomLimit - rect.bottom;
     var spaceAbove = rect.top - margin;
     var top = (spaceBelow >= h || spaceBelow >= spaceAbove) ? rect.bottom + margin : rect.top - margin - h;
-    top = Math.max(margin, Math.min(top, window.innerHeight - margin - h));
+    top = Math.max(margin, Math.min(top, bottomLimit - h));
 
     popover.style.left = left + 'px';
     popover.style.top = top + 'px';
