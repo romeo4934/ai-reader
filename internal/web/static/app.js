@@ -176,6 +176,50 @@
     }, SETTLE_MS);
   });
 
+  // Single tap/click on a word, no dragging required — native text selection
+  // on mobile needs a double-tap or long-press, which is slower than this
+  // app needs to be for "I don't know this one word". Only fires when there
+  // isn't already a real selection in progress (selectionchange above owns
+  // that case) so a drag-select still works for a whole clause.
+  function wordAtPoint(x, y) {
+    var pos = null;
+    if (document.caretPositionFromPoint) {
+      var p = document.caretPositionFromPoint(x, y);
+      if (p) pos = { node: p.offsetNode, offset: p.offset };
+    } else if (document.caretRangeFromPoint) {
+      var r = document.caretRangeFromPoint(x, y);
+      if (r) pos = { node: r.startContainer, offset: r.startOffset };
+    }
+    if (!pos || pos.node.nodeType !== Node.TEXT_NODE) return null;
+    var paraEl = closestPara(pos.node);
+    if (!paraEl) return null;
+    var context = paraEl.textContent;
+    var clickOffset = offsetInPara(paraEl, pos.node, pos.offset);
+    return { paraEl: paraEl, context: context, offset: clickOffset };
+  }
+
+  chapterEl.addEventListener('click', function (e) {
+    var sel = window.getSelection();
+    if (sel && !sel.isCollapsed) return; // a drag-selection, not a tap
+
+    var hit = wordAtPoint(e.clientX, e.clientY);
+    if (!hit) return;
+    var word = expandToWordBoundaries(hit.context, hit.offset, hit.offset);
+    var text = hit.context.slice(word.start, word.end).trim();
+    if (!text) return;
+
+    var bounds = sentenceBounds(hit.context, word.start, word.end);
+    highlightSentence(hit.paraEl, word.start, word.end, bounds);
+
+    // highlightSentence just rebuilt the DOM around the tapped word, so the
+    // simplest reliable way to its bounding box is to measure the mark it
+    // just created rather than re-deriving a Range from flattened offsets.
+    var markEl = hit.paraEl.querySelector('.word-highlight');
+    var rect = markEl ? markEl.getBoundingClientRect() : hit.paraEl.getBoundingClientRect();
+
+    openPopoverFor(text, hit.context, rect);
+  });
+
   var requestSeq = 0;
 
   function openPopoverFor(phrase, context, rect) {
