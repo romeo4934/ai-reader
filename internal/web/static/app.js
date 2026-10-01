@@ -53,28 +53,26 @@
   // room, rather than always preferring below and only flipping when it
   // doesn't fit at all — a word near the bottom of the (now fixed-height,
   // paginated) reading area would otherwise flip to "above" even when
-  // there isn't really room there either, landing the popover right on
-  // top of the sentence it's explaining. The popover's own max-height is
-  // also capped to whatever room the chosen side actually has, so it
-  // scrolls internally instead of spilling over the selection.
+  // there isn't really room there either, landing the popover on top of
+  // the sentence it's explaining. Height stays the plain CSS max-height
+  // (70vh of the whole window) — shrinking it to the local gap near the
+  // click made the popover scroll internally far more often, which is
+  // worse than the occasional overlap it was meant to fix.
   function positionPopover(rect) {
     if (!rect) return;
     var margin = 12;
     var w = popover.offsetWidth;
+    var h = popover.offsetHeight;
 
     var left = rect.left + rect.width / 2 - w / 2;
     left = Math.max(margin, Math.min(left, window.innerWidth - w - margin));
-    popover.style.left = left + 'px';
 
     var spaceBelow = window.innerHeight - margin - rect.bottom;
     var spaceAbove = rect.top - margin;
-    var below = spaceBelow >= spaceAbove;
-    var space = Math.max(80, below ? spaceBelow : spaceAbove);
-    popover.style.maxHeight = Math.min(space, window.innerHeight * 0.7) + 'px';
-
-    var h = popover.offsetHeight; // re-measure: maxHeight may have just clamped it
-    var top = below ? rect.bottom + margin : rect.top - margin - h;
+    var top = (spaceBelow >= h || spaceBelow >= spaceAbove) ? rect.bottom + margin : rect.top - margin - h;
     top = Math.max(margin, Math.min(top, window.innerHeight - margin - h));
+
+    popover.style.left = left + 'px';
     popover.style.top = top + 'px';
   }
 
