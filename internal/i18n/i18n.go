@@ -41,8 +41,8 @@ var fr = Dict{
 	"LibEmpty":    "Aucun livre pour l'instant — ajoute un fichier .epub ci-dessus.",
 	"LibChapters": "chapitres",
 
-	"ReaderBack": "← bibliothèque", "ReaderPrev": "← chapitre précédent",
-	"ReaderNext": "chapitre suivant →", "ReaderTranslating": "traduction…", "ReaderClose": "Fermer",
+	"ReaderBack": "← bibliothèque", "ReaderPrev": "← précédent",
+	"ReaderNext": "suivant →", "ReaderTranslating": "traduction…", "ReaderClose": "Fermer",
 
 	"ReviewTitle":      "Révision",
 	"ReviewEmpty":      "Rien à réviser pour l'instant — reviens plus tard, ou lis un peu plus 📖",
@@ -73,8 +73,8 @@ var en = Dict{
 	"LibEmpty":    "No books yet — add an .epub file above.",
 	"LibChapters": "chapters",
 
-	"ReaderBack": "← library", "ReaderPrev": "← previous chapter",
-	"ReaderNext": "next chapter →", "ReaderTranslating": "translating…", "ReaderClose": "Close",
+	"ReaderBack": "← library", "ReaderPrev": "← previous",
+	"ReaderNext": "next →", "ReaderTranslating": "translating…", "ReaderClose": "Close",
 
 	"ReviewTitle":      "Review",
 	"ReviewEmpty":      "Nothing to review right now — come back later, or keep reading 📖",
@@ -105,8 +105,8 @@ var es = Dict{
 	"LibEmpty":    "Aún no hay libros — añade un archivo .epub arriba.",
 	"LibChapters": "capítulos",
 
-	"ReaderBack": "← biblioteca", "ReaderPrev": "← capítulo anterior",
-	"ReaderNext": "capítulo siguiente →", "ReaderTranslating": "traduciendo…", "ReaderClose": "Cerrar",
+	"ReaderBack": "← biblioteca", "ReaderPrev": "← anterior",
+	"ReaderNext": "siguiente →", "ReaderTranslating": "traduciendo…", "ReaderClose": "Cerrar",
 
 	"ReviewTitle":      "Repaso",
 	"ReviewEmpty":      "Nada que repasar por ahora — vuelve más tarde, o sigue leyendo 📖",
@@ -137,8 +137,8 @@ var pt = Dict{
 	"LibEmpty":    "Nenhum livro ainda — adicione um arquivo .epub acima.",
 	"LibChapters": "capítulos",
 
-	"ReaderBack": "← biblioteca", "ReaderPrev": "← capítulo anterior",
-	"ReaderNext": "próximo capítulo →", "ReaderTranslating": "traduzindo…", "ReaderClose": "Fechar",
+	"ReaderBack": "← biblioteca", "ReaderPrev": "← anterior",
+	"ReaderNext": "próximo →", "ReaderTranslating": "traduzindo…", "ReaderClose": "Fechar",
 
 	"ReviewTitle":      "Revisão",
 	"ReviewEmpty":      "Nada para revisar agora — volte mais tarde, ou continue lendo 📖",
@@ -169,8 +169,8 @@ var it = Dict{
 	"LibEmpty":    "Ancora nessun libro — aggiungi un file .epub qui sopra.",
 	"LibChapters": "capitoli",
 
-	"ReaderBack": "← libreria", "ReaderPrev": "← capitolo precedente",
-	"ReaderNext": "capitolo successivo →", "ReaderTranslating": "traduzione…", "ReaderClose": "Chiudi",
+	"ReaderBack": "← libreria", "ReaderPrev": "← precedente",
+	"ReaderNext": "successivo →", "ReaderTranslating": "traduzione…", "ReaderClose": "Chiudi",
 
 	"ReviewTitle":      "Ripasso",
 	"ReviewEmpty":      "Niente da ripassare per ora — torna più tardi, o continua a leggere 📖",
@@ -201,8 +201,8 @@ var de = Dict{
 	"LibEmpty":    "Noch keine Bücher — füge oben eine .epub-Datei hinzu.",
 	"LibChapters": "Kapitel",
 
-	"ReaderBack": "← Bibliothek", "ReaderPrev": "← vorheriges Kapitel",
-	"ReaderNext": "nächstes Kapitel →", "ReaderTranslating": "Übersetzung läuft…", "ReaderClose": "Schließen",
+	"ReaderBack": "← Bibliothek", "ReaderPrev": "← zurück",
+	"ReaderNext": "weiter →", "ReaderTranslating": "Übersetzung läuft…", "ReaderClose": "Schließen",
 
 	"ReviewTitle":      "Wiederholung",
 	"ReviewEmpty":      "Gerade nichts zu wiederholen — komm später wieder oder lies weiter 📖",
@@ -233,8 +233,8 @@ var nl = Dict{
 	"LibEmpty":    "Nog geen boeken — voeg hierboven een .epub-bestand toe.",
 	"LibChapters": "hoofdstukken",
 
-	"ReaderBack": "← bibliotheek", "ReaderPrev": "← vorig hoofdstuk",
-	"ReaderNext": "volgend hoofdstuk →", "ReaderTranslating": "vertalen…", "ReaderClose": "Sluiten",
+	"ReaderBack": "← bibliotheek", "ReaderPrev": "← vorige",
+	"ReaderNext": "volgende →", "ReaderTranslating": "vertalen…", "ReaderClose": "Sluiten",
 
 	"ReviewTitle":      "Herhaling",
 	"ReviewEmpty":      "Niets te herhalen op dit moment — kom later terug, of lees verder 📖",

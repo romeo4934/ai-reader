@@ -159,7 +159,17 @@ h1 { font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
 .btn-again { border-color: var(--danger); color: var(--danger); }
 .btn-good { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
 
-/* reader */
+/* reader — fixed-height app shell so a chapter paginates instead of
+   scrolling: .reader-page fills the viewport below the topnav, the
+   chapter-viewport takes whatever's left, and #chapter is laid out in
+   CSS columns sized to exactly fill it, one "page" at a time. */
+.page.reader-page {
+  height: calc(100dvh - var(--topnav-h, 56px));
+  padding: 1.5rem 1.5rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
 .reader-head {
   display: flex;
   flex-wrap: wrap;
@@ -167,14 +177,25 @@ h1 { font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
   gap: 0.75rem;
   font-family: sans-serif;
   margin-bottom: 1rem;
+  flex: 0 0 auto;
 }
 .reader-head h1 { font-size: 1.1rem; margin: 0; }
 .chapter-label { color: var(--muted); font-size: 0.9em; }
 
+.chapter-viewport {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  position: relative;
+}
+
 .chapter {
+  height: 100%;
   font-size: 1.15rem;
   line-height: 1.65;
   -webkit-touch-callout: none;
+  column-fill: auto;
+  transition: transform 0.25s ease;
 }
 .chapter .para { margin: 0 0 1.1em; }
 .chapter .para::selection { background: var(--mark); }
@@ -184,9 +205,14 @@ mark.word-highlight { background: var(--mark); border-radius: 3px; padding: 0 2p
 .chapter-nav {
   display: flex;
   justify-content: space-between;
-  margin-top: 2rem;
+  align-items: center;
+  margin-top: 1rem;
+  flex: 0 0 auto;
   font-family: sans-serif;
 }
+.chapter-nav button.btn { font: inherit; }
+.chapter-nav .page-edge { visibility: hidden; }
+.page-indicator { color: var(--muted); font-size: 0.85em; }
 
 /* review */
 .card {
