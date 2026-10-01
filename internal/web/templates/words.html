@@ -15,9 +15,14 @@
     {{else}}
       <ul class="word-list">
         {{range .Data}}
-        <li class="word-row">
-          <span class="word-phrase">{{.Phrase}}</span>
-          <span class="word-translation">{{.Translation}}</span>
+        <li>
+          <details>
+            <summary class="word-row">
+              <span class="word-phrase">{{.Phrase}}</span>
+              <span class="word-translation">{{.Translation}}</span>
+            </summary>
+            <p class="word-context">{{highlight .Context .Phrase}}</p>
+          </details>
         </li>
         {{end}}
       </ul>

@@ -222,10 +222,31 @@ mark.word-highlight { background: var(--mark); border-radius: 3px; padding: 0 2p
 
 /* words */
 .word-list { list-style: none; padding: 0; }
-.word-list li { padding: 0.7rem 0.2rem; border-bottom: 1px solid var(--border); font-family: sans-serif; }
-.word-row { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: baseline; }
+.word-list li { border-bottom: 1px solid var(--border); font-family: sans-serif; }
+.word-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: baseline;
+  padding: 0.7rem 0.2rem;
+  cursor: pointer;
+  list-style: none; /* hide the native <summary> marker, Safari + Chrome */
+}
+.word-row::-webkit-details-marker { display: none; }
+.word-row::after { content: '›'; margin-left: auto; color: var(--muted); }
+details[open] .word-row::after { content: '⌄'; }
 .word-phrase { font-weight: 600; }
 .word-translation { color: var(--muted); }
+.word-context {
+  margin: 0 0.2rem 0.9rem;
+  padding: 0.7rem 0.8rem;
+  background: var(--bg);
+  border-radius: 8px;
+  font-family: Georgia, serif;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+.word-context mark { background: var(--mark); color: inherit; border-radius: 3px; padding: 0 2px; }
 .word-box { margin-left: auto; font-size: 0.8em; color: var(--muted); }
 .word-source { font-size: 0.8em; color: var(--muted); }
 
