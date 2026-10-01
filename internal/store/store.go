@@ -51,6 +51,10 @@ func Open(path string) (*Store, error) {
 		db.Close()
 		return nil, fmt.Errorf("migration vocab.archived : %w", err)
 	}
+	if err := ensureColumn(db, "reading_progress", "section_idx", "INTEGER NOT NULL DEFAULT 0"); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("migration reading_progress.section_idx : %w", err)
+	}
 	// These index the user_id columns just added above — created here rather
 	// than in schema.sql so they never run before ensureColumn has had a
 	// chance to add the column on an upgraded database.
@@ -292,21 +296,20 @@ func (s *Store) GetChapter(id int64) (Chapter, error) {
 
 // --- reading progress ---
 
-func (s *Store) SetProgress(bookID int64, chapterIdx int) error {
+func (s *Store) SetProgress(bookID int64, chapterIdx, sectionIdx int) error {
 	_, err := s.db.Exec(`
-		INSERT INTO reading_progress (book_id, chapter_idx, updated_at) VALUES (?, ?, ?)
-		ON CONFLICT(book_id) DO UPDATE SET chapter_idx = excluded.chapter_idx, updated_at = excluded.updated_at`,
-		bookID, chapterIdx, time.Now().UTC().Format(timeLayout))
+		INSERT INTO reading_progress (book_id, chapter_idx, section_idx, updated_at) VALUES (?, ?, ?, ?)
+		ON CONFLICT(book_id) DO UPDATE SET chapter_idx = excluded.chapter_idx, section_idx = excluded.section_idx, updated_at = excluded.updated_at`,
+		bookID, chapterIdx, sectionIdx, time.Now().UTC().Format(timeLayout))
 	return err
 }
 
-func (s *Store) GetProgress(bookID int64) (int, error) {
-	var idx int
-	err := s.db.QueryRow(`SELECT chapter_idx FROM reading_progress WHERE book_id = ?`, bookID).Scan(&idx)
+func (s *Store) GetProgress(bookID int64) (chapterIdx, sectionIdx int, err error) {
+	err = s.db.QueryRow(`SELECT chapter_idx, section_idx FROM reading_progress WHERE book_id = ?`, bookID).Scan(&chapterIdx, &sectionIdx)
 	if err == sql.ErrNoRows {
-		return 0, nil
+		return 0, 0, nil
 	}
-	return idx, err
+	return chapterIdx, sectionIdx, err
 }
 
 // --- vocab / review deck ---

@@ -380,11 +380,12 @@ func (s *Server) handleReader(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	chIdx := 0
-	if q := r.URL.Query().Get("ch"); q != "" {
-		chIdx, _ = strconv.Atoi(q)
-	} else if saved, err := s.store.GetProgress(bookID); err == nil {
-		chIdx = saved
+	chQ := r.URL.Query().Get("ch")
+	chIdx, secIdx := 0, 0
+	if chQ != "" {
+		chIdx, _ = strconv.Atoi(chQ)
+	} else if savedCh, savedSec, err := s.store.GetProgress(bookID); err == nil {
+		chIdx, secIdx = savedCh, savedSec
 	}
 	if chIdx < 0 {
 		chIdx = 0
@@ -398,14 +399,14 @@ func (s *Server) handleReader(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, http.StatusNotFound, fmt.Errorf("chapitre introuvable : %w", err))
 		return
 	}
-	_ = s.store.SetProgress(bookID, chIdx)
 
 	sections := splitIntoSections(strings.Split(chapter.Content, "\n\n"), sectionTargetChars)
-	secIdx := 0
 	if q := r.URL.Query().Get("sec"); q != "" {
 		secIdx, _ = strconv.Atoi(q)
 	} else if r.URL.Query().Get("enter") == "end" {
 		secIdx = len(sections) - 1
+	} else if chQ != "" {
+		secIdx = 0 // explicit jump to a different chapter — not a resume, start at its top
 	}
 	if secIdx < 0 {
 		secIdx = 0
@@ -413,6 +414,7 @@ func (s *Server) handleReader(w http.ResponseWriter, r *http.Request) {
 	if secIdx > len(sections)-1 {
 		secIdx = len(sections) - 1
 	}
+	_ = s.store.SetProgress(bookID, chIdx, secIdx)
 
 	native := user.NativeLang
 	if native == "" {
