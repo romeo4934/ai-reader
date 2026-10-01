@@ -14,28 +14,26 @@
       <span class="chapter-label">{{.Data.Chapter.Title}}</span>
     </header>
 
-    <div id="chapter-viewport" class="chapter-viewport">
-      <article id="chapter" class="chapter"
-        data-book-id="{{.Data.Book.ID}}"
-        data-chapter-id="{{.Data.Chapter.ID}}">
-        {{range .Data.Paragraphs}}
-        <p class="para">{{.}}</p>
-        {{end}}
-      </article>
-    </div>
+    <article id="chapter" class="chapter"
+      data-book-id="{{.Data.Book.ID}}"
+      data-chapter-id="{{.Data.Chapter.ID}}">
+      {{range .Data.Paragraphs}}
+      <p class="para">{{.}}</p>
+      {{end}}
+    </article>
 
     <nav class="chapter-nav">
-      {{if .Data.HasPrev}}
-        <a href="/books/{{.Data.Book.ID}}?ch={{sub .Data.ChapterIdx 1}}&enter=end" id="page-prev" class="btn">{{.T.ReaderPrev}}</a>
-      {{else}}
-        <button type="button" id="page-prev" class="btn">{{.T.ReaderPrev}}</button>
-      {{end}}
-      <span id="page-indicator" class="page-indicator"></span>
-      {{if .Data.HasNext}}
-        <a href="/books/{{.Data.Book.ID}}?ch={{add .Data.ChapterIdx 1}}" id="page-next" class="btn">{{.T.ReaderNext}}</a>
-      {{else}}
-        <button type="button" id="page-next" class="btn">{{.T.ReaderNext}}</button>
-      {{end}}
+      {{if .Data.HasPrevSection}}
+        <a href="/books/{{.Data.Book.ID}}?ch={{.Data.ChapterIdx}}&sec={{sub .Data.SectionIdx 1}}" class="btn">{{.T.ReaderPrev}}</a>
+      {{else if .Data.HasPrev}}
+        <a href="/books/{{.Data.Book.ID}}?ch={{sub .Data.ChapterIdx 1}}&enter=end" class="btn">{{.T.ReaderPrev}}</a>
+      {{else}}<span></span>{{end}}
+      <span class="page-indicator">{{add .Data.SectionIdx 1}} / {{.Data.SectionCount}}</span>
+      {{if .Data.HasNextSection}}
+        <a href="/books/{{.Data.Book.ID}}?ch={{.Data.ChapterIdx}}&sec={{add .Data.SectionIdx 1}}" class="btn">{{.T.ReaderNext}}</a>
+      {{else if .Data.HasNext}}
+        <a href="/books/{{.Data.Book.ID}}?ch={{add .Data.ChapterIdx 1}}" class="btn">{{.T.ReaderNext}}</a>
+      {{else}}<span></span>{{end}}
     </nav>
   </main>
 

@@ -325,13 +325,46 @@ func (s *Server) handleUploadBook(w http.ResponseWriter, r *http.Request) {
 }
 
 type readerView struct {
-	Book       store.Book
-	Chapter    store.Chapter
-	Paragraphs []string
-	NativeLang string
-	HasPrev    bool
-	HasNext    bool
-	ChapterIdx int
+	Book           store.Book
+	Chapter        store.Chapter
+	Paragraphs     []string
+	NativeLang     string
+	HasPrev        bool // an earlier chapter exists
+	HasNext        bool // a later chapter exists
+	ChapterIdx     int
+	SectionIdx     int
+	SectionCount   int
+	HasPrevSection bool
+	HasNextSection bool
+}
+
+// sectionTargetChars caps how much text shows on screen at once — a whole
+// chapter was too much to track your place in by scroll alone. Paragraphs
+// are never split (so a section boundary is always between sentences, never
+// inside one): a section just keeps absorbing whole paragraphs until the
+// next one would push it past the target, then starts a new section there.
+const sectionTargetChars = 1200
+
+func splitIntoSections(paragraphs []string, target int) [][]string {
+	var sections [][]string
+	var cur []string
+	curLen := 0
+	for _, p := range paragraphs {
+		if curLen > 0 && curLen+len(p) > target {
+			sections = append(sections, cur)
+			cur = nil
+			curLen = 0
+		}
+		cur = append(cur, p)
+		curLen += len(p)
+	}
+	if len(cur) > 0 {
+		sections = append(sections, cur)
+	}
+	if len(sections) == 0 {
+		sections = [][]string{{}}
+	}
+	return sections
 }
 
 func (s *Server) handleReader(w http.ResponseWriter, r *http.Request) {
@@ -367,19 +400,37 @@ func (s *Server) handleReader(w http.ResponseWriter, r *http.Request) {
 	}
 	_ = s.store.SetProgress(bookID, chIdx)
 
+	sections := splitIntoSections(strings.Split(chapter.Content, "\n\n"), sectionTargetChars)
+	secIdx := 0
+	if q := r.URL.Query().Get("sec"); q != "" {
+		secIdx, _ = strconv.Atoi(q)
+	} else if r.URL.Query().Get("enter") == "end" {
+		secIdx = len(sections) - 1
+	}
+	if secIdx < 0 {
+		secIdx = 0
+	}
+	if secIdx > len(sections)-1 {
+		secIdx = len(sections) - 1
+	}
+
 	native := user.NativeLang
 	if native == "" {
 		native = defaultNativeLang
 	}
 
 	s.render(w, r, "reader.html", book.Title, readerView{
-		Book:       book,
-		Chapter:    chapter,
-		Paragraphs: strings.Split(chapter.Content, "\n\n"),
-		NativeLang: native,
-		HasPrev:    chIdx > 0,
-		HasNext:    chIdx < book.ChapterCount-1,
-		ChapterIdx: chIdx,
+		Book:           book,
+		Chapter:        chapter,
+		Paragraphs:     sections[secIdx],
+		NativeLang:     native,
+		HasPrev:        chIdx > 0,
+		HasNext:        chIdx < book.ChapterCount-1,
+		ChapterIdx:     chIdx,
+		SectionIdx:     secIdx,
+		SectionCount:   len(sections),
+		HasPrevSection: secIdx > 0,
+		HasNextSection: secIdx < len(sections)-1,
 	})
 }
 

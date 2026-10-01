@@ -159,17 +159,11 @@ h1 { font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
 .btn-again { border-color: var(--danger); color: var(--danger); }
 .btn-good { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
 
-/* reader — fixed-height app shell so a chapter paginates instead of
-   scrolling: .reader-page fills the viewport below the topnav, the
-   chapter-viewport takes whatever's left, and #chapter is laid out in
-   CSS columns sized to exactly fill it, one "page" at a time. */
-.page.reader-page {
-  height: calc(100dvh - var(--topnav-h, 56px));
-  padding: 1.5rem 1.5rem 0.75rem;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
+/* reader — a chapter is shown one short section at a time (server-split on
+   paragraph boundaries, see splitIntoSections in server.go, so a section
+   never ends mid-sentence) instead of dumping the whole chapter at once.
+   Plain document scroll, same as any other page — just much less text
+   per load, so there's rarely more than a screen's worth to scroll. */
 .reader-head {
   display: flex;
   flex-wrap: wrap;
@@ -177,30 +171,18 @@ h1 { font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
   gap: 0.75rem;
   font-family: sans-serif;
   margin-bottom: 1rem;
-  flex: 0 0 auto;
 }
 .reader-head h1 { font-size: 1.1rem; margin: 0; }
 .chapter-label { color: var(--muted); font-size: 0.9em; }
 
-.chapter-viewport {
-  flex: 0 0 auto;
-  height: 55%;
-  max-height: 560px;
-  margin: auto 0; /* soaks up the leftover space evenly above AND below —
-                     plain vh would answer to the phone's address-bar-aware
-                     viewport differently than .reader-page's 100dvh does,
-                     which is why a vh-based height barely moved on mobile */
-  overflow: hidden;
-  position: relative;
-}
-
 .chapter {
-  height: 100%;
   font-size: 1.15rem;
   line-height: 1.65;
   -webkit-touch-callout: none;
-  column-fill: auto;
-  transition: transform 0.25s ease;
+  /* blank space above/below the text itself, not just around the page, so
+     the translate popover always has room even for the first or last word
+     of a section — scales with screen size, so it holds up on a phone too. */
+  padding: 10vh 0;
 }
 .chapter .para { margin: 0 0 1.1em; }
 .chapter .para::selection { background: var(--mark); }
@@ -212,11 +194,8 @@ mark.word-highlight { background: var(--mark); border-radius: 3px; padding: 0 2p
   justify-content: space-between;
   align-items: center;
   margin-top: 1rem;
-  flex: 0 0 auto;
   font-family: sans-serif;
 }
-.chapter-nav button.btn { font: inherit; }
-.chapter-nav .page-edge { visibility: hidden; }
 .page-indicator { color: var(--muted); font-size: 0.85em; }
 
 /* review */
