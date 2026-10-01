@@ -17,7 +17,7 @@
         {{range .Data}}
         <li>
           <div class="word-row">
-            <span class="word-phrase">{{.Phrase}}</span>
+            <span class="word-phrase">{{if .Lemma}}{{.Lemma}}{{else}}{{.Phrase}}{{end}}</span>
             <span class="word-translation">{{.Translation}}</span>
             <span class="word-box">boîte {{.Box}}/5</span>
           </div>
