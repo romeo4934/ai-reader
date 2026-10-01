@@ -11,11 +11,52 @@
     <h1>Réglages</h1>
 
     <form action="/settings" method="post" class="settings-form">
-      <label for="native_lang">Ma langue maternelle</label>
-      <input type="text" id="native_lang" name="native_lang" value="{{.Data.NativeLang}}" required>
+      <label for="native_lang_select">Ma langue maternelle</label>
+      <select id="native_lang_select">
+        <option value="français">Français</option>
+        <option value="english">English</option>
+        <option value="español">Español</option>
+        <option value="português do Brasil">Português (Brésil)</option>
+        <option value="português de Portugal">Português (Portugal)</option>
+        <option value="italiano">Italiano</option>
+        <option value="deutsch">Deutsch</option>
+        <option value="nederlands">Nederlands</option>
+        <option value="__other__">Autre…</option>
+      </select>
+      <input type="text" id="native_lang" name="native_lang" value="{{.Data.NativeLang}}" required hidden>
       <p class="hint">Utilisée pour toutes les traductions, quel que soit le livre.</p>
       <button type="submit" class="btn btn-primary">Enregistrer</button>
     </form>
+
+    <script>
+      (function () {
+        var select = document.getElementById('native_lang_select');
+        var input = document.getElementById('native_lang');
+        var current = input.value.trim().toLowerCase();
+        var matched = false;
+        for (var i = 0; i < select.options.length; i++) {
+          if (select.options[i].value.toLowerCase() === current) {
+            select.value = select.options[i].value;
+            matched = true;
+            break;
+          }
+        }
+        function sync() {
+          if (select.value === '__other__') {
+            input.hidden = false;
+            input.value = matched ? '' : input.value;
+          } else {
+            input.hidden = true;
+            input.value = select.value;
+          }
+        }
+        if (!matched) {
+          select.value = '__other__';
+        }
+        sync();
+        select.addEventListener('change', sync);
+      })();
+    </script>
 
     <p class="hint" style="margin-top:2rem">Connecté en tant que <strong>{{.Data.Username}}</strong>.
       <form action="/logout" method="post" style="display:inline">
