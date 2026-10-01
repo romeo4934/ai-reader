@@ -184,7 +184,12 @@ h1 { font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
 
 .chapter-viewport {
   flex: 0 0 auto;
-  height: min(55vh, 560px);
+  height: 55%;
+  max-height: 560px;
+  margin: auto 0; /* soaks up the leftover space evenly above AND below —
+                     plain vh would answer to the phone's address-bar-aware
+                     viewport differently than .reader-page's 100dvh does,
+                     which is why a vh-based height barely moved on mobile */
   overflow: hidden;
   position: relative;
 }
