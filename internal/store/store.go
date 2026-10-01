@@ -47,6 +47,10 @@ func Open(path string) (*Store, error) {
 		db.Close()
 		return nil, fmt.Errorf("migration vocab.user_id : %w", err)
 	}
+	if err := ensureColumn(db, "vocab", "archived", "INTEGER NOT NULL DEFAULT 0"); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("migration vocab.archived : %w", err)
+	}
 	// These index the user_id columns just added above — created here rather
 	// than in schema.sql so they never run before ensureColumn has had a
 	// chance to add the column on an upgraded database.
@@ -368,7 +372,7 @@ func (s *Store) DueVocab(userID int64, now time.Time, limit int) ([]Vocab, error
 		SELECT v.id, v.user_id, v.book_id, b.title, v.chapter_id, v.phrase, v.lemma, v.context,
 		       v.translation, v.note, v.frequency, v.box, v.next_review_at, v.created_at, v.last_reviewed_at
 		FROM vocab v JOIN books b ON b.id = v.book_id
-		WHERE v.user_id = ? AND v.next_review_at <= ?
+		WHERE v.user_id = ? AND v.archived = 0 AND v.next_review_at <= ?
 		ORDER BY v.frequency ASC, v.next_review_at ASC
 		LIMIT ?`, userID, now.Format(timeLayout), limit)
 	if err != nil {
@@ -380,17 +384,20 @@ func (s *Store) DueVocab(userID int64, now time.Time, limit int) ([]Vocab, error
 
 func (s *Store) CountDueVocab(userID int64, now time.Time) (int, error) {
 	var n int
-	err := s.db.QueryRow(`SELECT COUNT(*) FROM vocab WHERE user_id = ? AND next_review_at <= ?`,
+	err := s.db.QueryRow(`SELECT COUNT(*) FROM vocab WHERE user_id = ? AND archived = 0 AND next_review_at <= ?`,
 		userID, now.Format(timeLayout)).Scan(&n)
 	return n, err
 }
 
+// ListVocab returns the active (non-archived) deck — a card marked "je le
+// connais" via ArchiveVocab drops out of both this and DueVocab, but stays
+// in the database so RecentlyReviewed keeps its history.
 func (s *Store) ListVocab(userID int64) ([]Vocab, error) {
 	rows, err := s.db.Query(`
 		SELECT v.id, v.user_id, v.book_id, b.title, v.chapter_id, v.phrase, v.lemma, v.context,
 		       v.translation, v.note, v.frequency, v.box, v.next_review_at, v.created_at, v.last_reviewed_at
 		FROM vocab v JOIN books b ON b.id = v.book_id
-		WHERE v.user_id = ?
+		WHERE v.user_id = ? AND v.archived = 0
 		ORDER BY v.frequency ASC`, userID)
 	if err != nil {
 		return nil, err
@@ -464,5 +471,12 @@ func (s *Store) GetVocab(id, userID int64) (Vocab, error) {
 func (s *Store) UpdateVocabReview(id, userID int64, box int, nextReview, now time.Time) error {
 	_, err := s.db.Exec(`UPDATE vocab SET box = ?, next_review_at = ?, last_reviewed_at = ? WHERE id = ? AND user_id = ?`,
 		box, nextReview.Format(timeLayout), now.Format(timeLayout), id, userID)
+	return err
+}
+
+// ArchiveVocab marks a card "already known" — it drops out of /words and
+// /review but the row stays, so review history isn't lost.
+func (s *Store) ArchiveVocab(id, userID int64) error {
+	_, err := s.db.Exec(`UPDATE vocab SET archived = 1 WHERE id = ? AND user_id = ?`, id, userID)
 	return err
 }

@@ -22,6 +22,9 @@
               <span class="word-translation">{{.Translation}}</span>
             </summary>
             <p class="word-context">{{highlight .Context .Phrase}}</p>
+            <form action="/words/{{.ID}}/archive" method="post">
+              <button type="submit" class="btn-link">✓ je le connais, retire-le</button>
+            </form>
           </details>
         </li>
         {{end}}

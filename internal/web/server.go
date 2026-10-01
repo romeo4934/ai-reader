@@ -84,6 +84,7 @@ func (s *Server) Routes() http.Handler {
 
 	mux.HandleFunc("GET /words", s.requireAuth(s.handleWords))
 	mux.HandleFunc("GET /reviewed", s.requireAuth(s.handleReviewed))
+	mux.HandleFunc("POST /words/{id}/archive", s.requireAuth(s.handleArchiveWord))
 
 	mux.HandleFunc("GET /settings", s.requireAuth(s.handleSettingsGet))
 	mux.HandleFunc("POST /settings", s.requireAuth(s.handleSettingsPost))
@@ -461,6 +462,20 @@ func (s *Server) handleWords(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.render(w, r, "words.html", "Mes mots", words)
+}
+
+func (s *Server) handleArchiveWord(w http.ResponseWriter, r *http.Request) {
+	user := userFromContext(r)
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		s.fail(w, http.StatusBadRequest, err)
+		return
+	}
+	if err := s.store.ArchiveVocab(id, user.ID); err != nil {
+		s.fail(w, http.StatusInternalServerError, err)
+		return
+	}
+	http.Redirect(w, r, "/words", http.StatusSeeOther)
 }
 
 func (s *Server) handleReviewed(w http.ResponseWriter, r *http.Request) {

@@ -52,6 +52,7 @@ CREATE TABLE IF NOT EXISTS vocab (
     box              INTEGER NOT NULL DEFAULT 1,
     next_review_at   TEXT NOT NULL,
     created_at       TEXT NOT NULL,
-    last_reviewed_at TEXT
+    last_reviewed_at TEXT,
+    archived         INTEGER NOT NULL DEFAULT 0
 );
 -- idx_vocab_due: same reason as idx_books_user above — created in Go.
