@@ -11,12 +11,12 @@
   <label for="nav-toggle" class="nav-toggle-btn" aria-label="Menu">☰</label>
   <div class="nav-links">
     {{if .LoggedIn}}
-      <a href="/words">mes mots</a>
-      <a href="/review">révision{{if gt .DueCount 0}} <span class="badge">{{.DueCount}}</span>{{end}}</a>
-      <a href="/reviewed">historique</a>
-      <a href="/settings">réglages</a>
+      <a href="/words">{{.T.NavMyWords}}</a>
+      <a href="/review">{{.T.NavReview}}{{if gt .DueCount 0}} <span class="badge">{{.DueCount}}</span>{{end}}</a>
+      <a href="/reviewed">{{.T.NavHistory}}</a>
+      <a href="/settings">{{.T.NavSettings}}</a>
     {{else}}
-      <a href="/login">connexion</a>
+      <a href="/login">{{.T.NavLogin}}</a>
     {{end}}
   </div>
 </nav>

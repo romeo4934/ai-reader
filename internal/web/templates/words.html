@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="fr">
+<html lang="{{.T.LangCode}}">
 <head>
   <title>{{.Title}}</title>
   {{template "head" .}}
@@ -8,11 +8,12 @@
   {{template "nav" .}}
 
   <main class="page">
-    <h1>Mes mots</h1>
+    <h1>{{.T.WordsTitle}}</h1>
 
     {{if not .Data}}
-      <p class="empty">Aucun mot enregistré pour l'instant — clique sur un mot en lisant pour commencer.</p>
+      <p class="empty">{{.T.WordsEmpty}}</p>
     {{else}}
+      {{$t := .T}}
       <ul class="word-list">
         {{range .Data}}
         <li>
@@ -23,7 +24,7 @@
             </summary>
             <p class="word-context">{{highlight .Context .Phrase}}</p>
             <form action="/words/{{.ID}}/archive" method="post">
-              <button type="submit" class="btn-link">✓ je le connais, retire-le</button>
+              <button type="submit" class="btn-link">{{$t.WordsKnowIt}}</button>
             </form>
           </details>
         </li>

@@ -21,6 +21,7 @@ import (
 	"github.com/romeo4934/ai-reader/internal/auth"
 	"github.com/romeo4934/ai-reader/internal/epub"
 	"github.com/romeo4934/ai-reader/internal/frequency"
+	"github.com/romeo4934/ai-reader/internal/i18n"
 	"github.com/romeo4934/ai-reader/internal/srs"
 	"github.com/romeo4934/ai-reader/internal/store"
 )
@@ -238,14 +239,30 @@ type pageData struct {
 	Title    string
 	DueCount int
 	LoggedIn bool
+	T        i18n.Dict
 	Data     any
+}
+
+// dictFor resolves the UI language to use for this request: the logged-in
+// user's native_lang setting, or French if there's no user yet (login,
+// signup — there's nothing to read a preference from before they exist).
+func (s *Server) dictFor(r *http.Request) i18n.Dict {
+	user := userFromContext(r)
+	nativeLang := ""
+	if user != nil {
+		nativeLang = user.NativeLang
+	}
+	return i18n.For(nativeLang)
 }
 
 // render looks the user up from the request itself (rather than taking it as
 // a parameter) so every call site — including the unauthenticated login and
-// signup pages — stays uniform.
+// signup pages — stays uniform. title is literal text (most callers build it
+// from dictFor(r), except the reader view, whose title is a book's own name
+// — data, not a UI string, so it's never translated).
 func (s *Server) render(w http.ResponseWriter, r *http.Request, name, title string, data any) {
-	pd := pageData{Title: title, Data: data}
+	T := s.dictFor(r)
+	pd := pageData{Title: title, T: T, Data: data}
 	if user := userFromContext(r); user != nil {
 		due, err := s.store.CountDueVocab(user.ID, time.Now().UTC())
 		if err != nil {
@@ -267,7 +284,7 @@ func (s *Server) handleLibrary(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, http.StatusInternalServerError, err)
 		return
 	}
-	s.render(w, r, "library.html", "Bibliothèque", books)
+	s.render(w, r, "library.html", s.dictFor(r)["LibTitle"], books)
 }
 
 func (s *Server) handleUploadBook(w http.ResponseWriter, r *http.Request) {
@@ -387,7 +404,7 @@ func (s *Server) handleReviewPage(w http.ResponseWriter, r *http.Request) {
 		view.Card = &cards[0]
 		view.Recall = s.generateRecallCard(r.Context(), user, view.Card)
 	}
-	s.render(w, r, "review.html", "Révision", view)
+	s.render(w, r, "review.html", s.dictFor(r)["ReviewTitle"], view)
 }
 
 // generateRecallCard asks Claude for a fresh fill-in-the-blank exercise for
@@ -461,7 +478,7 @@ func (s *Server) handleWords(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, http.StatusInternalServerError, err)
 		return
 	}
-	s.render(w, r, "words.html", "Mes mots", words)
+	s.render(w, r, "words.html", s.dictFor(r)["WordsTitle"], words)
 }
 
 func (s *Server) handleArchiveWord(w http.ResponseWriter, r *http.Request) {
@@ -487,7 +504,7 @@ func (s *Server) handleReviewed(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, http.StatusInternalServerError, err)
 		return
 	}
-	s.render(w, r, "reviewed.html", "Dernières révisions", words)
+	s.render(w, r, "reviewed.html", s.dictFor(r)["ReviewedTitle"], words)
 }
 
 // --- settings ---
@@ -498,7 +515,7 @@ func (s *Server) handleSettingsGet(w http.ResponseWriter, r *http.Request) {
 	if native == "" {
 		native = defaultNativeLang
 	}
-	s.render(w, r, "settings.html", "Réglages", settingsView{NativeLang: native, Username: user.Username})
+	s.render(w, r, "settings.html", s.dictFor(r)["SettingsTitle"], settingsView{NativeLang: native, Username: user.Username})
 }
 
 type settingsView struct {

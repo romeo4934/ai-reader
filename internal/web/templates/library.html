@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="fr">
+<html lang="{{.T.LangCode}}">
 <head>
   <title>{{.Title}}</title>
   {{template "head" .}}
@@ -8,15 +8,15 @@
   {{template "nav" .}}
 
   <main class="page">
-    <h1>Bibliothèque</h1>
+    <h1>{{.T.LibTitle}}</h1>
 
     <form class="upload" action="/books" method="post" enctype="multipart/form-data">
       <input type="file" name="epub" accept=".epub" required>
-      <button type="submit">Ajouter un livre</button>
+      <button type="submit">{{.T.LibUpload}}</button>
     </form>
 
     {{if not .Data}}
-      <p class="empty">Aucun livre pour l'instant — ajoute un fichier .epub ci-dessus.</p>
+      <p class="empty">{{.T.LibEmpty}}</p>
     {{else}}
       <ul class="book-list">
         {{range .Data}}
@@ -24,7 +24,7 @@
           <a href="/books/{{.ID}}">
             <span class="book-title">{{.Title}}</span>
             {{if .Author}}<span class="book-author">{{.Author}}</span>{{end}}
-            <span class="book-meta">{{.ChapterCount}} chapitres{{if .Language}} · {{.Language}}{{end}}</span>
+            <span class="book-meta">{{.ChapterCount}} {{$.T.LibChapters}}{{if .Language}} · {{.Language}}{{end}}</span>
           </a>
         </li>
         {{end}}

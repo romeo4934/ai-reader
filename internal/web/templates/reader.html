@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="fr">
+<html lang="{{.T.LangCode}}">
 <head>
   <title>{{.Title}}</title>
   {{template "head" .}}
@@ -9,7 +9,7 @@
 
   <main class="page reader-page">
     <header class="reader-head">
-      <a href="/">← bibliothèque</a>
+      <a href="/">{{.T.ReaderBack}}</a>
       <h1>{{.Data.Book.Title}}</h1>
       <span class="chapter-label">{{.Data.Chapter.Title}}</span>
     </header>
@@ -24,19 +24,19 @@
 
     <nav class="chapter-nav">
       {{if .Data.HasPrev}}
-        <a href="/books/{{.Data.Book.ID}}?ch={{sub .Data.ChapterIdx 1}}" class="btn">← chapitre précédent</a>
+        <a href="/books/{{.Data.Book.ID}}?ch={{sub .Data.ChapterIdx 1}}" class="btn">{{.T.ReaderPrev}}</a>
       {{else}}<span></span>{{end}}
       {{if .Data.HasNext}}
-        <a href="/books/{{.Data.Book.ID}}?ch={{add .Data.ChapterIdx 1}}" class="btn">chapitre suivant →</a>
+        <a href="/books/{{.Data.Book.ID}}?ch={{add .Data.ChapterIdx 1}}" class="btn">{{.T.ReaderNext}}</a>
       {{end}}
     </nav>
   </main>
 
   <div id="translate-popover" class="popover" hidden>
-    <div id="tp-loading" class="tp-loading" hidden>traduction…</div>
+    <div id="tp-loading" class="tp-loading" hidden>{{.T.ReaderTranslating}}</div>
     <div id="tp-error" class="tp-error" hidden></div>
     <div class="tp-sentence" id="tp-sentence" hidden></div>
-    <button id="tp-close" type="button" class="tp-close" aria-label="Fermer">×</button>
+    <button id="tp-close" type="button" class="tp-close" aria-label="{{.T.ReaderClose}}">×</button>
   </div>
 
   <script src="/static/app.js"></script>

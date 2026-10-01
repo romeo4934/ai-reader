@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="fr">
+<html lang="{{.T.LangCode}}">
 <head>
   <title>{{.Title}}</title>
   {{template "head" .}}
@@ -8,12 +8,13 @@
   {{template "nav" .}}
 
   <main class="page review-page">
-    <h1>Révision</h1>
+    <h1>{{.T.ReviewTitle}}</h1>
 
     {{if not .Data.Card}}
-      <p class="empty">Rien à réviser pour l'instant — reviens plus tard, ou lis un peu plus 📖</p>
+      <p class="empty">{{.T.ReviewEmpty}}</p>
     {{else}}
       {{$card := .Data.Card}}
+      {{$t := .T}}
       <div class="card">
         <div class="card-source">{{$card.BookTitle}}</div>
 
@@ -22,12 +23,12 @@
           <p class="card-context card-blank">{{$rc.SentenceBlank}}</p>
           <p class="card-hint">{{$rc.SentenceTranslation}}</p>
 
-          <button id="reveal" type="button" class="btn">Voir le mot</button>
+          <button id="reveal" type="button" class="btn">{{$t.ReviewRevealWord}}</button>
 
           <div id="answer" hidden>
             <div class="card-translation">{{$rc.Answer}}</div>
             <div class="card-original">
-              <span class="card-original-label">phrase d'origine :</span>
+              <span class="card-original-label">{{$t.ReviewOriginalLabel}}</span>
               {{highlight $card.Context $card.Phrase}}
             </div>
             {{if $card.Note}}<div class="card-note">{{$card.Note}}</div>{{end}}
@@ -35,18 +36,18 @@
             <div class="card-buttons">
               <form action="/review/{{$card.ID}}/answer" method="post">
                 <input type="hidden" name="result" value="again">
-                <button type="submit" class="btn btn-again">Je ne savais pas</button>
+                <button type="submit" class="btn btn-again">{{$t.ReviewAgain}}</button>
               </form>
               <form action="/review/{{$card.ID}}/answer" method="post">
                 <input type="hidden" name="result" value="good">
-                <button type="submit" class="btn btn-good">Je savais</button>
+                <button type="submit" class="btn btn-good">{{$t.ReviewGood}}</button>
               </form>
             </div>
           </div>
         {{else}}
           <p class="card-context">{{highlight $card.Context $card.Phrase}}</p>
 
-          <button id="reveal" type="button" class="btn">Voir la traduction</button>
+          <button id="reveal" type="button" class="btn">{{$t.ReviewRevealTranslation}}</button>
 
           <div id="answer" hidden>
             <div class="card-translation">{{$card.Translation}}</div>
@@ -56,11 +57,11 @@
             <div class="card-buttons">
               <form action="/review/{{$card.ID}}/answer" method="post">
                 <input type="hidden" name="result" value="again">
-                <button type="submit" class="btn btn-again">Je ne savais pas</button>
+                <button type="submit" class="btn btn-again">{{$t.ReviewAgain}}</button>
               </form>
               <form action="/review/{{$card.ID}}/answer" method="post">
                 <input type="hidden" name="result" value="good">
-                <button type="submit" class="btn btn-good">Je savais</button>
+                <button type="submit" class="btn btn-good">{{$t.ReviewGood}}</button>
               </form>
             </div>
           </div>

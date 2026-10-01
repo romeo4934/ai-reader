@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="fr">
+<html lang="{{.T.LangCode}}">
 <head>
   <title>{{.Title}}</title>
   {{template "head" .}}
@@ -8,18 +8,19 @@
   {{template "nav" .}}
 
   <main class="page">
-    <h1>Dernières révisions</h1>
+    <h1>{{.T.ReviewedTitle}}</h1>
 
     {{if not .Data}}
-      <p class="empty">Aucune révision pour l'instant — ça se remplit dès que tu réponds à une carte sur /review.</p>
+      <p class="empty">{{.T.ReviewedEmpty}}</p>
     {{else}}
+      {{$t := .T}}
       <ul class="word-list">
         {{range .Data}}
         <li>
           <div class="word-row">
             <span class="word-phrase">{{if .Lemma}}{{.Lemma}}{{else}}{{.Phrase}}{{end}}</span>
             <span class="word-translation">{{.Translation}}</span>
-            <span class="word-box">boîte {{.Box}}/5</span>
+            <span class="word-box">{{$t.ReviewedBox}} {{.Box}}/5</span>
           </div>
           <div class="word-source">{{.BookTitle}} · {{timeAgo .LastReviewedAt}}</div>
         </li>
