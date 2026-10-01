@@ -55,6 +55,7 @@ func New(st *store.Store, aiClient *ai.Client, log *slog.Logger, secret []byte, 
 		"sub":       func(a, b int) int { return a - b },
 		"highlight": highlightPhrase,
 		"freqLabel": frequency.Label,
+		"timeAgo":   timeAgo,
 	}).ParseFS(templateFS, "templates/*.html")
 	if err != nil {
 		return nil, fmt.Errorf("parse templates : %w", err)
@@ -82,6 +83,7 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("POST /review/{id}/answer", s.requireAuth(s.handleReviewAnswer))
 
 	mux.HandleFunc("GET /words", s.requireAuth(s.handleWords))
+	mux.HandleFunc("GET /reviewed", s.requireAuth(s.handleReviewed))
 
 	mux.HandleFunc("GET /settings", s.requireAuth(s.handleSettingsGet))
 	mux.HandleFunc("POST /settings", s.requireAuth(s.handleSettingsPost))
@@ -461,6 +463,16 @@ func (s *Server) handleWords(w http.ResponseWriter, r *http.Request) {
 	s.render(w, r, "words.html", "Mes mots", words)
 }
 
+func (s *Server) handleReviewed(w http.ResponseWriter, r *http.Request) {
+	user := userFromContext(r)
+	words, err := s.store.RecentlyReviewed(user.ID, 50)
+	if err != nil {
+		s.fail(w, http.StatusInternalServerError, err)
+		return
+	}
+	s.render(w, r, "reviewed.html", "Dernières révisions", words)
+}
+
 // --- settings ---
 
 func (s *Server) handleSettingsGet(w http.ResponseWriter, r *http.Request) {
@@ -606,6 +618,27 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 
 // highlightPhrase wraps the first occurrence of phrase inside context with
 // <mark>, escaping both pieces itself so it's safe to mark as template.HTML.
+// timeAgo renders a rough, French, human time distance — good enough for an
+// activity list where the exact minute never matters.
+func timeAgo(t *time.Time) string {
+	if t == nil {
+		return ""
+	}
+	d := time.Since(*t)
+	switch {
+	case d < time.Minute:
+		return "à l'instant"
+	case d < time.Hour:
+		return fmt.Sprintf("il y a %dmin", int(d.Minutes()))
+	case d < 24*time.Hour:
+		return fmt.Sprintf("il y a %dh", int(d.Hours()))
+	case d < 48*time.Hour:
+		return "hier"
+	default:
+		return fmt.Sprintf("il y a %dj", int(d.Hours()/24))
+	}
+}
+
 func highlightPhrase(context, phrase string) template.HTML {
 	if phrase == "" {
 		return template.HTML(template.HTMLEscapeString(context))

@@ -10,6 +10,7 @@
   {{if .LoggedIn}}
     <a href="/words">mes mots</a>
     <a href="/review">révision{{if gt .DueCount 0}} <span class="badge">{{.DueCount}}</span>{{end}}</a>
+    <a href="/reviewed">historique</a>
     <a href="/settings">réglages</a>
   {{else}}
     <a href="/login">connexion</a>

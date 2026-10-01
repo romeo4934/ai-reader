@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <title>{{.Title}}</title>
+  {{template "head" .}}
+</head>
+<body>
+  {{template "nav" .}}
+
+  <main class="page">
+    <h1>Dernières révisions</h1>
+
+    {{if not .Data}}
+      <p class="empty">Aucune révision pour l'instant — ça se remplit dès que tu réponds à une carte sur /review.</p>
+    {{else}}
+      <ul class="word-list">
+        {{range .Data}}
+        <li>
+          <div class="word-row">
+            <span class="word-phrase">{{.Phrase}}</span>
+            <span class="word-translation">{{.Translation}}</span>
+            <span class="word-box">boîte {{.Box}}/5</span>
+          </div>
+          <div class="word-source">{{.BookTitle}} · {{timeAgo .LastReviewedAt}}</div>
+        </li>
+        {{end}}
+      </ul>
+    {{end}}
+  </main>
+</body>
+</html>

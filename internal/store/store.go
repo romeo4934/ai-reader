@@ -399,6 +399,23 @@ func (s *Store) ListVocab(userID int64) ([]Vocab, error) {
 	return scanVocabRows(rows)
 }
 
+// RecentlyReviewed returns up to `limit` cards this user has actually
+// reviewed at least once, most recent first.
+func (s *Store) RecentlyReviewed(userID int64, limit int) ([]Vocab, error) {
+	rows, err := s.db.Query(`
+		SELECT v.id, v.user_id, v.book_id, b.title, v.chapter_id, v.phrase, v.lemma, v.context,
+		       v.translation, v.note, v.frequency, v.box, v.next_review_at, v.created_at, v.last_reviewed_at
+		FROM vocab v JOIN books b ON b.id = v.book_id
+		WHERE v.user_id = ? AND v.last_reviewed_at IS NOT NULL
+		ORDER BY v.last_reviewed_at DESC
+		LIMIT ?`, userID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanVocabRows(rows)
+}
+
 func scanVocabRows(rows *sql.Rows) ([]Vocab, error) {
 	var out []Vocab
 	for rows.Next() {
