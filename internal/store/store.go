@@ -367,12 +367,17 @@ func (s *Store) FindVocabByPhrase(userID int64, phrase string) (id int64, found 
 // DueVocab returns up to `limit` due cards for this user, most frequent
 // words first — the point of the deck is to spend review time where it pays
 // off in reading, not on a word that showed up once.
+//
+// Deliberately NOT filtered by archived: "je le connais" hides a card from
+// the browsing list (ListVocab), but box 5's 30-day cycle is still real
+// spaced repetition — a mastered word should keep resurfacing occasionally
+// to catch it being forgotten, not vanish from review forever.
 func (s *Store) DueVocab(userID int64, now time.Time, limit int) ([]Vocab, error) {
 	rows, err := s.db.Query(`
 		SELECT v.id, v.user_id, v.book_id, b.title, v.chapter_id, v.phrase, v.lemma, v.context,
 		       v.translation, v.note, v.frequency, v.box, v.next_review_at, v.created_at, v.last_reviewed_at
 		FROM vocab v JOIN books b ON b.id = v.book_id
-		WHERE v.user_id = ? AND v.archived = 0 AND v.next_review_at <= ?
+		WHERE v.user_id = ? AND v.next_review_at <= ?
 		ORDER BY v.frequency ASC, v.next_review_at ASC
 		LIMIT ?`, userID, now.Format(timeLayout), limit)
 	if err != nil {
@@ -384,14 +389,14 @@ func (s *Store) DueVocab(userID int64, now time.Time, limit int) ([]Vocab, error
 
 func (s *Store) CountDueVocab(userID int64, now time.Time) (int, error) {
 	var n int
-	err := s.db.QueryRow(`SELECT COUNT(*) FROM vocab WHERE user_id = ? AND archived = 0 AND next_review_at <= ?`,
+	err := s.db.QueryRow(`SELECT COUNT(*) FROM vocab WHERE user_id = ? AND next_review_at <= ?`,
 		userID, now.Format(timeLayout)).Scan(&n)
 	return n, err
 }
 
-// ListVocab returns the active (non-archived) deck — a card marked "je le
-// connais" via ArchiveVocab drops out of both this and DueVocab, but stays
-// in the database so RecentlyReviewed keeps its history.
+// ListVocab returns the browsing deck — a card marked "je le connais" via
+// ArchiveVocab drops out of this list (and starts a 30-day box-5 cycle) but
+// keeps coming back in DueVocab and keeps its history in RecentlyReviewed.
 func (s *Store) ListVocab(userID int64) ([]Vocab, error) {
 	rows, err := s.db.Query(`
 		SELECT v.id, v.user_id, v.book_id, b.title, v.chapter_id, v.phrase, v.lemma, v.context,
@@ -474,11 +479,10 @@ func (s *Store) UpdateVocabReview(id, userID int64, box int, nextReview, now tim
 	return err
 }
 
-// ArchiveVocab marks a card "already known" — it drops out of /words and
-// /review but the row stays, so review history isn't lost. box/nextReview
-// are set to the mastered (box 5) state too, so the data stays consistent
-// with the Leitner system rather than introducing a separate notion of
-// "known" the box number doesn't reflect.
+// ArchiveVocab marks a card "already known": it drops out of the /words
+// browsing list, but still comes back in /review on its box-5, 30-day cycle
+// — "known" declutters the list, it doesn't opt a word out of ever being
+// checked again.
 func (s *Store) ArchiveVocab(id, userID int64, box int, nextReview, now time.Time) error {
 	_, err := s.db.Exec(`UPDATE vocab SET archived = 1, box = ?, next_review_at = ?, last_reviewed_at = ? WHERE id = ? AND user_id = ?`,
 		box, nextReview.Format(timeLayout), now.Format(timeLayout), id, userID)
