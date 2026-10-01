@@ -79,7 +79,7 @@ var translateSchema = map[string]any{
 		},
 		"lemma": map[string]any{
 			"type":        "string",
-			"description": "Dictionary/base form of the key word or expression (infinitive for a verb, singular for a noun), in the book's language.",
+			"description": "Dictionary/base form of the key word or expression (infinitive for a verb, singular for a noun), in the book's language. If the selected word is part of a multi-word phrasal verb or idiom whose meaning depends on that combination (e.g. the phrase is \"got\" but the real unit is \"get off\" in \"got off light\", or \"set\" standing in for \"set forth\"), the lemma MUST be the full multi-word form, not the single word alone — the point of the lemma is the unit that actually carries the meaning.",
 		},
 		"note": map[string]any{
 			"type":        "string",
@@ -125,6 +125,11 @@ Use the surrounding text to resolve anything the phrase alone is ambiguous
 about: which sense of the word, which tense, who a pronoun refers to. The
 word-level translation, lemma, and note are about the selected phrase
 specifically, not the whole passage.
+
+Watch for phrasal verbs and idioms: if the reader selected one word but it's
+really part of a multi-word unit that carries the meaning together ("got" in
+"got off light", "set" in "set forth"), say so — the lemma should be the
+full unit ("get off", "set forth"), not the single word in isolation.
 
 Separately, translate in full the one sentence inside the passage that
 contains the selected phrase, so the reader can check they understood that
