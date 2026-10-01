@@ -48,22 +48,33 @@
   // bottom of the screen, so it doesn't end up far from what it's about.
   // Called twice: once on open (loading state) and again once the result
   // renders, since the taller content can push it past a viewport edge.
+  //
+  // Picks whichever side (above/below the selection) actually has more
+  // room, rather than always preferring below and only flipping when it
+  // doesn't fit at all — a word near the bottom of the (now fixed-height,
+  // paginated) reading area would otherwise flip to "above" even when
+  // there isn't really room there either, landing the popover right on
+  // top of the sentence it's explaining. The popover's own max-height is
+  // also capped to whatever room the chosen side actually has, so it
+  // scrolls internally instead of spilling over the selection.
   function positionPopover(rect) {
     if (!rect) return;
     var margin = 12;
     var w = popover.offsetWidth;
-    var h = popover.offsetHeight;
 
     var left = rect.left + rect.width / 2 - w / 2;
     left = Math.max(margin, Math.min(left, window.innerWidth - w - margin));
-
-    var top = rect.bottom + margin;
-    if (top + h > window.innerHeight - margin) {
-      top = rect.top - h - margin; // no room below — flip above the selection
-    }
-    top = Math.max(margin, top);
-
     popover.style.left = left + 'px';
+
+    var spaceBelow = window.innerHeight - margin - rect.bottom;
+    var spaceAbove = rect.top - margin;
+    var below = spaceBelow >= spaceAbove;
+    var space = Math.max(80, below ? spaceBelow : spaceAbove);
+    popover.style.maxHeight = Math.min(space, window.innerHeight * 0.7) + 'px';
+
+    var h = popover.offsetHeight; // re-measure: maxHeight may have just clamped it
+    var top = below ? rect.bottom + margin : rect.top - margin - h;
+    top = Math.max(margin, Math.min(top, window.innerHeight - margin - h));
     popover.style.top = top + 'px';
   }
 
