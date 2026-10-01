@@ -471,7 +471,9 @@ func (s *Server) handleArchiveWord(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, http.StatusBadRequest, err)
 		return
 	}
-	if err := s.store.ArchiveVocab(id, user.ID); err != nil {
+	now := time.Now().UTC()
+	box, nextReview := srs.Next(srs.MaxBox, srs.Good, now) // "known" = mastered, box 5
+	if err := s.store.ArchiveVocab(id, user.ID, box, nextReview, now); err != nil {
 		s.fail(w, http.StatusInternalServerError, err)
 		return
 	}

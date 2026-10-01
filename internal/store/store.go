@@ -475,8 +475,12 @@ func (s *Store) UpdateVocabReview(id, userID int64, box int, nextReview, now tim
 }
 
 // ArchiveVocab marks a card "already known" — it drops out of /words and
-// /review but the row stays, so review history isn't lost.
-func (s *Store) ArchiveVocab(id, userID int64) error {
-	_, err := s.db.Exec(`UPDATE vocab SET archived = 1 WHERE id = ? AND user_id = ?`, id, userID)
+// /review but the row stays, so review history isn't lost. box/nextReview
+// are set to the mastered (box 5) state too, so the data stays consistent
+// with the Leitner system rather than introducing a separate notion of
+// "known" the box number doesn't reflect.
+func (s *Store) ArchiveVocab(id, userID int64, box int, nextReview, now time.Time) error {
+	_, err := s.db.Exec(`UPDATE vocab SET archived = 1, box = ?, next_review_at = ?, last_reviewed_at = ? WHERE id = ? AND user_id = ?`,
+		box, nextReview.Format(timeLayout), now.Format(timeLayout), id, userID)
 	return err
 }
