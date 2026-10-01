@@ -67,7 +67,7 @@ func (s *Server) Routes() http.Handler {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("GET /ready", s.handleReady)
-	mux.Handle("GET /static/", http.FileServerFS(staticFS))
+	mux.Handle("GET /static/", noCache(http.FileServerFS(staticFS)))
 
 	mux.HandleFunc("GET /login", s.handleLoginGet)
 	mux.HandleFunc("POST /login", s.handleLoginPost)
@@ -608,6 +608,18 @@ func (s *Server) fail(w http.ResponseWriter, status int, err error) {
 func (s *Server) failJSON(w http.ResponseWriter, status int, err error) {
 	s.log.Error("api", "status", status, "err", err)
 	writeJSON(w, status, map[string]string{"error": err.Error()})
+}
+
+// noCache forces a fresh fetch on every request for static assets. embed.FS
+// files carry no real mtime, so the browser's default HTTP caching has
+// nothing to revalidate against and was serving stale CSS/JS straight from
+// cache after a deploy — a hard refresh was the only way to see a fix.
+// These files are tiny, so there's no real cost to never caching them.
+func noCache(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-store")
+		next.ServeHTTP(w, r)
+	})
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {
