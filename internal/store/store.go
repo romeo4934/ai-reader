@@ -482,6 +482,14 @@ func (s *Store) UpdateVocabReview(id, userID int64, box int, nextReview, now tim
 	return err
 }
 
+// DeleteVocab removes a card for good — for a word saved by mistake or a
+// function word (his, with, and) that shouldn't come back in review at all,
+// unlike ArchiveVocab's 30-day box-5 cycle.
+func (s *Store) DeleteVocab(id, userID int64) error {
+	_, err := s.db.Exec(`DELETE FROM vocab WHERE id = ? AND user_id = ?`, id, userID)
+	return err
+}
+
 // ArchiveVocab marks a card "already known": it drops out of the /words
 // browsing list, but still comes back in /review on its box-5, 30-day cycle
 // — "known" declutters the list, it doesn't opt a word out of ever being

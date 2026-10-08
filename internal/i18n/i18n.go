@@ -51,9 +51,11 @@ var fr = Dict{
 	"ReviewOriginalLabel": "phrase d'origine :",
 	"ReviewAgain":         "Je ne savais pas", "ReviewGood": "Je savais",
 
-	"WordsTitle":  "Mes mots",
-	"WordsEmpty":  "Aucun mot enregistré pour l'instant — clique sur un mot en lisant pour commencer.",
-	"WordsKnowIt": "✓ je le connais, retire-le",
+	"WordsTitle":         "Mes mots",
+	"WordsEmpty":         "Aucun mot enregistré pour l'instant — clique sur un mot en lisant pour commencer.",
+	"WordsKnowIt":        "✓ je le connais, retire-le",
+	"WordsDelete":        "🗑 supprimer",
+	"WordsDeleteConfirm": "Supprimer ce mot pour de bon ? Il ne reviendra plus en révision.",
 
 	"ReviewedTitle": "Dernières révisions",
 	"ReviewedEmpty": "Aucune révision pour l'instant — ça se remplit dès que tu réponds à une carte sur /review.",
@@ -84,9 +86,11 @@ var en = Dict{
 	"ReviewOriginalLabel": "original sentence:",
 	"ReviewAgain":         "I didn't know it", "ReviewGood": "I knew it",
 
-	"WordsTitle":  "My words",
-	"WordsEmpty":  "No words saved yet — tap a word while reading to get started.",
-	"WordsKnowIt": "✓ I know this, remove it",
+	"WordsTitle":         "My words",
+	"WordsEmpty":         "No words saved yet — tap a word while reading to get started.",
+	"WordsKnowIt":        "✓ I know this, remove it",
+	"WordsDelete":        "🗑 delete",
+	"WordsDeleteConfirm": "Delete this word for good? It won't come back in review.",
 
 	"ReviewedTitle": "Recent reviews",
 	"ReviewedEmpty": "No reviews yet — this fills up once you answer a card on /review.",
@@ -117,9 +121,11 @@ var es = Dict{
 	"ReviewOriginalLabel": "frase original:",
 	"ReviewAgain":         "No lo sabía", "ReviewGood": "Lo sabía",
 
-	"WordsTitle":  "Mis palabras",
-	"WordsEmpty":  "Aún no hay palabras guardadas — toca una palabra mientras lees para empezar.",
-	"WordsKnowIt": "✓ ya la sé, quítala",
+	"WordsTitle":         "Mis palabras",
+	"WordsEmpty":         "Aún no hay palabras guardadas — toca una palabra mientras lees para empezar.",
+	"WordsKnowIt":        "✓ ya la sé, quítala",
+	"WordsDelete":        "🗑 eliminar",
+	"WordsDeleteConfirm": "¿Eliminar esta palabra definitivamente? No volverá a aparecer en el repaso.",
 
 	"ReviewedTitle": "Últimos repasos",
 	"ReviewedEmpty": "Aún no hay repasos — esto se llena en cuanto respondas una carta en /review.",
@@ -150,9 +156,11 @@ var pt = Dict{
 	"ReviewOriginalLabel": "frase original:",
 	"ReviewAgain":         "Eu não sabia", "ReviewGood": "Eu sabia",
 
-	"WordsTitle":  "Minhas palavras",
-	"WordsEmpty":  "Nenhuma palavra salva ainda — toque em uma palavra durante a leitura para começar.",
-	"WordsKnowIt": "✓ eu já sei, remover",
+	"WordsTitle":         "Minhas palavras",
+	"WordsEmpty":         "Nenhuma palavra salva ainda — toque em uma palavra durante a leitura para começar.",
+	"WordsKnowIt":        "✓ eu já sei, remover",
+	"WordsDelete":        "🗑 excluir",
+	"WordsDeleteConfirm": "Excluir esta palavra de vez? Ela não voltará na revisão.",
 
 	"ReviewedTitle": "Últimas revisões",
 	"ReviewedEmpty": "Nenhuma revisão ainda — isso se preenche assim que você responder um cartão em /review.",
@@ -183,9 +191,11 @@ var it = Dict{
 	"ReviewOriginalLabel": "frase originale:",
 	"ReviewAgain":         "Non la sapevo", "ReviewGood": "La sapevo",
 
-	"WordsTitle":  "Le mie parole",
-	"WordsEmpty":  "Ancora nessuna parola salvata — tocca una parola mentre leggi per iniziare.",
-	"WordsKnowIt": "✓ la conosco, rimuovila",
+	"WordsTitle":         "Le mie parole",
+	"WordsEmpty":         "Ancora nessuna parola salvata — tocca una parola mentre leggi per iniziare.",
+	"WordsKnowIt":        "✓ la conosco, rimuovila",
+	"WordsDelete":        "🗑 elimina",
+	"WordsDeleteConfirm": "Eliminare questa parola definitivamente? Non tornerà più nel ripasso.",
 
 	"ReviewedTitle": "Ultimi ripassi",
 	"ReviewedEmpty": "Ancora nessun ripasso — si riempie non appena rispondi a una carta su /review.",
@@ -216,9 +226,11 @@ var de = Dict{
 	"ReviewOriginalLabel": "Originalsatz:",
 	"ReviewAgain":         "Wusste ich nicht", "ReviewGood": "Wusste ich",
 
-	"WordsTitle":  "Meine Wörter",
-	"WordsEmpty":  "Noch keine Wörter gespeichert — tippe beim Lesen auf ein Wort, um loszulegen.",
-	"WordsKnowIt": "✓ kenne ich, entfernen",
+	"WordsTitle":         "Meine Wörter",
+	"WordsEmpty":         "Noch keine Wörter gespeichert — tippe beim Lesen auf ein Wort, um loszulegen.",
+	"WordsKnowIt":        "✓ kenne ich, entfernen",
+	"WordsDelete":        "🗑 löschen",
+	"WordsDeleteConfirm": "Dieses Wort endgültig löschen? Es kommt nicht mehr in der Wiederholung vor.",
 
 	"ReviewedTitle": "Letzte Wiederholungen",
 	"ReviewedEmpty": "Noch keine Wiederholungen — füllt sich, sobald du eine Karte auf /review beantwortest.",
@@ -249,9 +261,11 @@ var nl = Dict{
 	"ReviewOriginalLabel": "oorspronkelijke zin:",
 	"ReviewAgain":         "Wist ik niet", "ReviewGood": "Wist ik",
 
-	"WordsTitle":  "Mijn woorden",
-	"WordsEmpty":  "Nog geen woorden opgeslagen — tik tijdens het lezen op een woord om te beginnen.",
-	"WordsKnowIt": "✓ ken ik al, verwijderen",
+	"WordsTitle":         "Mijn woorden",
+	"WordsEmpty":         "Nog geen woorden opgeslagen — tik tijdens het lezen op een woord om te beginnen.",
+	"WordsKnowIt":        "✓ ken ik al, verwijderen",
+	"WordsDelete":        "🗑 wissen",
+	"WordsDeleteConfirm": "Dit woord definitief wissen? Het komt niet meer terug bij het herhalen.",
 
 	"ReviewedTitle": "Laatste herhalingen",
 	"ReviewedEmpty": "Nog geen herhalingen — dit vult zich zodra je een kaart op /review beantwoordt.",

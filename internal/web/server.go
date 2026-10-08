@@ -86,6 +86,7 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("GET /words", s.requireAuth(s.handleWords))
 	mux.HandleFunc("GET /reviewed", s.requireAuth(s.handleReviewed))
 	mux.HandleFunc("POST /words/{id}/archive", s.requireAuth(s.handleArchiveWord))
+	mux.HandleFunc("POST /words/{id}/delete", s.requireAuth(s.handleDeleteWord))
 
 	mux.HandleFunc("GET /settings", s.requireAuth(s.handleSettingsGet))
 	mux.HandleFunc("POST /settings", s.requireAuth(s.handleSettingsPost))
@@ -548,6 +549,26 @@ func (s *Server) handleArchiveWord(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.Redirect(w, r, "/words", http.StatusSeeOther)
+}
+
+func (s *Server) handleDeleteWord(w http.ResponseWriter, r *http.Request) {
+	user := userFromContext(r)
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		s.fail(w, http.StatusBadRequest, err)
+		return
+	}
+	if err := s.store.DeleteVocab(id, user.ID); err != nil {
+		s.fail(w, http.StatusInternalServerError, err)
+		return
+	}
+	// Deletable from both /words and a /review card; go back where the
+	// button was, but only to one of those two — never an arbitrary URL.
+	back := "/words"
+	if r.FormValue("back") == "/review" {
+		back = "/review"
+	}
+	http.Redirect(w, r, back, http.StatusSeeOther)
 }
 
 func (s *Server) handleReviewed(w http.ResponseWriter, r *http.Request) {

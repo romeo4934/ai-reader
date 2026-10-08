@@ -23,14 +23,20 @@
               <span class="word-translation">{{.Translation}}</span>
             </summary>
             <p class="word-context">{{highlight .Context .Phrase}}</p>
-            <form action="/words/{{.ID}}/archive" method="post">
-              <button type="submit" class="btn-link">{{$t.WordsKnowIt}}</button>
-            </form>
+            <div class="word-actions">
+              <form action="/words/{{.ID}}/archive" method="post">
+                <button type="submit" class="btn-link">{{$t.WordsKnowIt}}</button>
+              </form>
+              <form action="/words/{{.ID}}/delete" method="post" class="confirm-delete" data-confirm="{{$t.WordsDeleteConfirm}}">
+                <button type="submit" class="btn-link btn-link-danger">{{$t.WordsDelete}}</button>
+              </form>
+            </div>
           </details>
         </li>
         {{end}}
       </ul>
     {{end}}
   </main>
+  {{template "confirmDelete"}}
 </body>
 </html>

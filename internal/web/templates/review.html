@@ -16,7 +16,13 @@
       {{$card := .Data.Card}}
       {{$t := .T}}
       <div class="card">
-        <div class="card-source">{{$card.BookTitle}}</div>
+        <div class="card-top">
+          <div class="card-source">{{$card.BookTitle}}</div>
+          <form action="/words/{{$card.ID}}/delete" method="post" class="confirm-delete" data-confirm="{{$t.WordsDeleteConfirm}}">
+            <input type="hidden" name="back" value="/review">
+            <button type="submit" class="btn-link btn-link-danger">{{$t.WordsDelete}}</button>
+          </form>
+        </div>
 
         {{if .Data.Recall}}
           {{$rc := .Data.Recall}}
@@ -74,6 +80,7 @@
           this.hidden = true;
         });
       </script>
+      {{template "confirmDelete"}}
     {{end}}
   </main>
 </body>

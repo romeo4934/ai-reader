@@ -338,3 +338,8 @@ details[open] .word-row::after { content: '⌄'; }
 @media (min-width: 900px) {
   .chapter { font-size: 1.25rem; }
 }
+
+.btn-link-danger { color: var(--danger); }
+.word-actions { display: flex; gap: 1.2rem; flex-wrap: wrap; }
+.card-top { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; }
+.card-top .btn-link { font-size: 0.85rem; }
