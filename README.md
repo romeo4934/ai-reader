@@ -64,7 +64,7 @@ utilisables.
 cd /opt/ai-reader && git pull --ff-only && ./deploy/deploy.sh
 ```
 
-Exposé publiquement sur `book.getlydi.com` (nginx + Let's Encrypt, même
+Exposé publiquement sur `getlydi.com` (nginx + Let's Encrypt, même
 schéma que calgoal) puisque plusieurs personnes hors du Tailscale d'Antoine
 l'utilisent. `AI_READER_ADDR` écoute en local (127.0.0.1), nginx fait la
 terminaison TLS.
