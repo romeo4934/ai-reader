@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/romeo4934/ai-reader/internal/i18n"
+	"github.com/romeo4934/ai-reader/internal/srs"
 	"github.com/romeo4934/ai-reader/internal/store"
 )
 
@@ -51,6 +52,7 @@ type dailyState struct {
 	DeckSize   int
 	Limit      int
 	MoreCount  int // what "add more new words" would pull in
+	Points     int // earned today
 }
 
 func (s *Server) dailyState(user *store.User, now time.Time) (dailyState, error) {
@@ -70,6 +72,7 @@ func (s *Server) dailyState(user *store.User, now time.Time) (dailyState, error)
 	st.NewLeft = min(allowed, newCards)
 	st.NewWaiting = newCards - st.NewLeft
 	st.Done = act.Reviews
+	st.Points = act.Points
 	st.Remaining = due + st.NewLeft
 	st.Total = st.Done + st.Remaining
 	st.DeckSize = total
@@ -135,4 +138,22 @@ func (s *Server) handleReviewMore(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.Redirect(w, r, "/review", http.StatusSeeOther)
+}
+
+// Points reward effort, not just success: typing the word out (production)
+// is worth more than recognising it. They're motivation only — the Leitner
+// schedule depends on good/again alone.
+const (
+	answerTyped      = "typed"       // typed the exact word
+	answerTypedClose = "typed_close" // typed it with a slip (accent, typo, other form)
+)
+
+func answerPoints(result srs.Result, mode string) int {
+	if result != srs.Good {
+		return 0
+	}
+	if mode == answerTyped {
+		return 2
+	}
+	return 1 // typed_close, or "I knew it" without typing
 }

@@ -9,13 +9,14 @@
 
   <main class="page">
     <h1>{{.T.WordsTitle}}</h1>
+    {{if .Data.Points}}<p class="hint words-points">{{.Data.Points}}</p>{{end}}
 
-    {{if not .Data}}
+    {{if not .Data.Words}}
       <p class="empty">{{.T.WordsEmpty}}</p>
     {{else}}
       {{$t := .T}}
       <ul class="word-list">
-        {{range .Data}}
+        {{range .Data.Words}}
         <li>
           <details>
             <summary class="word-row">

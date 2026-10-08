@@ -3,6 +3,8 @@ package web
 import (
 	"testing"
 	"time"
+
+	"github.com/romeo4934/ai-reader/internal/srs"
 )
 
 func TestStreakDays(t *testing.T) {
@@ -41,6 +43,25 @@ func TestStreakDays(t *testing.T) {
 		got := streakDays(tc.completed, at)
 		if got != tc.want {
 			t.Errorf("%s: got %d, want %d", tc.name, got, tc.want)
+		}
+	}
+}
+
+func TestAnswerPoints(t *testing.T) {
+	for _, tc := range []struct {
+		result srs.Result
+		mode   string
+		want   int
+	}{
+		{srs.Good, answerTyped, 2},
+		{srs.Good, answerTypedClose, 1},
+		{srs.Good, "", 1},
+		{srs.Good, "anything", 1},
+		{srs.Again, answerTyped, 0},
+		{srs.Again, "", 0},
+	} {
+		if got := answerPoints(tc.result, tc.mode); got != tc.want {
+			t.Errorf("answerPoints(%q, %q) = %d, want %d", tc.result, tc.mode, got, tc.want)
 		}
 	}
 }

@@ -16,6 +16,7 @@
         <div class="daily-done-mark" aria-hidden="true">✓</div>
         <h2>{{.T.DailyDoneTitle}}</h2>
         {{if gt $d.Done 0}}<p>{{printf .T.DailyDoneBody $d.Done}}</p>{{else}}<p>{{.T.DailyNothingToday}}</p>{{end}}
+        {{if .Data.PointsDone}}<p class="daily-points">{{.Data.PointsDone}}</p>{{end}}
         {{if .Data.StreakText}}<p class="daily-streak">{{.Data.StreakText}}</p>{{end}}
         <p class="hint">{{.T.DailyStreakHint}}</p>
         {{if gt $d.NewWaiting 0}}
@@ -31,7 +32,7 @@
       {{$d := .Data.Daily}}
       <div class="daily-progress">
         <div class="daily-meta">
-          <span>{{printf .T.DailyProgress $d.Done $d.Total}}</span>
+          <span>{{printf .T.DailyProgress $d.Done $d.Total}}{{if gt $d.Points 0}} · {{printf .T.DailyPoints $d.Points}}{{end}}</span>
           {{if .Data.StreakText}}<span class="daily-streak-small">{{.Data.StreakText}}</span>{{end}}
         </div>
         <div class="daily-bar" role="progressbar" aria-valuemin="0" aria-valuemax="{{$d.Total}}" aria-valuenow="{{$d.Done}}"><div class="daily-bar-fill" style="width: {{$d.Percent}}%"></div></div>
@@ -52,9 +53,20 @@
           <p class="card-context card-blank">{{$rc.SentenceBlank}}</p>
           <p class="card-hint">{{$rc.SentenceTranslation}}</p>
 
+          <form id="type-form" class="type-form" autocomplete="off" data-answer="{{$rc.Answer}}" data-lemma="{{$card.Lemma}}">
+            <input type="text" id="typed" aria-label="{{$t.ReviewTypePlaceholder}}" placeholder="{{$t.ReviewTypePlaceholder}}"
+                   autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="done">
+            <button type="submit" class="btn btn-primary">{{$t.ReviewCheck}}</button>
+          </form>
+          <p class="hint type-hint" id="type-hint">{{$t.ReviewTypeHint}}</p>
           <button id="reveal" type="button" class="btn">{{$t.ReviewRevealWord}}</button>
 
           <div id="answer" hidden>
+            <p id="type-feedback" class="type-feedback" hidden>
+              <span id="fb-correct" hidden>{{$t.ReviewCorrect}}</span>
+              <span id="fb-close" hidden>{{$t.ReviewClose}}</span>
+              <span id="fb-wrong" hidden>{{$t.ReviewWrong}} <s id="fb-typed"></s></span>
+            </p>
             <div class="card-translation">{{$rc.Answer}}</div>
             <div class="card-original">
               <span class="card-original-label">{{$t.ReviewOriginalLabel}}</span>
@@ -62,7 +74,7 @@
             </div>
             {{if $card.Note}}<div class="card-note">{{$card.Note}}</div>{{end}}
 
-            <div class="card-buttons">
+            <div class="card-buttons" id="self-buttons">
               <form action="/review/{{$card.ID}}/answer" method="post">
                 <input type="hidden" name="result" value="again">
                 <button type="submit" class="btn btn-again">{{$t.ReviewAgain}}</button>
@@ -72,6 +84,17 @@
                 <button type="submit" class="btn btn-good">{{$t.ReviewGood}}</button>
               </form>
             </div>
+            <div class="card-buttons" id="typed-buttons" hidden>
+              <form action="/review/{{$card.ID}}/answer" method="post">
+                <input type="hidden" name="result" id="typed-result" value="again">
+                <input type="hidden" name="mode" id="typed-mode" value="">
+                <button type="submit" class="btn btn-good" id="continue">{{$t.ReviewContinue}}</button>
+              </form>
+            </div>
+            <form action="/review/{{$card.ID}}/answer" method="post" id="override" class="type-override" hidden>
+              <input type="hidden" name="result" value="good">
+              <button type="submit" class="btn-link">{{$t.ReviewOverride}}</button>
+            </form>
           </div>
         {{else}}
           <p class="card-context">{{highlight $card.Context $card.Phrase}}</p>
@@ -98,10 +121,68 @@
       </div>
 
       <script>
-        document.getElementById('reveal').addEventListener('click', function () {
-          document.getElementById('answer').hidden = false;
-          this.hidden = true;
-        });
+        (function () {
+          var reveal = document.getElementById('reveal');
+          var answer = document.getElementById('answer');
+          var typeForm = document.getElementById('type-form');
+          function show(id) { document.getElementById(id).hidden = false; }
+          function hide(id) { var el = document.getElementById(id); if (el) el.hidden = true; }
+          reveal.addEventListener('click', function () {
+            answer.hidden = false;
+            reveal.hidden = true;
+            hide('type-form'); hide('type-hint');
+          });
+          if (!typeForm) return;
+
+          // Forgiving comparison: case and surrounding punctuation never
+          // matter; a missing accent, one typo (two in a long word) or the
+          // dictionary form instead of the inflected one counts as "close".
+          function norm(s) { return s.toLowerCase().trim().replace(/^[\s.,;:!?¡¿"'«»“”‘’()-]+|[\s.,;:!?¡¿"'«»“”‘’()-]+$/g, '').replace(/\s+/g, ' '); }
+          function bare(s) { return s.normalize('NFD').replace(/[\u0300-\u036f]/g, ''); }
+          function dist(a, b) {
+            var prev = [], cur, i, j;
+            for (j = 0; j <= b.length; j++) prev[j] = j;
+            for (i = 1; i <= a.length; i++) {
+              cur = [i];
+              for (j = 1; j <= b.length; j++) {
+                cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+              }
+              prev = cur;
+            }
+            return prev[b.length];
+          }
+          function grade(typed, answer, lemma) {
+            var t = norm(typed), a = norm(answer), l = norm(lemma || '');
+            if (!t) return null;
+            if (t === a) return 'typed';
+            var bt = bare(t), ba = bare(a);
+            if (bt === ba || (l && bt === bare(l))) return 'typed_close';
+            var allowed = ba.length >= 8 ? 2 : (ba.length >= 4 ? 1 : 0);
+            if (dist(bt, ba) <= allowed) return 'typed_close';
+            return 'wrong';
+          }
+
+          var input = document.getElementById('typed');
+          typeForm.addEventListener('submit', function (e) {
+            e.preventDefault();
+            var g = grade(input.value, typeForm.dataset.answer, typeForm.dataset.lemma);
+            if (!g) { input.focus(); return; }
+            hide('type-form'); hide('type-hint'); reveal.hidden = true;
+            answer.hidden = false;
+            hide('self-buttons'); show('typed-buttons'); show('type-feedback');
+            if (g === 'wrong') {
+              document.getElementById('fb-typed').textContent = input.value.trim();
+              show('fb-wrong'); show('override');
+              document.getElementById('continue').className = 'btn';
+            } else {
+              document.getElementById('typed-result').value = 'good';
+              document.getElementById('typed-mode').value = g;
+              show(g === 'typed' ? 'fb-correct' : 'fb-close');
+              document.getElementById('type-feedback').classList.add('type-feedback-ok');
+            }
+            document.getElementById('continue').focus();
+          });
+        })();
       </script>
       {{template "confirmDelete"}}
     {{end}}

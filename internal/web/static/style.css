@@ -451,3 +451,22 @@ details[open] .word-row::after { content: '⌄'; }
 .daily-streak { font-size: 1.3rem; font-weight: 600; margin: 1rem 0 0.3rem; }
 .daily-waiting { margin-top: 1.5rem; }
 .daily-done form { margin-top: 0.8rem; }
+
+/* Typing the word in review */
+/* Classes that set display (.btn, flex rows) would otherwise beat the hidden attribute. */
+[hidden] { display: none !important; }
+.type-form { display: flex; gap: 0.6rem; margin-top: 1.2rem; }
+.type-form input {
+  flex: 1; min-width: 0;
+  padding: 0.6rem 0.8rem; font-size: 16px;
+  border-radius: 8px; border: 1px solid var(--border);
+  background: var(--card-bg); color: var(--fg);
+}
+.type-form input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.type-hint { margin: 0.5rem 0 1rem; font-family: sans-serif; }
+.type-feedback { font-family: -apple-system, BlinkMacSystemFont, sans-serif; font-weight: 600; color: var(--danger); margin: 0.2rem 0 0; }
+.type-feedback-ok { color: var(--accent); }
+.type-feedback s { font-weight: 400; }
+.type-override { margin-top: 0.8rem; text-align: center; font-family: sans-serif; font-size: 0.9rem; }
+.daily-points { font-family: -apple-system, BlinkMacSystemFont, sans-serif; font-weight: 600; color: var(--accent); margin: 1rem 0 0; }
+.words-points { margin: -0.5rem 0 1.2rem; }

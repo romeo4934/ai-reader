@@ -81,6 +81,10 @@ func Open(path string) (*Store, error) {
 		db.Close()
 		return nil, fmt.Errorf("table daily_activity : %w", err)
 	}
+	if err := ensureColumn(db, "daily_activity", "points", "INTEGER NOT NULL DEFAULT 0"); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("migration daily_activity.points : %w", err)
+	}
 	// These index the user_id columns just added above — created here rather
 	// than in schema.sql so they never run before ensureColumn has had a
 	// chance to add the column on an upgraded database.
@@ -662,29 +666,38 @@ type DailyActivity struct {
 	NewCards  int
 	ExtraNew  int
 	Completed bool
+	Points    int
 }
 
 func (s *Store) GetDailyActivity(userID int64, day string) (DailyActivity, error) {
 	var a DailyActivity
-	err := s.db.QueryRow(`SELECT reviews, new_cards, extra_new, completed FROM daily_activity WHERE user_id = ? AND day = ?`,
-		userID, day).Scan(&a.Reviews, &a.NewCards, &a.ExtraNew, &a.Completed)
+	err := s.db.QueryRow(`SELECT reviews, new_cards, extra_new, completed, points FROM daily_activity WHERE user_id = ? AND day = ?`,
+		userID, day).Scan(&a.Reviews, &a.NewCards, &a.ExtraNew, &a.Completed, &a.Points)
 	if errors.Is(err, sql.ErrNoRows) {
 		return DailyActivity{}, nil
 	}
 	return a, err
 }
 
-// RecordReview counts one answered card for the day; wasNew when it was the
-// card's first review, which is what the daily new-card limit counts.
-func (s *Store) RecordReview(userID int64, day string, wasNew bool) error {
+// RecordReview counts one answered card for the day, and the points it
+// earned; wasNew when it was the card's first review, which is what the
+// daily new-card limit counts.
+func (s *Store) RecordReview(userID int64, day string, wasNew bool, points int) error {
 	n := 0
 	if wasNew {
 		n = 1
 	}
-	_, err := s.db.Exec(`INSERT INTO daily_activity (user_id, day, reviews, new_cards) VALUES (?, ?, 1, ?)
-		ON CONFLICT (user_id, day) DO UPDATE SET reviews = reviews + 1, new_cards = new_cards + excluded.new_cards`,
-		userID, day, n)
+	_, err := s.db.Exec(`INSERT INTO daily_activity (user_id, day, reviews, new_cards, points) VALUES (?, ?, 1, ?, ?)
+		ON CONFLICT (user_id, day) DO UPDATE SET reviews = reviews + 1, new_cards = new_cards + excluded.new_cards,
+			points = points + excluded.points`,
+		userID, day, n, points)
 	return err
+}
+
+func (s *Store) TotalPoints(userID int64) (int, error) {
+	var n int
+	err := s.db.QueryRow(`SELECT COALESCE(SUM(points), 0) FROM daily_activity WHERE user_id = ?`, userID).Scan(&n)
+	return n, err
 }
 
 // AddExtraNew raises today's new-card allowance, for someone who finished

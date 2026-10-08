@@ -445,8 +445,10 @@ type reviewView struct {
 	StreakText string
 	// Finished: nothing left today in a non-empty deck — the challenge is done.
 	Finished bool
-	Card     *store.Vocab
-	IsNew    bool
+	// PointsDone is the "done" screen's points line (today and total).
+	PointsDone string
+	Card       *store.Vocab
+	IsNew      bool
 	// Recall is nil when generation failed or no API key is set — the
 	// template falls back to the plain translation-reveal card.
 	Recall *ai.RecallCard
@@ -483,6 +485,13 @@ func (s *Server) handleReviewPage(w http.ResponseWriter, r *http.Request) {
 		view.Finished = true
 		if err := s.store.MarkDayCompleted(user.ID, daily.Day); err != nil {
 			s.log.Error("mark day completed", "err", err)
+		}
+	}
+	if view.Finished {
+		if total, err := s.store.TotalPoints(user.ID); err != nil {
+			s.log.Error("total points", "err", err)
+		} else if total > 0 {
+			view.PointsDone = fmt.Sprintf(T["DailyPointsDone"], daily.Points, total)
 		}
 	}
 	view.Streak = s.streak(user.ID, now)
@@ -544,6 +553,7 @@ func (s *Server) handleReviewAnswer(w http.ResponseWriter, r *http.Request) {
 	if result != srs.Good {
 		result = srs.Again
 	}
+	points := answerPoints(result, r.FormValue("mode"))
 
 	card, err := s.store.GetVocab(id, user.ID)
 	if err != nil {
@@ -556,7 +566,7 @@ func (s *Server) handleReviewAnswer(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, http.StatusInternalServerError, err)
 		return
 	}
-	if err := s.store.RecordReview(user.ID, dayKey(now.In(userLocation(r))), card.LastReviewedAt == nil); err != nil {
+	if err := s.store.RecordReview(user.ID, dayKey(now.In(userLocation(r))), card.LastReviewedAt == nil, points); err != nil {
 		s.log.Error("record review", "err", err)
 	}
 	http.Redirect(w, r, "/review", http.StatusSeeOther)
@@ -569,7 +579,21 @@ func (s *Server) handleWords(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, http.StatusInternalServerError, err)
 		return
 	}
-	s.render(w, r, "words.html", s.dictFor(r)["WordsTitle"], words)
+	T := s.dictFor(r)
+	total, err := s.store.TotalPoints(user.ID)
+	if err != nil {
+		s.log.Error("total points", "err", err)
+	}
+	view := wordsView{Words: words}
+	if total > 0 {
+		view.Points = fmt.Sprintf(T["WordsPointsTotal"], total)
+	}
+	s.render(w, r, "words.html", T["WordsTitle"], view)
+}
+
+type wordsView struct {
+	Words  []store.Vocab
+	Points string // empty until the first point is earned
 }
 
 func (s *Server) handleArchiveWord(w http.ResponseWriter, r *http.Request) {
