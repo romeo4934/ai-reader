@@ -60,3 +60,17 @@ Exposé publiquement sur `book.getlydi.com` (nginx + Let's Encrypt, même
 schéma que calgoal) puisque plusieurs personnes hors du Tailscale d'Antoine
 l'utilisent. `AI_READER_ADDR` écoute en local (127.0.0.1), nginx fait la
 terminaison TLS.
+
+## Sauvegardes
+
+Chaque nuit (03:30 UTC), `ai-reader-backup.timer` fait une copie cohérente de
+la base (`sqlite3 .backup`, jamais `cp`), vérifie son intégrité, la compresse
+dans `/opt/ai-reader/backups` (14 jours gardés) et l'envoie sur Backblaze B2 si
+`B2_ACCOUNT_ID` / `B2_APP_KEY` / `B2_BUCKET` sont dans `.env`.
+
+```sh
+install -d -o ai-reader -g ai-reader -m 700 /opt/ai-reader/backups
+cp deploy/ai-reader-backup.service deploy/ai-reader-backup.timer /etc/systemd/system/
+systemctl daemon-reload && systemctl enable --now ai-reader-backup.timer
+systemctl start ai-reader-backup.service && journalctl -u ai-reader-backup -n 20 --no-pager
+```

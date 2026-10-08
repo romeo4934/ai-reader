@@ -1,0 +1,10 @@
+[Unit]
+Description=ai-reader — sauvegarde SQLite + copie B2
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=ai-reader
+Group=ai-reader
+EnvironmentFile=/opt/ai-reader/.env
+ExecStart=/opt/ai-reader/scripts/backup.sh
