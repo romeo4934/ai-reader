@@ -438,3 +438,16 @@ details[open] .word-row::after { content: '⌄'; }
 .auth-page > .hint { margin-bottom: 1.2rem; }
 .settings-section { font-family: -apple-system, BlinkMacSystemFont, sans-serif; font-size: 1.15rem; margin: 2.5rem 0 0.8rem; }
 .settings-msg { color: var(--accent); margin-bottom: 0.8rem; }
+
+/* Daily review challenge */
+.daily-progress { margin-bottom: 1.2rem; }
+.daily-meta { display: flex; justify-content: space-between; gap: 1rem; font-family: -apple-system, BlinkMacSystemFont, sans-serif; font-size: 0.9rem; color: var(--muted); margin-bottom: 0.4rem; }
+.daily-bar { height: 8px; border-radius: 4px; background: var(--border); overflow: hidden; }
+.daily-bar-fill { height: 100%; background: var(--accent); border-radius: 4px; transition: width 0.3s; }
+.card-new { display: inline-block; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--accent-fg); background: var(--accent); border-radius: 3px; padding: 0.05rem 0.4rem; margin-right: 0.5rem; vertical-align: 1px; }
+.daily-done { text-align: center; padding: 2rem 1rem; border: 1px solid var(--border); border-radius: 12px; background: var(--card-bg); }
+.daily-done h2 { font-family: -apple-system, BlinkMacSystemFont, sans-serif; margin: 0.6rem 0; }
+.daily-done-mark { width: 56px; height: 56px; margin: 0 auto; border-radius: 50%; background: var(--accent); color: var(--accent-fg); font-size: 2rem; line-height: 56px; }
+.daily-streak { font-size: 1.3rem; font-weight: 600; margin: 1rem 0 0.3rem; }
+.daily-waiting { margin-top: 1.5rem; }
+.daily-done form { margin-top: 0.8rem; }

@@ -9,6 +9,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	_ "time/tzdata" // the tz cookie names IANA zones; don't depend on the host having them
 
 	"github.com/romeo4934/ai-reader/internal/ai"
 	"github.com/romeo4934/ai-reader/internal/mail"

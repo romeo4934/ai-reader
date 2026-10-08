@@ -3,6 +3,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <link rel="stylesheet" href="/static/style.css">
 <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<script>
+  // The daily review challenge follows the reader's own midnight.
+  try {
+    var tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (tz && document.cookie.indexOf('tz=' + tz) < 0) {
+      document.cookie = 'tz=' + tz + '; path=/; max-age=31536000; SameSite=Lax';
+    }
+  } catch (e) {}
+</script>
 {{end}}
 
 {{define "nav"}}

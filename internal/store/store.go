@@ -69,6 +69,18 @@ func Open(path string) (*Store, error) {
 		db.Close()
 		return nil, fmt.Errorf("table usage : %w", err)
 	}
+	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS daily_activity (
+		user_id   INTEGER NOT NULL REFERENCES users(id),
+		day       TEXT NOT NULL,
+		reviews   INTEGER NOT NULL DEFAULT 0,
+		new_cards INTEGER NOT NULL DEFAULT 0,
+		extra_new INTEGER NOT NULL DEFAULT 0,
+		completed INTEGER NOT NULL DEFAULT 0,
+		PRIMARY KEY (user_id, day)
+	)`); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("table daily_activity : %w", err)
+	}
 	// These index the user_id columns just added above — created here rather
 	// than in schema.sql so they never run before ensureColumn has had a
 	// chance to add the column on an upgraded database.
@@ -97,6 +109,7 @@ func migrateUsersForEmail(db *sql.DB) error {
 		{"email_verified_at", "TEXT NOT NULL DEFAULT ''"},
 		{"plan", "TEXT NOT NULL DEFAULT 'free'"},
 		{"pending_email", "TEXT NOT NULL DEFAULT ''"},
+		{"daily_new_limit", "INTEGER NOT NULL DEFAULT 10"},
 	} {
 		if err := ensureColumn(db, "users", c.name, c.decl); err != nil {
 			return fmt.Errorf("migration users.%s : %w", c.name, err)
@@ -183,6 +196,9 @@ type User struct {
 	// settings, waiting for its confirmation link to be clicked. Kept apart
 	// from Email so an unconfirmed address never locks the account's login.
 	PendingEmail string
+	// DailyNewLimit caps how many never-reviewed cards enter the daily
+	// review session; the rest wait for the following days.
+	DailyNewLimit int
 }
 
 // Plans: "free" is bounded by the monthly translation quota; "unlimited"
@@ -192,12 +208,12 @@ const (
 	PlanUnlimited = "unlimited"
 )
 
-const userColumns = `id, username, password_hash, native_lang, created_at, COALESCE(email, ''), email_verified_at != '', plan, pending_email`
+const userColumns = `id, username, password_hash, native_lang, created_at, COALESCE(email, ''), email_verified_at != '', plan, pending_email, daily_new_limit`
 
 func scanUser(row interface{ Scan(...any) error }) (User, error) {
 	var u User
 	var createdAt string
-	if err := row.Scan(&u.ID, &u.Username, &u.PasswordHash, &u.NativeLang, &createdAt, &u.Email, &u.EmailVerified, &u.Plan, &u.PendingEmail); err != nil {
+	if err := row.Scan(&u.ID, &u.Username, &u.PasswordHash, &u.NativeLang, &createdAt, &u.Email, &u.EmailVerified, &u.Plan, &u.PendingEmail, &u.DailyNewLimit); err != nil {
 		return User{}, err
 	}
 	u.CreatedAt, _ = time.Parse(timeLayout, createdAt)
@@ -297,6 +313,11 @@ func (s *Store) SetPasswordHash(userID int64, hash string) error {
 
 func (s *Store) SetUserNativeLang(userID int64, lang string) error {
 	_, err := s.db.Exec(`UPDATE users SET native_lang = ? WHERE id = ?`, lang, userID)
+	return err
+}
+
+func (s *Store) SetDailyNewLimit(userID int64, n int) error {
+	_, err := s.db.Exec(`UPDATE users SET daily_new_limit = ? WHERE id = ?`, n, userID)
 	return err
 }
 
@@ -626,4 +647,110 @@ func (s *Store) CountTranslation(userID int64, now time.Time) error {
 	_, err := s.db.Exec(`INSERT INTO usage (user_id, month, translations) VALUES (?, ?, 1)
 		ON CONFLICT (user_id, month) DO UPDATE SET translations = translations + 1`, userID, usageMonth(now))
 	return err
+}
+
+// --- daily challenge ---
+//
+// A card is "new" until its first review (last_reviewed_at IS NULL). Due
+// reviews always make it into the day's session; new cards only up to the
+// user's daily limit, so a long reading session doesn't turn into an
+// 80-card review the next morning. Days are the user's local calendar days
+// ("2006-01-02"), computed by the caller.
+
+type DailyActivity struct {
+	Reviews   int
+	NewCards  int
+	ExtraNew  int
+	Completed bool
+}
+
+func (s *Store) GetDailyActivity(userID int64, day string) (DailyActivity, error) {
+	var a DailyActivity
+	err := s.db.QueryRow(`SELECT reviews, new_cards, extra_new, completed FROM daily_activity WHERE user_id = ? AND day = ?`,
+		userID, day).Scan(&a.Reviews, &a.NewCards, &a.ExtraNew, &a.Completed)
+	if errors.Is(err, sql.ErrNoRows) {
+		return DailyActivity{}, nil
+	}
+	return a, err
+}
+
+// RecordReview counts one answered card for the day; wasNew when it was the
+// card's first review, which is what the daily new-card limit counts.
+func (s *Store) RecordReview(userID int64, day string, wasNew bool) error {
+	n := 0
+	if wasNew {
+		n = 1
+	}
+	_, err := s.db.Exec(`INSERT INTO daily_activity (user_id, day, reviews, new_cards) VALUES (?, ?, 1, ?)
+		ON CONFLICT (user_id, day) DO UPDATE SET reviews = reviews + 1, new_cards = new_cards + excluded.new_cards`,
+		userID, day, n)
+	return err
+}
+
+// AddExtraNew raises today's new-card allowance, for someone who finished
+// the challenge and wants to keep going.
+func (s *Store) AddExtraNew(userID int64, day string, n int) error {
+	_, err := s.db.Exec(`INSERT INTO daily_activity (user_id, day, extra_new) VALUES (?, ?, ?)
+		ON CONFLICT (user_id, day) DO UPDATE SET extra_new = extra_new + excluded.extra_new`,
+		userID, day, n)
+	return err
+}
+
+func (s *Store) MarkDayCompleted(userID int64, day string) error {
+	_, err := s.db.Exec(`INSERT INTO daily_activity (user_id, day, completed) VALUES (?, ?, 1)
+		ON CONFLICT (user_id, day) DO UPDATE SET completed = 1`, userID, day)
+	return err
+}
+
+// CompletedDays returns the days since `since` (inclusive) on which the
+// user finished the daily challenge — what the streak is counted from.
+func (s *Store) CompletedDays(userID int64, since string) (map[string]bool, error) {
+	rows, err := s.db.Query(`SELECT day FROM daily_activity WHERE user_id = ? AND day >= ? AND completed = 1`, userID, since)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]bool{}
+	for rows.Next() {
+		var d string
+		if err := rows.Scan(&d); err != nil {
+			return nil, err
+		}
+		out[d] = true
+	}
+	return out, rows.Err()
+}
+
+// DeckCounts is what the daily session is built from: due cards already
+// reviewed at least once, never-reviewed cards, and the whole deck.
+func (s *Store) DeckCounts(userID int64, now time.Time) (dueReviews, newCards, total int, err error) {
+	err = s.db.QueryRow(`SELECT
+			COALESCE(SUM(last_reviewed_at IS NOT NULL AND next_review_at <= ?), 0),
+			COALESCE(SUM(last_reviewed_at IS NULL), 0),
+			COUNT(*)
+		FROM vocab WHERE user_id = ?`, now.Format(timeLayout), userID).Scan(&dueReviews, &newCards, &total)
+	return
+}
+
+// NextDailyCard returns the next card of the daily session: due reviews
+// first, then (if allowNew) never-reviewed cards, most frequent words first
+// within each group. ok is false when there's nothing left.
+func (s *Store) NextDailyCard(userID int64, now time.Time, allowNew bool) (v Vocab, ok bool, err error) {
+	rows, err := s.db.Query(`
+		SELECT v.id, v.user_id, v.book_id, b.title, v.chapter_id, v.phrase, v.lemma, v.context,
+		       v.translation, v.note, v.frequency, v.box, v.next_review_at, v.created_at, v.last_reviewed_at
+		FROM vocab v JOIN books b ON b.id = v.book_id
+		WHERE v.user_id = ? AND (
+			(v.last_reviewed_at IS NOT NULL AND v.next_review_at <= ?) OR (? AND v.last_reviewed_at IS NULL))
+		ORDER BY v.last_reviewed_at IS NULL, v.frequency ASC, v.next_review_at ASC
+		LIMIT 1`, userID, now.Format(timeLayout), allowNew)
+	if err != nil {
+		return Vocab{}, false, err
+	}
+	defer rows.Close()
+	cards, err := scanVocabRows(rows)
+	if err != nil || len(cards) == 0 {
+		return Vocab{}, false, err
+	}
+	return cards[0], true, nil
 }

@@ -13,6 +13,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -101,6 +102,7 @@ func (s *Server) Routes() http.Handler {
 
 	mux.HandleFunc("GET /review", s.requireAuth(s.handleReviewPage))
 	mux.HandleFunc("POST /review/{id}/answer", s.requireAuth(s.handleReviewAnswer))
+	mux.HandleFunc("POST /review/more", s.requireAuth(s.handleReviewMore))
 
 	mux.HandleFunc("GET /words", s.requireAuth(s.handleWords))
 	mux.HandleFunc("GET /reviewed", s.requireAuth(s.handleReviewed))
@@ -259,11 +261,13 @@ func (s *Server) render(w http.ResponseWriter, r *http.Request, name, title stri
 func (s *Server) renderDict(w http.ResponseWriter, r *http.Request, T i18n.Dict, name, title string, data any) {
 	pd := pageData{Title: title, T: T, Data: data}
 	if user := userFromContext(r); user != nil {
-		due, err := s.store.CountDueVocab(user.ID, time.Now().UTC())
+		// The badge is what's left of today's challenge, not the raw due
+		// count: new cards beyond the daily limit aren't today's job.
+		daily, err := s.dailyState(user, time.Now().In(userLocation(r)))
 		if err != nil {
-			s.log.Error("count due vocab", "err", err)
+			s.log.Error("daily state", "err", err)
 		}
-		pd.DueCount = due
+		pd.DueCount = daily.Remaining
 		pd.LoggedIn = true
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -434,7 +438,14 @@ func (s *Server) handleReader(w http.ResponseWriter, r *http.Request) {
 // --- review ---
 
 type reviewView struct {
-	Card *store.Vocab
+	Daily  dailyState
+	Streak int
+	// StreakText is empty while there's no streak to show.
+	StreakText string
+	// Finished: nothing left today in a non-empty deck — the challenge is done.
+	Finished bool
+	Card     *store.Vocab
+	IsNew    bool
 	// Recall is nil when generation failed or no API key is set — the
 	// template falls back to the plain translation-reveal card.
 	Recall *ai.RecallCard
@@ -442,17 +453,39 @@ type reviewView struct {
 
 func (s *Server) handleReviewPage(w http.ResponseWriter, r *http.Request) {
 	user := userFromContext(r)
-	cards, err := s.store.DueVocab(user.ID, time.Now().UTC(), 1)
+	T := s.dictFor(r)
+	now := time.Now().In(userLocation(r))
+	daily, err := s.dailyState(user, now)
 	if err != nil {
 		s.fail(w, http.StatusInternalServerError, err)
 		return
 	}
-	view := reviewView{}
-	if len(cards) > 0 {
-		view.Card = &cards[0]
-		view.Recall = s.generateRecallCard(r.Context(), user, view.Card)
+	view := reviewView{Daily: daily}
+	if daily.Remaining > 0 {
+		card, ok, err := s.store.NextDailyCard(user.ID, now.UTC(), daily.NewLeft > 0)
+		if err != nil {
+			s.fail(w, http.StatusInternalServerError, err)
+			return
+		}
+		if ok {
+			view.Card = &card
+			view.IsNew = card.LastReviewedAt == nil
+			view.Recall = s.generateRecallCard(r.Context(), user, view.Card)
+		}
 	}
-	s.render(w, r, "review.html", s.dictFor(r)["ReviewTitle"], view)
+	if view.Card == nil && daily.DeckSize > 0 {
+		// Also counts a day with nothing due: the reader showed up, and
+		// having nothing to do isn't a reason to lose the streak.
+		view.Finished = true
+		if err := s.store.MarkDayCompleted(user.ID, daily.Day); err != nil {
+			s.log.Error("mark day completed", "err", err)
+		}
+	}
+	view.Streak = s.streak(user.ID, now)
+	if view.Streak > 0 {
+		view.StreakText = streakText(T, view.Streak)
+	}
+	s.render(w, r, "review.html", T["ReviewTitle"], view)
 }
 
 // generateRecallCard asks Claude for a fresh fill-in-the-blank exercise for
@@ -515,6 +548,9 @@ func (s *Server) handleReviewAnswer(w http.ResponseWriter, r *http.Request) {
 	if err := s.store.UpdateVocabReview(id, user.ID, nextBox, nextReview, now); err != nil {
 		s.fail(w, http.StatusInternalServerError, err)
 		return
+	}
+	if err := s.store.RecordReview(user.ID, dayKey(now.In(userLocation(r))), card.LastReviewedAt == nil); err != nil {
+		s.log.Error("record review", "err", err)
 	}
 	http.Redirect(w, r, "/review", http.StatusSeeOther)
 }
@@ -594,6 +630,7 @@ func (s *Server) handleSettingsGet(w http.ResponseWriter, r *http.Request) {
 	}
 	s.render(w, r, "settings.html", T["SettingsTitle"], settingsView{
 		NativeLang: native, Username: user.Username, Usage: usage,
+		DailyNewLimit: dailyNewLimit(user), DailyNewLimits: DailyNewLimits,
 		Email: user.Email, PendingEmail: user.PendingEmail, Message: r.URL.Query().Get("msg"),
 	})
 }
@@ -605,6 +642,9 @@ type settingsView struct {
 	Email        string
 	PendingEmail string
 	Message      string
+
+	DailyNewLimit  int
+	DailyNewLimits []int
 }
 
 func (s *Server) handleSettingsPost(w http.ResponseWriter, r *http.Request) {
@@ -620,6 +660,12 @@ func (s *Server) handleSettingsPost(w http.ResponseWriter, r *http.Request) {
 	if err := s.store.SetUserNativeLang(user.ID, native); err != nil {
 		s.fail(w, http.StatusInternalServerError, err)
 		return
+	}
+	if n, err := strconv.Atoi(r.FormValue("daily_new_limit")); err == nil && slices.Contains(DailyNewLimits, n) {
+		if err := s.store.SetDailyNewLimit(user.ID, n); err != nil {
+			s.fail(w, http.StatusInternalServerError, err)
+			return
+		}
 	}
 	http.Redirect(w, r, "/settings", http.StatusSeeOther)
 }

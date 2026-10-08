@@ -10,14 +10,37 @@
   <main class="page review-page">
     <h1>{{.T.ReviewTitle}}</h1>
 
-    {{if not .Data.Card}}
+    {{if .Data.Finished}}
+      {{$d := .Data.Daily}}
+      <div class="daily-done">
+        <div class="daily-done-mark" aria-hidden="true">✓</div>
+        <h2>{{.T.DailyDoneTitle}}</h2>
+        {{if gt $d.Done 0}}<p>{{printf .T.DailyDoneBody $d.Done}}</p>{{else}}<p>{{.T.DailyNothingToday}}</p>{{end}}
+        {{if .Data.StreakText}}<p class="daily-streak">{{.Data.StreakText}}</p>{{end}}
+        <p class="hint">{{.T.DailyStreakHint}}</p>
+        {{if gt $d.NewWaiting 0}}
+          <p class="hint daily-waiting">{{printf .T.DailyWaiting $d.NewWaiting}}</p>
+          <form action="/review/more" method="post">
+            <button type="submit" class="btn">{{printf .T.DailyMoreBtn $d.MoreCount}}</button>
+          </form>
+        {{end}}
+      </div>
+    {{else if not .Data.Card}}
       <p class="empty">{{.T.ReviewEmpty}}</p>
     {{else}}
+      {{$d := .Data.Daily}}
+      <div class="daily-progress">
+        <div class="daily-meta">
+          <span>{{printf .T.DailyProgress $d.Done $d.Total}}</span>
+          {{if .Data.StreakText}}<span class="daily-streak-small">{{.Data.StreakText}}</span>{{end}}
+        </div>
+        <div class="daily-bar" role="progressbar" aria-valuemin="0" aria-valuemax="{{$d.Total}}" aria-valuenow="{{$d.Done}}"><div class="daily-bar-fill" style="width: {{$d.Percent}}%"></div></div>
+      </div>
       {{$card := .Data.Card}}
       {{$t := .T}}
       <div class="card">
         <div class="card-top">
-          <div class="card-source">{{$card.BookTitle}}</div>
+          <div class="card-source">{{if $.Data.IsNew}}<span class="card-new">{{$t.DailyNewBadge}}</span>{{end}}{{$card.BookTitle}}</div>
           <form action="/words/{{$card.ID}}/delete" method="post" class="confirm-delete" data-confirm="{{$t.WordsDeleteConfirm}}">
             <input type="hidden" name="back" value="/review">
             <button type="submit" class="btn-link btn-link-danger">{{$t.WordsDelete}}</button>

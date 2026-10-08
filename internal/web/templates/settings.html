@@ -25,6 +25,13 @@
       </select>
       <input type="text" id="native_lang" name="native_lang" value="{{.Data.NativeLang}}" required hidden>
       <p class="hint">{{.T.SettingsNativeLangHint}}</p>
+
+      <label for="daily_new_limit">{{.T.SettingsDailyNewLabel}}</label>
+      <select id="daily_new_limit" name="daily_new_limit">
+        {{$cur := .Data.DailyNewLimit}}
+        {{range .Data.DailyNewLimits}}<option value="{{.}}"{{if eq . $cur}} selected{{end}}>{{.}}</option>{{end}}
+      </select>
+      <p class="hint">{{.T.SettingsDailyNewHint}}</p>
       <button type="submit" class="btn btn-primary">{{.T.SettingsSave}}</button>
     </form>
 
