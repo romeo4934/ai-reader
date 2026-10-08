@@ -58,7 +58,7 @@
   </main>
 
   <footer class="landing-footer">
-    <span>📖 ai-reader</span>
+    <span class="brand brand-footer"><span class="brand-mark" aria-hidden="true">L</span><span class="brand-name">Lydi</span></span>
     <nav class="lang-switch" aria-label="{{$t.LandLangLabel}}">
       {{range .Data.Languages}}<a href="/?lang={{.Code}}" hreflang="{{.Code}}" lang="{{.Code}}"{{if eq .Code $t.LangCode}} aria-current="true"{{end}}>{{.Name}}</a>
       {{end}}

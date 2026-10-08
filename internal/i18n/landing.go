@@ -44,7 +44,7 @@ func ForVisitor(acceptLanguage string) Dict {
 // everyone else.
 var landing = map[string]Dict{
 	"en": {
-		"LandTitle":    "ai-reader — learn a language by reading real books",
+		"LandTitle":    "Lydi — learn a language by reading real books",
 		"LandMetaDesc": "Read your epub books in the original language: tap a word and its translation appears in the context of the sentence, then it joins your reviews.",
 		"LandH1":       "Learn a language by reading real books.",
 		"LandLead":     "Open your epub and tap a word you don't know: its translation appears in the context of the sentence. The word goes straight into your reviews, so it sticks.",
@@ -68,7 +68,7 @@ var landing = map[string]Dict{
 		"LandLangLabel": "Language",
 	},
 	"fr": {
-		"LandTitle":    "ai-reader — apprendre une langue en lisant de vrais livres",
+		"LandTitle":    "Lydi — apprendre une langue en lisant de vrais livres",
 		"LandMetaDesc": "Lis tes livres epub en version originale : touche un mot, sa traduction apparaît dans le contexte de la phrase, et il part dans tes révisions.",
 		"LandH1":       "Apprends une langue en lisant de vrais livres.",
 		"LandLead":     "Ouvre ton epub, touche un mot que tu ne connais pas : sa traduction apparaît dans le contexte de la phrase. Le mot rejoint automatiquement tes révisions, pour que tu le retiennes.",
@@ -90,7 +90,7 @@ var landing = map[string]Dict{
 		"LandLangLabel": "Langue",
 	},
 	"es": {
-		"LandTitle":    "ai-reader — aprende un idioma leyendo libros de verdad",
+		"LandTitle":    "Lydi — aprende un idioma leyendo libros de verdad",
 		"LandMetaDesc": "Lee tus libros epub en versión original: toca una palabra y su traducción aparece en el contexto de la frase, y pasa a tus repasos.",
 		"LandH1":       "Aprende un idioma leyendo libros de verdad.",
 		"LandLead":     "Abre tu epub y toca una palabra que no conoces: su traducción aparece en el contexto de la frase. La palabra pasa automáticamente a tus repasos, para que no se te olvide.",
@@ -112,7 +112,7 @@ var landing = map[string]Dict{
 		"LandLangLabel": "Idioma",
 	},
 	"pt": {
-		"LandTitle":    "ai-reader — aprenda um idioma lendo livros de verdade",
+		"LandTitle":    "Lydi — aprenda um idioma lendo livros de verdade",
 		"LandMetaDesc": "Leia seus livros epub no idioma original: toque numa palavra e a tradução aparece no contexto da frase, depois ela vai para as suas revisões.",
 		"LandH1":       "Aprenda um idioma lendo livros de verdade.",
 		"LandLead":     "Abra seu epub e toque numa palavra que você não conhece: a tradução aparece no contexto da frase. A palavra vai automaticamente para as suas revisões, para você não esquecer.",
@@ -134,7 +134,7 @@ var landing = map[string]Dict{
 		"LandLangLabel": "Idioma",
 	},
 	"it": {
-		"LandTitle":    "ai-reader — impara una lingua leggendo libri veri",
+		"LandTitle":    "Lydi — impara una lingua leggendo libri veri",
 		"LandMetaDesc": "Leggi i tuoi libri epub in lingua originale: tocca una parola e la traduzione appare nel contesto della frase, poi finisce nei tuoi ripassi.",
 		"LandH1":       "Impara una lingua leggendo libri veri.",
 		"LandLead":     "Apri il tuo epub e tocca una parola che non conosci: la traduzione appare nel contesto della frase. La parola finisce automaticamente nei tuoi ripassi, così te la ricordi.",
@@ -156,7 +156,7 @@ var landing = map[string]Dict{
 		"LandLangLabel": "Lingua",
 	},
 	"de": {
-		"LandTitle":    "ai-reader — eine Sprache lernen mit echten Büchern",
+		"LandTitle":    "Lydi — eine Sprache lernen mit echten Büchern",
 		"LandMetaDesc": "Lies deine epub-Bücher im Original: Tippe auf ein Wort, die Übersetzung erscheint im Kontext des Satzes, und es landet in deinen Wiederholungen.",
 		"LandH1":       "Lerne eine Sprache mit echten Büchern.",
 		"LandLead":     "Öffne dein epub und tippe auf ein Wort, das du nicht kennst: Die Übersetzung erscheint im Kontext des Satzes. Das Wort landet automatisch in deinen Wiederholungen, damit es hängen bleibt.",
@@ -178,7 +178,7 @@ var landing = map[string]Dict{
 		"LandLangLabel": "Sprache",
 	},
 	"nl": {
-		"LandTitle":    "ai-reader — leer een taal door echte boeken te lezen",
+		"LandTitle":    "Lydi — leer een taal door echte boeken te lezen",
 		"LandMetaDesc": "Lees je epub-boeken in de originele taal: tik op een woord en de vertaling verschijnt in de context van de zin, daarna gaat het naar je herhalingen.",
 		"LandH1":       "Leer een taal door echte boeken te lezen.",
 		"LandLead":     "Open je epub en tik op een woord dat je niet kent: de vertaling verschijnt in de context van de zin. Het woord gaat automatisch naar je herhalingen, zodat je het onthoudt.",

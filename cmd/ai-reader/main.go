@@ -37,7 +37,7 @@ func run() error {
 		return fmt.Errorf("AI_READER_FREE_QUOTA invalide : %q", os.Getenv("AI_READER_FREE_QUOTA"))
 	}
 	mailer := mail.New(os.Getenv("CLOUDFLARE_ACCOUNT_ID"), os.Getenv("CLOUDFLARE_API_TOKEN"),
-		getenv("AI_READER_MAIL_FROM", "noreply@getlydi.com"), "ai-reader", log)
+		getenv("AI_READER_MAIL_FROM", "noreply@getlydi.com"), "Lydi", log)
 	if !mailer.Enabled() {
 		log.Warn("CLOUDFLARE_ACCOUNT_ID / CLOUDFLARE_API_TOKEN absents — les emails sont seulement journalisés, pas envoyés")
 	}
