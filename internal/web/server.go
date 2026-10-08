@@ -22,6 +22,7 @@ import (
 	"github.com/romeo4934/ai-reader/internal/epub"
 	"github.com/romeo4934/ai-reader/internal/frequency"
 	"github.com/romeo4934/ai-reader/internal/i18n"
+	"github.com/romeo4934/ai-reader/internal/mail"
 	"github.com/romeo4934/ai-reader/internal/srs"
 	"github.com/romeo4934/ai-reader/internal/store"
 )
@@ -42,15 +43,27 @@ const maxUploadBytes = 30 << 20 // 30 MiB — plenty for a novel-length epub
 const maxVocabWords = 12
 
 type Server struct {
-	store      *store.Store
-	ai         *ai.Client
-	tmpl       *template.Template
-	log        *slog.Logger
-	secret     []byte
-	inviteCode string
+	store  *store.Store
+	ai     *ai.Client
+	tmpl   *template.Template
+	log    *slog.Logger
+	secret []byte
+	mail   *mail.Sender
+	cfg    Config
+	limit  *rateLimiter
 }
 
-func New(st *store.Store, aiClient *ai.Client, log *slog.Logger, secret []byte, inviteCode string) (*Server, error) {
+// Config holds the settings for open signup.
+type Config struct {
+	// BaseURL is the public address put in emailed links, without a
+	// trailing slash.
+	BaseURL string
+	// FreeQuota is the number of AI translations a free-plan account gets
+	// per calendar month.
+	FreeQuota int
+}
+
+func New(st *store.Store, aiClient *ai.Client, log *slog.Logger, secret []byte, mailer *mail.Sender, cfg Config) (*Server, error) {
 	tmpl, err := template.New("").Funcs(template.FuncMap{
 		"add":       func(a, b int) int { return a + b },
 		"sub":       func(a, b int) int { return a - b },
@@ -61,7 +74,7 @@ func New(st *store.Store, aiClient *ai.Client, log *slog.Logger, secret []byte, 
 	if err != nil {
 		return nil, fmt.Errorf("parse templates : %w", err)
 	}
-	return &Server{store: st, ai: aiClient, tmpl: tmpl, log: log, secret: secret, inviteCode: inviteCode}, nil
+	return &Server{store: st, ai: aiClient, tmpl: tmpl, log: log, secret: secret, mail: mailer, cfg: cfg, limit: newRateLimiter(10, 10*time.Minute)}, nil
 }
 
 func (s *Server) Routes() http.Handler {
@@ -75,6 +88,12 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("GET /signup", s.handleSignupGet)
 	mux.HandleFunc("POST /signup", s.handleSignupPost)
 	mux.HandleFunc("POST /logout", s.handleLogout)
+	mux.HandleFunc("GET /verify", s.handleVerify)
+	mux.HandleFunc("POST /verify/resend", s.handleVerifyResend)
+	mux.HandleFunc("GET /forgot", s.handleForgotGet)
+	mux.HandleFunc("POST /forgot", s.handleForgotPost)
+	mux.HandleFunc("GET /reset", s.handleResetGet)
+	mux.HandleFunc("POST /reset", s.handleResetPost)
 
 	mux.HandleFunc("GET /{$}", s.handleHome)
 	mux.HandleFunc("POST /books", s.requireAuth(s.handleUploadBook))
@@ -147,8 +166,16 @@ func (s *Server) handleHome(w http.ResponseWriter, r *http.Request) {
 		s.handleLibrary(w, r)
 		return
 	}
-	// Language: an explicit ?lang= from the switcher (remembered in a
-	// cookie), else that cookie, else the browser's Accept-Language.
+	T := s.visitorDict(w, r)
+	s.renderDict(w, r, T, "landing.html", T["LandTitle"], landingView{Languages: i18n.Languages})
+}
+
+const langCookie = "lang"
+
+// visitorDict picks the UI language for someone not logged in: an explicit
+// ?lang= from the landing page's switcher (remembered in a cookie), else
+// that cookie, else the browser's Accept-Language.
+func (s *Server) visitorDict(w http.ResponseWriter, r *http.Request) i18n.Dict {
 	T, ok := i18n.ByCode(r.URL.Query().Get("lang"))
 	if ok {
 		http.SetCookie(w, &http.Cookie{Name: langCookie, Value: T["LangCode"], Path: "/", MaxAge: 365 * 24 * 3600, SameSite: http.SameSiteLaxMode})
@@ -159,10 +186,8 @@ func (s *Server) handleHome(w http.ResponseWriter, r *http.Request) {
 		T = i18n.ForVisitor(r.Header.Get("Accept-Language"))
 	}
 	w.Header().Set("Vary", "Accept-Language, Cookie")
-	s.renderDict(w, r, T, "landing.html", T["LandTitle"], landingView{Languages: i18n.Languages})
+	return T
 }
-
-const langCookie = "lang"
 
 type landingView struct {
 	Languages []struct{ Code, Name string }
@@ -188,83 +213,9 @@ func (s *Server) issueSession(w http.ResponseWriter, r *http.Request, userID int
 	})
 }
 
-type authPageView struct {
-	Error string
-}
-
-func (s *Server) handleLoginGet(w http.ResponseWriter, r *http.Request) {
-	s.render(w, r, "login.html", "Connexion", authPageView{})
-}
-
-func (s *Server) handleLoginPost(w http.ResponseWriter, r *http.Request) {
-	if err := r.ParseForm(); err != nil {
-		s.fail(w, http.StatusBadRequest, err)
-		return
-	}
-	username := strings.TrimSpace(r.FormValue("username"))
-	password := r.FormValue("password")
-
-	user, err := s.store.GetUserByUsername(username)
-	if err != nil || !auth.CheckPassword(user.PasswordHash, password) {
-		s.render(w, r, "login.html", "Connexion", authPageView{Error: "identifiant ou mot de passe incorrect"})
-		return
-	}
-	s.issueSession(w, r, user.ID)
-	http.Redirect(w, r, "/", http.StatusSeeOther)
-}
-
-func (s *Server) handleSignupGet(w http.ResponseWriter, r *http.Request) {
-	s.render(w, r, "signup.html", "Créer un compte", authPageView{})
-}
-
-func (s *Server) handleSignupPost(w http.ResponseWriter, r *http.Request) {
-	if err := r.ParseForm(); err != nil {
-		s.fail(w, http.StatusBadRequest, err)
-		return
-	}
-	username := strings.TrimSpace(r.FormValue("username"))
-	password := r.FormValue("password")
-	invite := r.FormValue("invite_code")
-
-	fail := func(msg string) {
-		s.render(w, r, "signup.html", "Créer un compte", authPageView{Error: msg})
-	}
-	switch {
-	case s.inviteCode == "":
-		fail("inscriptions désactivées (pas de code d'invitation configuré sur le serveur)")
-		return
-	case invite != s.inviteCode:
-		fail("code d'invitation incorrect")
-		return
-	case len(username) < 3:
-		fail("identifiant trop court (3 caractères minimum)")
-		return
-	case len(password) < 8:
-		fail("mot de passe trop court (8 caractères minimum)")
-		return
-	}
-	if _, err := s.store.GetUserByUsername(username); err == nil {
-		fail("cet identifiant est déjà pris")
-		return
-	}
-
-	hash, err := auth.HashPassword(password)
-	if err != nil {
-		s.fail(w, http.StatusInternalServerError, err)
-		return
-	}
-	userID, err := s.store.CreateUser(username, hash, defaultNativeLang)
-	if err != nil {
-		s.fail(w, http.StatusInternalServerError, err)
-		return
-	}
-	s.issueSession(w, r, userID)
-	http.Redirect(w, r, "/", http.StatusSeeOther)
-}
-
 func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, &http.Cookie{Name: auth.SessionCookie, Value: "", Path: "/", MaxAge: -1})
-	http.Redirect(w, r, "/login", http.StatusSeeOther)
+	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
 func (s *Server) handleReady(w http.ResponseWriter, r *http.Request) {
@@ -631,12 +582,22 @@ func (s *Server) handleSettingsGet(w http.ResponseWriter, r *http.Request) {
 	if native == "" {
 		native = defaultNativeLang
 	}
-	s.render(w, r, "settings.html", s.dictFor(r)["SettingsTitle"], settingsView{NativeLang: native, Username: user.Username})
+	T := s.dictFor(r)
+	used, err := s.store.TranslationsThisMonth(user.ID, time.Now())
+	if err != nil {
+		s.log.Error("usage", "err", err)
+	}
+	usage := fmt.Sprintf(T["SettingsUsage"], used, s.cfg.FreeQuota)
+	if user.Plan == store.PlanUnlimited {
+		usage = fmt.Sprintf(T["SettingsUsageUnlimited"], used)
+	}
+	s.render(w, r, "settings.html", T["SettingsTitle"], settingsView{NativeLang: native, Username: user.Username, Usage: usage})
 }
 
 type settingsView struct {
 	NativeLang string
 	Username   string
+	Usage      string
 }
 
 func (s *Server) handleSettingsPost(w http.ResponseWriter, r *http.Request) {
@@ -694,6 +655,18 @@ func (s *Server) handleAPITranslate(w http.ResponseWriter, r *http.Request) {
 	if native == "" {
 		native = defaultNativeLang
 	}
+	now := time.Now()
+	if user.Plan != store.PlanUnlimited {
+		used, err := s.store.TranslationsThisMonth(user.ID, now)
+		if err != nil {
+			s.failJSON(w, http.StatusInternalServerError, err)
+			return
+		}
+		if used >= s.cfg.FreeQuota {
+			writeJSON(w, http.StatusTooManyRequests, map[string]string{"error": fmt.Sprintf(s.dictFor(r)["QuotaReached"], s.cfg.FreeQuota)})
+			return
+		}
+	}
 
 	ctx, cancel := context.WithTimeout(r.Context(), 25*time.Second)
 	defer cancel()
@@ -710,6 +683,12 @@ func (s *Server) handleAPITranslate(w http.ResponseWriter, r *http.Request) {
 		}
 		s.failJSON(w, http.StatusBadGateway, err)
 		return
+	}
+
+	// Counted for every plan, so the numbers are there when pricing gets
+	// decided; only enforced above for the free one.
+	if err := s.store.CountTranslation(user.ID, now); err != nil {
+		s.log.Error("count translation", "err", err)
 	}
 
 	_, alreadySaved, err := s.store.FindVocabByPhrase(user.ID, phrase)

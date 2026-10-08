@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="{{.T.LangCode}}">
+<head>
+  <title>{{.Title}}</title>
+  {{template "head" .}}
+</head>
+<body>
+  {{template "nav" .}}
+
+  <main class="page auth-page">
+    <h1>{{.Title}}</h1>
+    {{if .Data.Error}}<p class="form-error">{{.Data.Error}}</p>{{end}}
+    {{if .Data.Message}}<p>{{.Data.Message}}</p>{{end}}
+    <p class="hint auth-links"><a href="/login">{{.T.AuthLoginLink}}</a></p>
+  </main>
+</body>
+</html>

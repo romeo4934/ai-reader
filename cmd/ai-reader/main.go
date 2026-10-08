@@ -7,8 +7,11 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"strconv"
+	"strings"
 
 	"github.com/romeo4934/ai-reader/internal/ai"
+	"github.com/romeo4934/ai-reader/internal/mail"
 	"github.com/romeo4934/ai-reader/internal/store"
 	"github.com/romeo4934/ai-reader/internal/web"
 )
@@ -29,9 +32,18 @@ func run() error {
 	if len(secret) < 32 {
 		return fmt.Errorf("AI_READER_SECRET manquante ou trop courte (32+ caractères requis) : générer avec `openssl rand -hex 32`")
 	}
-	inviteCode := os.Getenv("AI_READER_INVITE_CODE")
-	if inviteCode == "" {
-		log.Warn("AI_READER_INVITE_CODE absente — les inscriptions sont désactivées")
+	freeQuota, err := strconv.Atoi(getenv("AI_READER_FREE_QUOTA", "300"))
+	if err != nil || freeQuota < 0 {
+		return fmt.Errorf("AI_READER_FREE_QUOTA invalide : %q", os.Getenv("AI_READER_FREE_QUOTA"))
+	}
+	mailer := mail.New(os.Getenv("CLOUDFLARE_ACCOUNT_ID"), os.Getenv("CLOUDFLARE_API_TOKEN"),
+		getenv("AI_READER_MAIL_FROM", "noreply@getlydi.com"), "ai-reader", log)
+	if !mailer.Enabled() {
+		log.Warn("CLOUDFLARE_ACCOUNT_ID / CLOUDFLARE_API_TOKEN absents — les emails sont seulement journalisés, pas envoyés")
+	}
+	cfg := web.Config{
+		BaseURL:   strings.TrimRight(getenv("AI_READER_BASE_URL", "https://book.getlydi.com"), "/"),
+		FreeQuota: freeQuota,
 	}
 
 	st, err := store.Open(dbPath)
@@ -45,7 +57,7 @@ func run() error {
 		log.Warn("ANTHROPIC_API_KEY absente — la traduction contextuelle est désactivée")
 	}
 
-	srv, err := web.New(st, aiClient, log, []byte(secret), inviteCode)
+	srv, err := web.New(st, aiClient, log, []byte(secret), mailer, cfg)
 	if err != nil {
 		return fmt.Errorf("init serveur web : %w", err)
 	}

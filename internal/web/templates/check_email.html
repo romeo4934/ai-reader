@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="{{.T.LangCode}}">
+<head>
+  <title>{{.Title}}</title>
+  {{template "head" .}}
+</head>
+<body>
+  {{template "nav" .}}
+
+  <main class="page auth-page">
+    <h1>✉️ {{.T.AuthCheckTitle}}</h1>
+    <p>{{.Data.Message}}</p>
+    <p class="hint">{{.T.AuthCheckSpam}}</p>
+    <form action="/verify/resend" method="post">
+      <input type="hidden" name="email" value="{{.Data.Email}}">
+      <button type="submit" class="btn-link">{{.T.AuthResend}}</button>
+    </form>
+  </main>
+</body>
+</html>

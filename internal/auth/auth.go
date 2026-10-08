@@ -60,3 +60,43 @@ func mac(secret []byte, payload string) string {
 	m.Write([]byte(payload))
 	return base64.RawURLEncoding.EncodeToString(m.Sum(nil))
 }
+
+// Link tokens (email verification, password reset) are signed the same way
+// as session cookies, plus a purpose so one kind can't be replayed as the
+// other, and a binding: a value the token is only good for as long as it
+// stays unchanged (the email being verified; the current password hash for a
+// reset, which makes a reset link single-use — using it changes the hash).
+const (
+	PurposeVerify = "verify"
+	PurposeReset  = "reset"
+)
+
+func SignLink(secret []byte, purpose string, userID int64, binding string, ttl time.Duration) string {
+	exp := time.Now().Add(ttl).Unix()
+	payload := strconv.FormatInt(userID, 10) + "." + strconv.FormatInt(exp, 10)
+	return payload + "." + mac(secret, purpose+"|"+binding+"|"+payload)
+}
+
+// LinkUserID reads the user id out of a link token without trusting it —
+// the caller looks the user up to get the binding, then calls VerifyLink.
+func LinkUserID(token string) (int64, bool) {
+	parts := strings.Split(token, ".")
+	if len(parts) != 3 {
+		return 0, false
+	}
+	id, err := strconv.ParseInt(parts[0], 10, 64)
+	return id, err == nil
+}
+
+func VerifyLink(secret []byte, purpose, token, binding string) bool {
+	parts := strings.Split(token, ".")
+	if len(parts) != 3 {
+		return false
+	}
+	payload := parts[0] + "." + parts[1]
+	if !hmac.Equal([]byte(parts[2]), []byte(mac(secret, purpose+"|"+binding+"|"+payload))) {
+		return false
+	}
+	exp, err := strconv.ParseInt(parts[1], 10, 64)
+	return err == nil && time.Now().Unix() <= exp
+}

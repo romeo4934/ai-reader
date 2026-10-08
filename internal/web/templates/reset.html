@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="{{.T.LangCode}}">
+<head>
+  <title>{{.Title}}</title>
+  {{template "head" .}}
+</head>
+<body>
+  {{template "nav" .}}
+
+  <main class="page auth-page">
+    <h1>{{.T.AuthResetTitle}}</h1>
+
+    {{if .Data.Error}}<p class="form-error">{{.Data.Error}}</p>{{end}}
+
+    <form action="/reset" method="post" class="settings-form">
+      <input type="hidden" name="t" value="{{.Data.Token}}">
+      <label for="password">{{.T.AuthPassword}}</label>
+      <input type="password" id="password" name="password" autocomplete="new-password" required minlength="8" autofocus>
+      <p class="hint">{{.T.AuthPasswordHint}}</p>
+      <button type="submit" class="btn btn-primary">{{.T.AuthResetBtn}}</button>
+    </form>
+  </main>
+</body>
+</html>

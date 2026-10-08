@@ -58,7 +58,8 @@
       })();
     </script>
 
-    <p class="hint" style="margin-top:2rem">{{.T.SettingsLoggedInAs}} <strong>{{.Data.Username}}</strong>.
+    <p class="hint" style="margin-top:2rem">{{.Data.Usage}}</p>
+    <p class="hint" style="margin-top:0.5rem">{{.T.SettingsLoggedInAs}} <strong>{{.Data.Username}}</strong>.
       <form action="/logout" method="post" style="display:inline">
         <button type="submit" class="btn-link">{{.T.SettingsLogout}}</button>
       </form>

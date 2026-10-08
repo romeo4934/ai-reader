@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="fr">
+<html lang="{{.T.LangCode}}">
 <head>
   <title>{{.Title}}</title>
   {{template "head" .}}
@@ -7,20 +7,29 @@
 <body>
   {{template "nav" .}}
 
-  <main class="page">
-    <h1>Connexion</h1>
+  <main class="page auth-page">
+    <h1>{{.T.AuthLoginTitle}}</h1>
 
     {{if .Data.Error}}<p class="form-error">{{.Data.Error}}</p>{{end}}
+    {{if .Data.ShowResend}}
+    <form action="/verify/resend" method="post">
+      <input type="hidden" name="email" value="{{.Data.Email}}">
+      <button type="submit" class="btn-link">{{.T.AuthResend}}</button>
+    </form>
+    {{end}}
 
     <form action="/login" method="post" class="settings-form">
-      <label for="username">Identifiant</label>
-      <input type="text" id="username" name="username" autocomplete="username" required autofocus>
-      <label for="password">Mot de passe</label>
+      <label for="login">{{.T.AuthLogin}}</label>
+      <input type="text" id="login" name="login" value="{{.Data.Email}}" autocomplete="username" autocapitalize="none" spellcheck="false" required autofocus>
+      <label for="password">{{.T.AuthPassword}}</label>
       <input type="password" id="password" name="password" autocomplete="current-password" required>
-      <button type="submit" class="btn btn-primary">Se connecter</button>
+      <button type="submit" class="btn btn-primary">{{.T.AuthLoginBtn}}</button>
     </form>
 
-    <p class="hint" style="margin-top:1.5rem">Pas encore de compte ? <a href="/signup">en créer un</a></p>
+    <p class="hint auth-links">
+      <a href="/forgot{{if .Data.Email}}?email={{.Data.Email}}{{end}}">{{.T.AuthForgotLink}}</a><br>
+      {{.T.AuthNoAccount}} <a href="/signup">{{.T.AuthSignupLink}}</a>
+    </p>
   </main>
 </body>
 </html>

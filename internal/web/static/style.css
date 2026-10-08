@@ -415,3 +415,9 @@ details[open] .word-row::after { content: '⌄'; }
   .hero { grid-template-columns: 1.05fr 1fr; padding: 4.5rem 0 4rem; gap: 3.5rem; }
   .step-list, .pitch-list { grid-template-columns: repeat(3, 1fr); }
 }
+
+/* account pages */
+.auth-page { max-width: 440px; }
+.auth-page .form-error { max-width: none; }
+.auth-links { margin-top: 1.5rem; line-height: 1.8; }
+.auth-page > .hint { margin-bottom: 1.2rem; }

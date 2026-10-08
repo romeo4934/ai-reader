@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="{{.T.LangCode}}">
+<head>
+  <title>{{.Title}}</title>
+  {{template "head" .}}
+</head>
+<body>
+  {{template "nav" .}}
+
+  <main class="page auth-page">
+    <h1>{{.T.AuthForgotTitle}}</h1>
+    <p class="hint">{{.T.AuthForgotBody}}</p>
+
+    {{if .Data.Error}}<p class="form-error">{{.Data.Error}}</p>{{end}}
+
+    <form action="/forgot" method="post" class="settings-form">
+      <label for="email">{{.T.AuthEmail}}</label>
+      <input type="email" id="email" name="email" value="{{.Data.Email}}" autocomplete="email" autocapitalize="none" spellcheck="false" required autofocus>
+      <button type="submit" class="btn btn-primary">{{.T.AuthForgotBtn}}</button>
+    </form>
+  </main>
+</body>
+</html>

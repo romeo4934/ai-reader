@@ -5,6 +5,7 @@ package store
 import (
 	"database/sql"
 	_ "embed"
+	"errors"
 	"fmt"
 	"time"
 
@@ -55,6 +56,19 @@ func Open(path string) (*Store, error) {
 		db.Close()
 		return nil, fmt.Errorf("migration reading_progress.section_idx : %w", err)
 	}
+	if err := migrateUsersForEmail(db); err != nil {
+		db.Close()
+		return nil, err
+	}
+	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS usage (
+		user_id      INTEGER NOT NULL REFERENCES users(id),
+		month        TEXT NOT NULL,
+		translations INTEGER NOT NULL DEFAULT 0,
+		PRIMARY KEY (user_id, month)
+	)`); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("table usage : %w", err)
+	}
 	// These index the user_id columns just added above — created here rather
 	// than in schema.sql so they never run before ensureColumn has had a
 	// chance to add the column on an upgraded database.
@@ -69,12 +83,40 @@ func Open(path string) (*Store, error) {
 	return &Store{db: db}, nil
 }
 
-// ensureColumn adds a column to a table already created by an earlier version
-// of schema.sql — CREATE TABLE IF NOT EXISTS doesn't alter existing tables.
-func ensureColumn(db *sql.DB, table, column, decl string) error {
+// migrateUsersForEmail adds what open, email-based signup needs. Accounts
+// created before it (username + invite code, no email) keep logging in by
+// username, and are put on the unlimited plan: they're the friends the app
+// was first built for, not the free tier the quota is meant to bound.
+func migrateUsersForEmail(db *sql.DB) error {
+	hadPlan, err := hasColumn(db, "users", "plan")
+	if err != nil {
+		return fmt.Errorf("migration users.plan : %w", err)
+	}
+	for _, c := range []struct{ name, decl string }{
+		{"email", "TEXT"},
+		{"email_verified_at", "TEXT NOT NULL DEFAULT ''"},
+		{"plan", "TEXT NOT NULL DEFAULT 'free'"},
+	} {
+		if err := ensureColumn(db, "users", c.name, c.decl); err != nil {
+			return fmt.Errorf("migration users.%s : %w", c.name, err)
+		}
+	}
+	if !hadPlan {
+		if _, err := db.Exec(`UPDATE users SET plan = ?`, PlanUnlimited); err != nil {
+			return fmt.Errorf("migration users.plan : %w", err)
+		}
+	}
+	// NULL emails (legacy accounts) don't collide in a UNIQUE index.
+	if _, err := db.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email COLLATE NOCASE)`); err != nil {
+		return fmt.Errorf("index idx_users_email : %w", err)
+	}
+	return nil
+}
+
+func hasColumn(db *sql.DB, table, column string) (bool, error) {
 	rows, err := db.Query(fmt.Sprintf(`PRAGMA table_info(%s)`, table))
 	if err != nil {
-		return err
+		return false, err
 	}
 	defer rows.Close()
 	for rows.Next() {
@@ -84,13 +126,20 @@ func ensureColumn(db *sql.DB, table, column, decl string) error {
 			dflt             sql.NullString
 		)
 		if err := rows.Scan(&cid, &name, &ctype, &notnull, &dflt, &pk); err != nil {
-			return err
+			return false, err
 		}
 		if name == column {
-			return nil
+			return true, nil
 		}
 	}
-	if err := rows.Err(); err != nil {
+	return false, rows.Err()
+}
+
+// ensureColumn adds a column to a table already created by an earlier version
+// of schema.sql — CREATE TABLE IF NOT EXISTS doesn't alter existing tables.
+func ensureColumn(db *sql.DB, table, column, decl string) error {
+	has, err := hasColumn(db, table, column)
+	if err != nil || has {
 		return err
 	}
 	_, err = db.Exec(fmt.Sprintf(`ALTER TABLE %s ADD COLUMN %s %s`, table, column, decl))
@@ -125,6 +174,29 @@ type User struct {
 	PasswordHash string
 	NativeLang   string
 	CreatedAt    time.Time
+	// Email is empty for accounts created before email signup.
+	Email         string
+	EmailVerified bool
+	Plan          string
+}
+
+// Plans: "free" is bounded by the monthly translation quota; "unlimited"
+// isn't (pre-signup accounts, and later whoever pays).
+const (
+	PlanFree      = "free"
+	PlanUnlimited = "unlimited"
+)
+
+const userColumns = `id, username, password_hash, native_lang, created_at, COALESCE(email, ''), email_verified_at != '', plan`
+
+func scanUser(row interface{ Scan(...any) error }) (User, error) {
+	var u User
+	var createdAt string
+	if err := row.Scan(&u.ID, &u.Username, &u.PasswordHash, &u.NativeLang, &createdAt, &u.Email, &u.EmailVerified, &u.Plan); err != nil {
+		return User{}, err
+	}
+	u.CreatedAt, _ = time.Parse(timeLayout, createdAt)
+	return u, nil
 }
 
 // CreateUser inserts a new account. The caller has already hashed the
@@ -165,27 +237,44 @@ func (s *Store) CreateUser(username, passwordHash, nativeLang string) (int64, er
 }
 
 func (s *Store) GetUserByUsername(username string) (User, error) {
-	var u User
-	var createdAt string
-	err := s.db.QueryRow(`SELECT id, username, password_hash, native_lang, created_at FROM users WHERE username = ? COLLATE NOCASE`, username).
-		Scan(&u.ID, &u.Username, &u.PasswordHash, &u.NativeLang, &createdAt)
-	if err != nil {
-		return User{}, err
-	}
-	u.CreatedAt, _ = time.Parse(timeLayout, createdAt)
-	return u, nil
+	return scanUser(s.db.QueryRow(`SELECT `+userColumns+` FROM users WHERE username = ? COLLATE NOCASE`, username))
+}
+
+// GetUserByLogin finds the account for what someone typed in the login form:
+// an email for accounts made with email signup, a username for older ones.
+func (s *Store) GetUserByLogin(login string) (User, error) {
+	return scanUser(s.db.QueryRow(`SELECT `+userColumns+` FROM users WHERE email = ? COLLATE NOCASE OR username = ? COLLATE NOCASE ORDER BY email IS NULL LIMIT 1`, login, login))
+}
+
+func (s *Store) GetUserByEmail(email string) (User, error) {
+	return scanUser(s.db.QueryRow(`SELECT `+userColumns+` FROM users WHERE email = ? COLLATE NOCASE`, email))
 }
 
 func (s *Store) GetUserByID(id int64) (User, error) {
-	var u User
-	var createdAt string
-	err := s.db.QueryRow(`SELECT id, username, password_hash, native_lang, created_at FROM users WHERE id = ?`, id).
-		Scan(&u.ID, &u.Username, &u.PasswordHash, &u.NativeLang, &createdAt)
+	return scanUser(s.db.QueryRow(`SELECT `+userColumns+` FROM users WHERE id = ?`, id))
+}
+
+// CreateEmailUser inserts an account from email signup, not yet verified.
+// The email doubles as the username, which keeps that column's NOT NULL
+// UNIQUE constraint meaningful without asking for a second identifier.
+func (s *Store) CreateEmailUser(email, passwordHash, nativeLang string) (int64, error) {
+	res, err := s.db.Exec(`INSERT INTO users (username, email, password_hash, native_lang, plan, created_at) VALUES (?, ?, ?, ?, ?, ?)`,
+		email, email, passwordHash, nativeLang, PlanFree, time.Now().UTC().Format(timeLayout))
 	if err != nil {
-		return User{}, err
+		return 0, err
 	}
-	u.CreatedAt, _ = time.Parse(timeLayout, createdAt)
-	return u, nil
+	return res.LastInsertId()
+}
+
+func (s *Store) MarkEmailVerified(userID int64) error {
+	_, err := s.db.Exec(`UPDATE users SET email_verified_at = ? WHERE id = ? AND email_verified_at = ''`,
+		time.Now().UTC().Format(timeLayout), userID)
+	return err
+}
+
+func (s *Store) SetPasswordHash(userID int64, hash string) error {
+	_, err := s.db.Exec(`UPDATE users SET password_hash = ? WHERE id = ?`, hash, userID)
+	return err
 }
 
 func (s *Store) SetUserNativeLang(userID int64, lang string) error {
@@ -497,5 +586,26 @@ func (s *Store) DeleteVocab(id, userID int64) error {
 func (s *Store) ArchiveVocab(id, userID int64, box int, nextReview, now time.Time) error {
 	_, err := s.db.Exec(`UPDATE vocab SET archived = 1, box = ?, next_review_at = ?, last_reviewed_at = ? WHERE id = ? AND user_id = ?`,
 		box, nextReview.Format(timeLayout), now.Format(timeLayout), id, userID)
+	return err
+}
+
+// --- usage (free-plan quota) ---
+
+func usageMonth(now time.Time) string { return now.UTC().Format("2006-01") }
+
+// TranslationsThisMonth is how many AI translations the user has used in the
+// current calendar month (UTC).
+func (s *Store) TranslationsThisMonth(userID int64, now time.Time) (int, error) {
+	var n int
+	err := s.db.QueryRow(`SELECT translations FROM usage WHERE user_id = ? AND month = ?`, userID, usageMonth(now)).Scan(&n)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, nil
+	}
+	return n, err
+}
+
+func (s *Store) CountTranslation(userID int64, now time.Time) error {
+	_, err := s.db.Exec(`INSERT INTO usage (user_id, month, translations) VALUES (?, ?, 1)
+		ON CONFLICT (user_id, month) DO UPDATE SET translations = translations + 1`, userID, usageMonth(now))
 	return err
 }

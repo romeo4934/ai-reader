@@ -6,8 +6,9 @@ automatiquement dans un tas de révision façon Anki (système Leitner, rappel
 actif). Priorité à la lecture sur grand écran (iPad).
 
 Multi-utilisateur : chacun a son compte, sa bibliothèque et son deck de mots,
-privés. Inscriptions fermées par défaut, ouvertes via un code d'invitation
-partagé.
+privés. Inscription ouverte par email (lien de confirmation), formule
+gratuite limitée à `AI_READER_FREE_QUOTA` traductions par mois (300 par
+défaut).
 
 ## Stack
 
@@ -23,11 +24,18 @@ le CSS et le JS sont servis tels quels et embarqués dans le binaire (`embed.FS`
 
 ## Fonctionnement
 
-1. **Comptes** (`/signup`, `/login`) — identifiant + mot de passe (bcrypt),
-   pas d'email. `/signup` demande le code d'invitation défini dans
-   `AI_READER_INVITE_CODE` ; vide = inscriptions désactivées. Chaque compte a
-   sa propre langue maternelle, sa bibliothèque, son deck de mots — invisibles
-   aux autres comptes.
+1. **Comptes** (`/signup`, `/login`) — email + mot de passe (bcrypt).
+   L'inscription envoie un lien de confirmation (valable 3 jours) via
+   Cloudflare Email Service (`CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`,
+   expéditeur `AI_READER_MAIL_FROM`, liens vers `AI_READER_BASE_URL`) ; sans
+   ces variables, les emails sont seulement écrits dans le journal.
+   « Mot de passe oublié » (`/forgot`) envoie un lien à usage unique valable
+   une heure. Les comptes d'avant l'inscription par email se connectent
+   toujours avec leur identifiant et sont en formule illimitée. Pages de
+   compte traduites selon la langue du navigateur ; chaque compte a sa propre
+   langue maternelle, sa bibliothèque, son deck de mots — invisibles aux
+   autres comptes. Connexion, inscription et envois d'emails limités à 10
+   essais par IP toutes les 10 minutes.
 2. **Bibliothèque** (`/`) — on dépose un `.epub`, il est parsé (métadonnées +
    texte de chaque chapitre, tags HTML retirés) et stocké en base, privé au
    compte qui l'a ajouté.
