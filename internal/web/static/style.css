@@ -405,7 +405,11 @@ details[open] .word-row::after { content: '⌄'; }
 .pitch-list strong { font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
 
 .final-cta { text-align: center; padding: 3rem 0 4rem; border-top: 1px solid var(--border); }
-.landing-footer { text-align: center; padding: 1.5rem; color: var(--muted); font-family: sans-serif; font-size: 13px; border-top: 1px solid var(--border); }
+.landing-footer { text-align: center; padding: 1.5rem; color: var(--muted); font-family: sans-serif; font-size: 13px; border-top: 1px solid var(--border); display: grid; gap: 0.8rem; }
+.lang-switch { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.4rem 1rem; }
+.lang-switch a { color: var(--muted); text-decoration: none; }
+.lang-switch a:hover { color: var(--fg); }
+.lang-switch a[aria-current] { color: var(--fg); font-weight: 600; }
 
 @media (min-width: 820px) {
   .hero { grid-template-columns: 1.05fr 1fr; padding: 4.5rem 0 4rem; gap: 3.5rem; }

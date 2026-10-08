@@ -147,7 +147,25 @@ func (s *Server) handleHome(w http.ResponseWriter, r *http.Request) {
 		s.handleLibrary(w, r)
 		return
 	}
-	s.render(w, r, "landing.html", "ai-reader — apprendre une langue en lisant de vrais livres", nil)
+	// Language: an explicit ?lang= from the switcher (remembered in a
+	// cookie), else that cookie, else the browser's Accept-Language.
+	T, ok := i18n.ByCode(r.URL.Query().Get("lang"))
+	if ok {
+		http.SetCookie(w, &http.Cookie{Name: langCookie, Value: T["LangCode"], Path: "/", MaxAge: 365 * 24 * 3600, SameSite: http.SameSiteLaxMode})
+	} else if c, err := r.Cookie(langCookie); err == nil {
+		T, ok = i18n.ByCode(c.Value)
+	}
+	if !ok {
+		T = i18n.ForVisitor(r.Header.Get("Accept-Language"))
+	}
+	w.Header().Set("Vary", "Accept-Language, Cookie")
+	s.renderDict(w, r, T, "landing.html", T["LandTitle"], landingView{Languages: i18n.Languages})
+}
+
+const langCookie = "lang"
+
+type landingView struct {
+	Languages []struct{ Code, Name string }
 }
 
 func (s *Server) unauthenticated(w http.ResponseWriter, r *http.Request) {
@@ -281,7 +299,12 @@ func (s *Server) dictFor(r *http.Request) i18n.Dict {
 // from dictFor(r), except the reader view, whose title is a book's own name
 // — data, not a UI string, so it's never translated).
 func (s *Server) render(w http.ResponseWriter, r *http.Request, name, title string, data any) {
-	T := s.dictFor(r)
+	s.renderDict(w, r, s.dictFor(r), name, title, data)
+}
+
+// renderDict is render with the UI dictionary chosen by the caller — the
+// landing page picks it from the visitor's browser instead of a user setting.
+func (s *Server) renderDict(w http.ResponseWriter, r *http.Request, T i18n.Dict, name, title string, data any) {
 	pd := pageData{Title: title, T: T, Data: data}
 	if user := userFromContext(r); user != nil {
 		due, err := s.store.CountDueVocab(user.ID, time.Now().UTC())

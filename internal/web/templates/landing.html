@@ -1,81 +1,68 @@
 <!doctype html>
-<html lang="fr">
+<html lang="{{.T.LangCode}}">
 <head>
   <title>{{.Title}}</title>
-  <meta name="description" content="Lis tes livres epub en version originale : touche un mot, sa traduction apparaît dans le contexte de la phrase, et il part dans tes révisions.">
-  {{template "head" .}}
+  <meta name="description" content="{{.T.LandMetaDesc}}">
+  {{range .Data.Languages}}<link rel="alternate" hreflang="{{.Code}}" href="/?lang={{.Code}}">
+  {{end}}{{template "head" .}}
 </head>
 <body class="landing">
   {{template "nav" .}}
+  {{$t := .T}}
 
   <main>
     <section class="hero">
       <div class="hero-text">
-        <h1>Apprends une langue en lisant de vrais livres.</h1>
-        <p class="hero-lead">
-          Ouvre ton epub, touche un mot que tu ne connais pas : sa traduction
-          apparaît dans le contexte de la phrase. Le mot rejoint
-          automatiquement tes révisions, pour que tu le retiennes.
-        </p>
+        <h1>{{$t.LandH1}}</h1>
+        <p class="hero-lead">{{$t.LandLead}}</p>
         <div class="hero-cta">
-          <a href="/signup" class="btn btn-primary btn-large">Commencer gratuitement</a>
-          <a href="/login" class="hero-login">J'ai déjà un compte</a>
+          <a href="/signup" class="btn btn-primary btn-large">{{$t.LandCTA}}</a>
+          <a href="/login" class="hero-login">{{$t.LandLogin}}</a>
         </div>
       </div>
 
-      <figure class="demo" aria-label="Exemple : un mot touché pendant la lecture et sa traduction">
+      <figure class="demo" aria-label="{{$t.LandDemoAria}}">
         <div class="demo-page">
-          <p class="demo-chapter">Pride and Prejudice · chapitre 1</p>
-          <p>
-            It is a truth universally
-            <mark class="demo-word">acknowledged</mark>,
-            that a single man in possession of a good fortune, must be in
-            want of a wife.
-          </p>
+          <p class="demo-chapter">{{$t.LandDemoBook}} · {{$t.LandDemoChapter}}</p>
+          <p>{{$t.LandDemoBefore}} <mark class="demo-word">{{$t.LandDemoWord}}</mark>{{$t.LandDemoAfter}}</p>
           <div class="demo-bubble" role="presentation">
-            <div class="demo-bubble-word">acknowledged → <strong>reconnue</strong></div>
-            <div class="demo-bubble-sentence">« C'est une vérité universellement <strong>reconnue</strong> qu'un célibataire pourvu d'une belle fortune doit être en quête d'une épouse. »</div>
-            <div class="demo-bubble-saved">✓ ajouté à tes révisions</div>
+            <div class="demo-bubble-word">{{$t.LandDemoWord}} → <strong>{{$t.LandDemoWordTr}}</strong></div>
+            <div class="demo-bubble-sentence">{{$t.LandDemoSentBefore}} <strong>{{$t.LandDemoSentWord}}</strong>{{$t.LandDemoSentAfter}}</div>
+            <div class="demo-bubble-saved">{{$t.LandDemoSaved}}</div>
           </div>
         </div>
       </figure>
     </section>
 
     <section class="steps">
-      <h2>Comment ça marche</h2>
+      <h2>{{$t.LandStepsTitle}}</h2>
       <ol class="step-list">
-        <li>
-          <span class="step-num">1</span>
-          <h3>Ajoute ton livre</h3>
-          <p>Dépose n'importe quel fichier .epub. Ta bibliothèque est privée, toi seul la vois.</p>
-        </li>
-        <li>
-          <span class="step-num">2</span>
-          <h3>Lis et touche</h3>
-          <p>Un mot ou un bout de phrase t'échappe ? Touche-le. La traduction tient compte du paragraphe, pas seulement du dictionnaire.</p>
-        </li>
-        <li>
-          <span class="step-num">3</span>
-          <h3>Révise ce qui compte</h3>
-          <p>Tes mots reviennent au bon moment, dans des phrases nouvelles, les plus fréquents d'abord. Tu passes ton temps sur ce qui t'aidera vraiment à lire.</p>
-        </li>
+        <li><span class="step-num">1</span><h3>{{$t.LandStep1T}}</h3><p>{{$t.LandStep1}}</p></li>
+        <li><span class="step-num">2</span><h3>{{$t.LandStep2T}}</h3><p>{{$t.LandStep2}}</p></li>
+        <li><span class="step-num">3</span><h3>{{$t.LandStep3T}}</h3><p>{{$t.LandStep3}}</p></li>
       </ol>
     </section>
 
     <section class="pitch">
       <ul class="pitch-list">
-        <li><strong>Pensé pour la tablette.</strong> Grand texte, défilement simple, pensé pour lire au calme.</li>
-        <li><strong>Dans ta langue.</strong> Interface et traductions en français, anglais, espagnol, portugais, italien, allemand ou néerlandais.</li>
-        <li><strong>Sans prise de tête.</strong> Pas de cartes à créer à la main : tu lis, le reste se fait tout seul.</li>
+        <li><strong>{{$t.LandPitch1T}}</strong> {{$t.LandPitch1}}</li>
+        <li><strong>{{$t.LandPitch2T}}</strong> {{$t.LandPitch2}}</li>
+        <li><strong>{{$t.LandPitch3T}}</strong> {{$t.LandPitch3}}</li>
       </ul>
     </section>
 
     <section class="final-cta">
-      <h2>Ton prochain livre, en version originale.</h2>
-      <a href="/signup" class="btn btn-primary btn-large">Créer mon compte</a>
+      <h2>{{$t.LandFinalH}}</h2>
+      <a href="/signup" class="btn btn-primary btn-large">{{$t.LandFinalCTA}}</a>
     </section>
   </main>
 
-  <footer class="landing-footer">📖 ai-reader</footer>
+  <footer class="landing-footer">
+    <span>📖 ai-reader</span>
+    <nav class="lang-switch" aria-label="{{$t.LandLangLabel}}">
+      {{range .Data.Languages}}<a href="/?lang={{.Code}}" hreflang="{{.Code}}" lang="{{.Code}}"{{if eq .Code $t.LangCode}} aria-current="true"{{end}}>{{.Name}}</a>
+      {{end}}
+    </nav>
+  </footer>
 </body>
 </html>
