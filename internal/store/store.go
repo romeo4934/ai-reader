@@ -732,10 +732,11 @@ func (s *Store) DeckCounts(userID int64, now time.Time) (dueReviews, newCards, t
 	return
 }
 
-// NextDailyCard returns the next card of the daily session: due reviews
-// first, then (if allowNew) never-reviewed cards, most frequent words first
-// within each group. ok is false when there's nothing left.
-func (s *Store) NextDailyCard(userID int64, now time.Time, allowNew bool) (v Vocab, ok bool, err error) {
+// NextDailyCards returns up to `limit` upcoming cards of the daily session,
+// in order: due reviews first, then (if allowNew) never-reviewed cards, most
+// frequent words first within each group. The first is the one to show; the
+// rest are what the review page prepares ahead of time.
+func (s *Store) NextDailyCards(userID int64, now time.Time, allowNew bool, limit int) ([]Vocab, error) {
 	rows, err := s.db.Query(`
 		SELECT v.id, v.user_id, v.book_id, b.title, v.chapter_id, v.phrase, v.lemma, v.context,
 		       v.translation, v.note, v.frequency, v.box, v.next_review_at, v.created_at, v.last_reviewed_at
@@ -743,14 +744,10 @@ func (s *Store) NextDailyCard(userID int64, now time.Time, allowNew bool) (v Voc
 		WHERE v.user_id = ? AND (
 			(v.last_reviewed_at IS NOT NULL AND v.next_review_at <= ?) OR (? AND v.last_reviewed_at IS NULL))
 		ORDER BY v.last_reviewed_at IS NULL, v.frequency ASC, v.next_review_at ASC
-		LIMIT 1`, userID, now.Format(timeLayout), allowNew)
+		LIMIT ?`, userID, now.Format(timeLayout), allowNew, limit)
 	if err != nil {
-		return Vocab{}, false, err
+		return nil, err
 	}
 	defer rows.Close()
-	cards, err := scanVocabRows(rows)
-	if err != nil || len(cards) == 0 {
-		return Vocab{}, false, err
-	}
-	return cards[0], true, nil
+	return scanVocabRows(rows)
 }

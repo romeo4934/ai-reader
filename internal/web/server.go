@@ -52,6 +52,7 @@ type Server struct {
 	mail   *mail.Sender
 	cfg    Config
 	limit  *rateLimiter
+	recall *recallCache
 }
 
 // Config holds the settings for open signup.
@@ -75,7 +76,7 @@ func New(st *store.Store, aiClient *ai.Client, log *slog.Logger, secret []byte, 
 	if err != nil {
 		return nil, fmt.Errorf("parse templates : %w", err)
 	}
-	return &Server{store: st, ai: aiClient, tmpl: tmpl, log: log, secret: secret, mail: mailer, cfg: cfg, limit: newRateLimiter(10, 10*time.Minute)}, nil
+	return &Server{store: st, ai: aiClient, tmpl: tmpl, log: log, secret: secret, mail: mailer, cfg: cfg, limit: newRateLimiter(10, 10*time.Minute), recall: newRecallCache()}, nil
 }
 
 func (s *Server) Routes() http.Handler {
@@ -462,15 +463,18 @@ func (s *Server) handleReviewPage(w http.ResponseWriter, r *http.Request) {
 	}
 	view := reviewView{Daily: daily}
 	if daily.Remaining > 0 {
-		card, ok, err := s.store.NextDailyCard(user.ID, now.UTC(), daily.NewLeft > 0)
+		cards, err := s.store.NextDailyCards(user.ID, now.UTC(), daily.NewLeft > 0, 1+recallPrefetch)
 		if err != nil {
 			s.fail(w, http.StatusInternalServerError, err)
 			return
 		}
-		if ok {
-			view.Card = &card
-			view.IsNew = card.LastReviewedAt == nil
-			view.Recall = s.generateRecallCard(r.Context(), user, view.Card)
+		if len(cards) > 0 {
+			view.Card = &cards[0]
+			view.IsNew = view.Card.LastReviewedAt == nil
+			// Start on the next cards' exercises before waiting on this
+			// one, so they're ready by the time this card is answered.
+			s.prefetchRecallCards(user, cards, daily.NewLeft)
+			view.Recall = s.recallCardFor(r.Context(), user, view.Card)
 		}
 	}
 	if view.Card == nil && daily.DeckSize > 0 {
@@ -491,7 +495,8 @@ func (s *Server) handleReviewPage(w http.ResponseWriter, r *http.Request) {
 // generateRecallCard asks Claude for a fresh fill-in-the-blank exercise for
 // this card. Returns nil on any failure (no API key, network error, refusal)
 // so the review page falls back to the static context+translation card
-// instead of breaking review entirely.
+// instead of breaking review entirely. The review page goes through
+// recallCardFor, which serves an exercise prepared in advance when there is one.
 func (s *Server) generateRecallCard(ctx context.Context, user *store.User, card *store.Vocab) *ai.RecallCard {
 	book, err := s.store.GetBook(card.BookID, user.ID)
 	bookLang := ""
@@ -509,6 +514,8 @@ func (s *Server) generateRecallCard(ctx context.Context, user *store.User, card 
 
 	callCtx, cancel := context.WithTimeout(ctx, 25*time.Second)
 	defer cancel()
+	start := time.Now()
+	defer func() { s.log.Info("recall card", "vocab_id", card.ID, "ms", time.Since(start).Milliseconds()) }()
 	rc, err := s.ai.RecallCard(callCtx, ai.RecallCardOptions{
 		BookLanguage: bookLang,
 		NativeLang:   native,
