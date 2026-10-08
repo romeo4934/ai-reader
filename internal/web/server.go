@@ -76,7 +76,7 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("POST /signup", s.handleSignupPost)
 	mux.HandleFunc("POST /logout", s.handleLogout)
 
-	mux.HandleFunc("GET /{$}", s.requireAuth(s.handleLibrary))
+	mux.HandleFunc("GET /{$}", s.handleHome)
 	mux.HandleFunc("POST /books", s.requireAuth(s.handleUploadBook))
 	mux.HandleFunc("GET /books/{id}", s.requireAuth(s.handleReader))
 
@@ -112,23 +112,42 @@ func userFromContext(r *http.Request) *store.User {
 // else, i.e. the JSON API) when there's no valid session.
 func (s *Server) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		c, err := r.Cookie(auth.SessionCookie)
-		if err != nil {
-			s.unauthenticated(w, r)
-			return
-		}
-		userID, ok := auth.Verify(s.secret, c.Value)
+		r, ok := s.withSessionUser(r)
 		if !ok {
 			s.unauthenticated(w, r)
 			return
 		}
-		user, err := s.store.GetUserByID(userID)
-		if err != nil {
-			s.unauthenticated(w, r)
-			return
-		}
-		next(w, r.WithContext(context.WithValue(r.Context(), ctxUser, &user)))
+		next(w, r)
 	}
+}
+
+// withSessionUser attaches the logged-in user to the request context, if the
+// session cookie is valid; ok is false for a visitor without a session.
+func (s *Server) withSessionUser(r *http.Request) (*http.Request, bool) {
+	c, err := r.Cookie(auth.SessionCookie)
+	if err != nil {
+		return r, false
+	}
+	userID, ok := auth.Verify(s.secret, c.Value)
+	if !ok {
+		return r, false
+	}
+	user, err := s.store.GetUserByID(userID)
+	if err != nil {
+		return r, false
+	}
+	return r.WithContext(context.WithValue(r.Context(), ctxUser, &user)), true
+}
+
+// handleHome serves the library to a logged-in user and the landing page to
+// everyone else — / is the address people share, so it has to explain the
+// app to a visitor instead of bouncing them to /login.
+func (s *Server) handleHome(w http.ResponseWriter, r *http.Request) {
+	if r, ok := s.withSessionUser(r); ok {
+		s.handleLibrary(w, r)
+		return
+	}
+	s.render(w, r, "landing.html", "ai-reader — apprendre une langue en lisant de vrais livres", nil)
 }
 
 func (s *Server) unauthenticated(w http.ResponseWriter, r *http.Request) {
