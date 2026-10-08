@@ -1,6 +1,7 @@
 package web
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -63,5 +64,35 @@ func TestAnswerPoints(t *testing.T) {
 		if got := answerPoints(tc.result, tc.mode); got != tc.want {
 			t.Errorf("answerPoints(%q, %q) = %d, want %d", tc.result, tc.mode, got, tc.want)
 		}
+	}
+}
+
+func TestWeekBounds(t *testing.T) {
+	paris, _ := time.LoadLocation("Europe/Paris")
+	for _, tc := range []struct{ now, monday, sunday string }{
+		{"2026-10-08", "2026-10-05", "2026-10-11"}, // Thursday
+		{"2026-10-05", "2026-10-05", "2026-10-11"}, // Monday
+		{"2026-10-11", "2026-10-05", "2026-10-11"}, // Sunday
+	} {
+		d, _ := time.ParseInLocation("2006-01-02", tc.now, paris)
+		m, s := weekBounds(d.Add(23 * time.Hour))
+		if dayKey(m) != tc.monday || dayKey(s) != tc.sunday {
+			t.Errorf("%s: got %s..%s, want %s..%s", tc.now, dayKey(m), dayKey(s), tc.monday, tc.sunday)
+		}
+	}
+}
+
+func TestPublicNameNeverShowsEmail(t *testing.T) {
+	if got := publicName(14, "someone@example.com", ""); strings.Contains(got, "@") || got == "" {
+		t.Errorf("email account shown as %q", got)
+	}
+	if publicName(14, "someone@example.com", "") != publicName(14, "someone@example.com", "") {
+		t.Error("auto pseudo isn't stable")
+	}
+	if got := publicName(2, "Danae", ""); got != "Danae" {
+		t.Errorf("legacy username shown as %q", got)
+	}
+	if got := publicName(14, "someone@example.com", "Mimi"); got != "Mimi" {
+		t.Errorf("chosen pseudo shown as %q", got)
 	}
 }

@@ -104,6 +104,7 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("GET /review", s.requireAuth(s.handleReviewPage))
 	mux.HandleFunc("POST /review/{id}/answer", s.requireAuth(s.handleReviewAnswer))
 	mux.HandleFunc("POST /review/more", s.requireAuth(s.handleReviewMore))
+	mux.HandleFunc("GET /leaderboard", s.requireAuth(s.handleLeaderboard))
 
 	mux.HandleFunc("GET /words", s.requireAuth(s.handleWords))
 	mux.HandleFunc("GET /reviewed", s.requireAuth(s.handleReviewed))
@@ -662,6 +663,7 @@ func (s *Server) handleSettingsGet(w http.ResponseWriter, r *http.Request) {
 	s.render(w, r, "settings.html", T["SettingsTitle"], settingsView{
 		NativeLang: native, Username: user.Username, Usage: usage,
 		DailyNewLimit: dailyNewLimit(user), DailyNewLimits: DailyNewLimits,
+		DisplayName: user.DisplayName, PublicName: publicName(user.ID, user.Username, user.DisplayName),
 		Email: user.Email, PendingEmail: user.PendingEmail, Message: r.URL.Query().Get("msg"),
 	})
 }
@@ -676,6 +678,8 @@ type settingsView struct {
 
 	DailyNewLimit  int
 	DailyNewLimits []int
+	DisplayName    string
+	PublicName     string // what others see when DisplayName is empty
 }
 
 func (s *Server) handleSettingsPost(w http.ResponseWriter, r *http.Request) {
@@ -691,6 +695,12 @@ func (s *Server) handleSettingsPost(w http.ResponseWriter, r *http.Request) {
 	if err := s.store.SetUserNativeLang(user.ID, native); err != nil {
 		s.fail(w, http.StatusInternalServerError, err)
 		return
+	}
+	if name, ok := cleanDisplayName(r.FormValue("display_name")); ok {
+		if err := s.store.SetDisplayName(user.ID, name); err != nil {
+			s.fail(w, http.StatusInternalServerError, err)
+			return
+		}
 	}
 	if n, err := strconv.Atoi(r.FormValue("daily_new_limit")); err == nil && slices.Contains(DailyNewLimits, n) {
 		if err := s.store.SetDailyNewLimit(user.ID, n); err != nil {

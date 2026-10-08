@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="{{.T.LangCode}}">
+<head>
+  <title>{{.Title}}</title>
+  {{template "head" .}}
+</head>
+<body>
+  {{template "nav" .}}
+
+  <main class="page">
+    <h1>{{.T.LeaderboardTitle}}</h1>
+    <p class="hint leaderboard-sub">{{.T.LeaderboardThisWeek}} · {{.Data.Ends}}</p>
+
+    {{if not .Data.Entries}}
+      <p class="empty">{{.T.LeaderboardEmpty}}</p>
+    {{else}}
+      <ol class="leaderboard">
+        {{range .Data.Entries}}
+        <li class="lb-row{{if .IsYou}} lb-you{{end}}">
+          <span class="lb-rank">{{if eq .Rank 1}}🥇{{else if eq .Rank 2}}🥈{{else if eq .Rank 3}}🥉{{else}}{{.Rank}}{{end}}</span>
+          <span class="lb-name">{{.Name}}{{if .IsYou}} <span class="lb-you-tag">{{$.T.LeaderboardYou}}</span>{{end}}</span>
+          {{if .Streak}}<span class="lb-streak">{{.Streak}}</span>{{end}}
+          <span class="lb-points">{{printf $.T.DailyPoints .Points}}</span>
+        </li>
+        {{end}}
+      </ol>
+    {{end}}
+
+    {{if not .Data.Ranked}}<p class="hint lb-note">{{.T.LeaderboardNotRanked}}</p>{{end}}
+    <p class="hint lb-note">{{.T.LeaderboardHowto}}</p>
+    <p class="hint lb-note">
+      {{printf .T.LeaderboardYouAppear .Data.YourName}}
+      <a href="/settings">{{.T.LeaderboardChangeName}}</a>
+    </p>
+  </main>
+</body>
+</html>

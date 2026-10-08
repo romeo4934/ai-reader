@@ -114,6 +114,7 @@ func migrateUsersForEmail(db *sql.DB) error {
 		{"plan", "TEXT NOT NULL DEFAULT 'free'"},
 		{"pending_email", "TEXT NOT NULL DEFAULT ''"},
 		{"daily_new_limit", "INTEGER NOT NULL DEFAULT 10"},
+		{"display_name", "TEXT NOT NULL DEFAULT ''"},
 	} {
 		if err := ensureColumn(db, "users", c.name, c.decl); err != nil {
 			return fmt.Errorf("migration users.%s : %w", c.name, err)
@@ -203,6 +204,9 @@ type User struct {
 	// DailyNewLimit caps how many never-reviewed cards enter the daily
 	// review session; the rest wait for the following days.
 	DailyNewLimit int
+	// DisplayName is the pseudo shown to others on the leaderboard; empty
+	// means anonymous for an email account.
+	DisplayName string
 }
 
 // Plans: "free" is bounded by the monthly translation quota; "unlimited"
@@ -212,12 +216,12 @@ const (
 	PlanUnlimited = "unlimited"
 )
 
-const userColumns = `id, username, password_hash, native_lang, created_at, COALESCE(email, ''), email_verified_at != '', plan, pending_email, daily_new_limit`
+const userColumns = `id, username, password_hash, native_lang, created_at, COALESCE(email, ''), email_verified_at != '', plan, pending_email, daily_new_limit, display_name`
 
 func scanUser(row interface{ Scan(...any) error }) (User, error) {
 	var u User
 	var createdAt string
-	if err := row.Scan(&u.ID, &u.Username, &u.PasswordHash, &u.NativeLang, &createdAt, &u.Email, &u.EmailVerified, &u.Plan, &u.PendingEmail, &u.DailyNewLimit); err != nil {
+	if err := row.Scan(&u.ID, &u.Username, &u.PasswordHash, &u.NativeLang, &createdAt, &u.Email, &u.EmailVerified, &u.Plan, &u.PendingEmail, &u.DailyNewLimit, &u.DisplayName); err != nil {
 		return User{}, err
 	}
 	u.CreatedAt, _ = time.Parse(timeLayout, createdAt)
@@ -317,6 +321,11 @@ func (s *Store) SetPasswordHash(userID int64, hash string) error {
 
 func (s *Store) SetUserNativeLang(userID int64, lang string) error {
 	_, err := s.db.Exec(`UPDATE users SET native_lang = ? WHERE id = ?`, lang, userID)
+	return err
+}
+
+func (s *Store) SetDisplayName(userID int64, name string) error {
+	_, err := s.db.Exec(`UPDATE users SET display_name = ? WHERE id = ?`, name, userID)
 	return err
 }
 
@@ -763,4 +772,36 @@ func (s *Store) NextDailyCards(userID int64, now time.Time, allowNew bool, limit
 	}
 	defer rows.Close()
 	return scanVocabRows(rows)
+}
+
+type LeaderboardRow struct {
+	UserID      int64
+	Username    string
+	DisplayName string
+	Points      int
+}
+
+// Leaderboard ranks everyone who earned points between two days (inclusive),
+// best first.
+func (s *Store) Leaderboard(fromDay, toDay string, limit int) ([]LeaderboardRow, error) {
+	rows, err := s.db.Query(`
+		SELECT u.id, u.username, u.display_name, SUM(d.points) AS p
+		FROM daily_activity d JOIN users u ON u.id = d.user_id
+		WHERE d.day >= ? AND d.day <= ?
+		GROUP BY u.id HAVING p > 0
+		ORDER BY p DESC, u.id ASC
+		LIMIT ?`, fromDay, toDay, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []LeaderboardRow
+	for rows.Next() {
+		var r LeaderboardRow
+		if err := rows.Scan(&r.UserID, &r.Username, &r.DisplayName, &r.Points); err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
 }

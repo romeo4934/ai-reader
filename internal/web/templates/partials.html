@@ -23,6 +23,7 @@
     {{if .LoggedIn}}
       <a href="/words">{{.T.NavMyWords}}</a>
       <a href="/review">{{.T.NavReview}}{{if gt .DueCount 0}} <span class="badge">{{.DueCount}}</span>{{end}}</a>
+      <a href="/leaderboard">{{.T.NavLeaderboard}}</a>
       <a href="/reviewed">{{.T.NavHistory}}</a>
       <a href="/settings">{{.T.NavSettings}}</a>
     {{else}}

@@ -26,6 +26,10 @@
       <input type="text" id="native_lang" name="native_lang" value="{{.Data.NativeLang}}" required hidden>
       <p class="hint">{{.T.SettingsNativeLangHint}}</p>
 
+      <label for="display_name">{{.T.SettingsPseudoLabel}}</label>
+      <input type="text" id="display_name" name="display_name" value="{{.Data.DisplayName}}" placeholder="{{.Data.PublicName}}" maxlength="24" autocomplete="nickname">
+      <p class="hint">{{.T.SettingsPseudoHint}}</p>
+
       <label for="daily_new_limit">{{.T.SettingsDailyNewLabel}}</label>
       <select id="daily_new_limit" name="daily_new_limit">
         {{$cur := .Data.DailyNewLimit}}
