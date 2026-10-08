@@ -421,3 +421,5 @@ details[open] .word-row::after { content: '⌄'; }
 .auth-page .form-error { max-width: none; }
 .auth-links { margin-top: 1.5rem; line-height: 1.8; }
 .auth-page > .hint { margin-bottom: 1.2rem; }
+.settings-section { font-family: -apple-system, BlinkMacSystemFont, sans-serif; font-size: 1.15rem; margin: 2.5rem 0 0.8rem; }
+.settings-msg { color: var(--accent); margin-bottom: 0.8rem; }

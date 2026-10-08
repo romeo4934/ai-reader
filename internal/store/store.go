@@ -96,6 +96,7 @@ func migrateUsersForEmail(db *sql.DB) error {
 		{"email", "TEXT"},
 		{"email_verified_at", "TEXT NOT NULL DEFAULT ''"},
 		{"plan", "TEXT NOT NULL DEFAULT 'free'"},
+		{"pending_email", "TEXT NOT NULL DEFAULT ''"},
 	} {
 		if err := ensureColumn(db, "users", c.name, c.decl); err != nil {
 			return fmt.Errorf("migration users.%s : %w", c.name, err)
@@ -178,6 +179,10 @@ type User struct {
 	Email         string
 	EmailVerified bool
 	Plan          string
+	// PendingEmail is an address an older account asked to add from the
+	// settings, waiting for its confirmation link to be clicked. Kept apart
+	// from Email so an unconfirmed address never locks the account's login.
+	PendingEmail string
 }
 
 // Plans: "free" is bounded by the monthly translation quota; "unlimited"
@@ -187,12 +192,12 @@ const (
 	PlanUnlimited = "unlimited"
 )
 
-const userColumns = `id, username, password_hash, native_lang, created_at, COALESCE(email, ''), email_verified_at != '', plan`
+const userColumns = `id, username, password_hash, native_lang, created_at, COALESCE(email, ''), email_verified_at != '', plan, pending_email`
 
 func scanUser(row interface{ Scan(...any) error }) (User, error) {
 	var u User
 	var createdAt string
-	if err := row.Scan(&u.ID, &u.Username, &u.PasswordHash, &u.NativeLang, &createdAt, &u.Email, &u.EmailVerified, &u.Plan); err != nil {
+	if err := row.Scan(&u.ID, &u.Username, &u.PasswordHash, &u.NativeLang, &createdAt, &u.Email, &u.EmailVerified, &u.Plan, &u.PendingEmail); err != nil {
 		return User{}, err
 	}
 	u.CreatedAt, _ = time.Parse(timeLayout, createdAt)
@@ -268,6 +273,19 @@ func (s *Store) CreateEmailUser(email, passwordHash, nativeLang string) (int64, 
 
 func (s *Store) MarkEmailVerified(userID int64) error {
 	_, err := s.db.Exec(`UPDATE users SET email_verified_at = ? WHERE id = ? AND email_verified_at = ''`,
+		time.Now().UTC().Format(timeLayout), userID)
+	return err
+}
+
+func (s *Store) SetPendingEmail(userID int64, email string) error {
+	_, err := s.db.Exec(`UPDATE users SET pending_email = ? WHERE id = ?`, email, userID)
+	return err
+}
+
+// ConfirmPendingEmail makes the pending address the account's verified
+// email. Fails on the unique index if someone else took it meanwhile.
+func (s *Store) ConfirmPendingEmail(userID int64) error {
+	_, err := s.db.Exec(`UPDATE users SET email = pending_email, pending_email = '', email_verified_at = ? WHERE id = ? AND pending_email != ''`,
 		time.Now().UTC().Format(timeLayout), userID)
 	return err
 }

@@ -5,6 +5,8 @@ package i18n
 // are fmt verbs filled in by the caller.
 var account = map[string]Dict{
 	"en": {
+		"SettingsEmailTitle": "Add my email", "SettingsEmailHint": "Lets you log in with it and reset your password if you forget it. We'll send a confirmation link.", "SettingsEmailBtn": "Send the confirmation link",
+		"SettingsEmailSent": "Confirmation link sent to %s. Click it to finish.", "SettingsEmailPending": "Waiting for confirmation: %s", "SettingsEmailTaken": "This email is already used by another account.",
 		"AuthLoginTitle": "Log in", "AuthLogin": "Email", "AuthPassword": "Password",
 		"AuthLoginBtn": "Log in", "AuthNoAccount": "No account yet?", "AuthSignupLink": "Sign up for free",
 		"AuthForgotLink":  "Forgot your password?",
@@ -30,6 +32,8 @@ var account = map[string]Dict{
 		"SettingsUsage":     "This month: %d / %d translations", "SettingsUsageUnlimited": "This month: %d translations (unlimited plan)",
 	},
 	"fr": {
+		"SettingsEmailTitle": "Ajouter mon email", "SettingsEmailHint": "Pour te connecter avec, et récupérer ton mot de passe si tu l'oublies. On t'envoie un lien de confirmation.", "SettingsEmailBtn": "Envoyer le lien de confirmation",
+		"SettingsEmailSent": "Lien de confirmation envoyé à %s. Clique dessus pour terminer.", "SettingsEmailPending": "En attente de confirmation : %s", "SettingsEmailTaken": "Cet email est déjà utilisé par un autre compte.",
 		"AuthLoginTitle": "Connexion", "AuthLogin": "Email", "AuthPassword": "Mot de passe",
 		"AuthLoginBtn": "Se connecter", "AuthNoAccount": "Pas encore de compte ?", "AuthSignupLink": "S'inscrire gratuitement",
 		"AuthForgotLink":  "Mot de passe oublié ?",
@@ -55,6 +59,8 @@ var account = map[string]Dict{
 		"SettingsUsage":     "Ce mois-ci : %d / %d traductions", "SettingsUsageUnlimited": "Ce mois-ci : %d traductions (formule illimitée)",
 	},
 	"es": {
+		"SettingsEmailTitle": "Añadir mi email", "SettingsEmailHint": "Para iniciar sesión con él y recuperar tu contraseña si la olvidas. Te enviaremos un enlace de confirmación.", "SettingsEmailBtn": "Enviar el enlace de confirmación",
+		"SettingsEmailSent": "Enlace de confirmación enviado a %s. Haz clic en él para terminar.", "SettingsEmailPending": "Pendiente de confirmación: %s", "SettingsEmailTaken": "Este email ya lo usa otra cuenta.",
 		"AuthLoginTitle": "Iniciar sesión", "AuthLogin": "Email", "AuthPassword": "Contraseña",
 		"AuthLoginBtn": "Entrar", "AuthNoAccount": "¿Aún no tienes cuenta?", "AuthSignupLink": "Regístrate gratis",
 		"AuthForgotLink":  "¿Olvidaste tu contraseña?",
@@ -80,6 +86,8 @@ var account = map[string]Dict{
 		"SettingsUsage":     "Este mes: %d / %d traducciones", "SettingsUsageUnlimited": "Este mes: %d traducciones (plan ilimitado)",
 	},
 	"pt": {
+		"SettingsEmailTitle": "Adicionar meu email", "SettingsEmailHint": "Para entrar com ele e recuperar sua senha se esquecer. Enviaremos um link de confirmação.", "SettingsEmailBtn": "Enviar o link de confirmação",
+		"SettingsEmailSent": "Link de confirmação enviado para %s. Clique nele para concluir.", "SettingsEmailPending": "Aguardando confirmação: %s", "SettingsEmailTaken": "Este email já é usado por outra conta.",
 		"AuthLoginTitle": "Entrar", "AuthLogin": "Email", "AuthPassword": "Senha",
 		"AuthLoginBtn": "Entrar", "AuthNoAccount": "Ainda não tem conta?", "AuthSignupLink": "Cadastre-se grátis",
 		"AuthForgotLink":  "Esqueceu a senha?",
@@ -105,6 +113,8 @@ var account = map[string]Dict{
 		"SettingsUsage":     "Este mês: %d / %d traduções", "SettingsUsageUnlimited": "Este mês: %d traduções (plano ilimitado)",
 	},
 	"it": {
+		"SettingsEmailTitle": "Aggiungi la mia email", "SettingsEmailHint": "Per accedere con essa e recuperare la password se la dimentichi. Ti invieremo un link di conferma.", "SettingsEmailBtn": "Invia il link di conferma",
+		"SettingsEmailSent": "Link di conferma inviato a %s. Cliccalo per completare.", "SettingsEmailPending": "In attesa di conferma: %s", "SettingsEmailTaken": "Questa email è già usata da un altro account.",
 		"AuthLoginTitle": "Accedi", "AuthLogin": "Email", "AuthPassword": "Password",
 		"AuthLoginBtn": "Accedi", "AuthNoAccount": "Non hai ancora un account?", "AuthSignupLink": "Iscriviti gratis",
 		"AuthForgotLink":  "Password dimenticata?",
@@ -130,6 +140,8 @@ var account = map[string]Dict{
 		"SettingsUsage":     "Questo mese: %d / %d traduzioni", "SettingsUsageUnlimited": "Questo mese: %d traduzioni (piano illimitato)",
 	},
 	"de": {
+		"SettingsEmailTitle": "Meine E-Mail hinzufügen", "SettingsEmailHint": "Damit kannst du dich damit anmelden und dein Passwort zurücksetzen, falls du es vergisst. Wir schicken dir einen Bestätigungslink.", "SettingsEmailBtn": "Bestätigungslink senden",
+		"SettingsEmailSent": "Bestätigungslink an %s gesendet. Klicke darauf, um abzuschließen.", "SettingsEmailPending": "Wartet auf Bestätigung: %s", "SettingsEmailTaken": "Diese E-Mail wird schon von einem anderen Konto verwendet.",
 		"AuthLoginTitle": "Anmelden", "AuthLogin": "E-Mail", "AuthPassword": "Passwort",
 		"AuthLoginBtn": "Anmelden", "AuthNoAccount": "Noch kein Konto?", "AuthSignupLink": "Kostenlos registrieren",
 		"AuthForgotLink":  "Passwort vergessen?",
@@ -155,6 +167,8 @@ var account = map[string]Dict{
 		"SettingsUsage":     "Diesen Monat: %d / %d Übersetzungen", "SettingsUsageUnlimited": "Diesen Monat: %d Übersetzungen (unbegrenzter Tarif)",
 	},
 	"nl": {
+		"SettingsEmailTitle": "Mijn e-mail toevoegen", "SettingsEmailHint": "Zo kun je ermee inloggen en je wachtwoord herstellen als je het vergeet. We sturen je een bevestigingslink.", "SettingsEmailBtn": "Bevestigingslink sturen",
+		"SettingsEmailSent": "Bevestigingslink gestuurd naar %s. Klik erop om af te ronden.", "SettingsEmailPending": "Wacht op bevestiging: %s", "SettingsEmailTaken": "Dit e-mailadres wordt al door een ander account gebruikt.",
 		"AuthLoginTitle": "Inloggen", "AuthLogin": "E-mail", "AuthPassword": "Wachtwoord",
 		"AuthLoginBtn": "Inloggen", "AuthNoAccount": "Nog geen account?", "AuthSignupLink": "Gratis aanmelden",
 		"AuthForgotLink":  "Wachtwoord vergeten?",

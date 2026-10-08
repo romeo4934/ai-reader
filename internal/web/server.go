@@ -109,6 +109,7 @@ func (s *Server) Routes() http.Handler {
 
 	mux.HandleFunc("GET /settings", s.requireAuth(s.handleSettingsGet))
 	mux.HandleFunc("POST /settings", s.requireAuth(s.handleSettingsPost))
+	mux.HandleFunc("POST /settings/email", s.requireAuth(s.handleSettingsEmail))
 
 	mux.HandleFunc("POST /api/translate", s.requireAuth(s.handleAPITranslate))
 
@@ -591,13 +592,19 @@ func (s *Server) handleSettingsGet(w http.ResponseWriter, r *http.Request) {
 	if user.Plan == store.PlanUnlimited {
 		usage = fmt.Sprintf(T["SettingsUsageUnlimited"], used)
 	}
-	s.render(w, r, "settings.html", T["SettingsTitle"], settingsView{NativeLang: native, Username: user.Username, Usage: usage})
+	s.render(w, r, "settings.html", T["SettingsTitle"], settingsView{
+		NativeLang: native, Username: user.Username, Usage: usage,
+		Email: user.Email, PendingEmail: user.PendingEmail, Message: r.URL.Query().Get("msg"),
+	})
 }
 
 type settingsView struct {
-	NativeLang string
-	Username   string
-	Usage      string
+	NativeLang   string
+	Username     string
+	Usage        string
+	Email        string
+	PendingEmail string
+	Message      string
 }
 
 func (s *Server) handleSettingsPost(w http.ResponseWriter, r *http.Request) {

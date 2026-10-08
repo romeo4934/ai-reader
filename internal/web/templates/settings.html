@@ -58,8 +58,20 @@
       })();
     </script>
 
+    {{if not .Data.Email}}
+    <h2 class="settings-section">{{.T.SettingsEmailTitle}}</h2>
+    {{if .Data.Message}}<p class="hint settings-msg">{{.Data.Message}}</p>{{end}}
+    {{if .Data.PendingEmail}}<p class="hint">{{printf .T.SettingsEmailPending .Data.PendingEmail}}</p>{{end}}
+    <form action="/settings/email" method="post" class="settings-form">
+      <label for="email">{{.T.AuthEmail}}</label>
+      <input type="email" id="email" name="email" value="{{.Data.PendingEmail}}" autocomplete="email" autocapitalize="none" spellcheck="false" required>
+      <p class="hint">{{.T.SettingsEmailHint}}</p>
+      <button type="submit" class="btn">{{.T.SettingsEmailBtn}}</button>
+    </form>
+    {{end}}
+
     <p class="hint" style="margin-top:2rem">{{.Data.Usage}}</p>
-    <p class="hint" style="margin-top:0.5rem">{{.T.SettingsLoggedInAs}} <strong>{{.Data.Username}}</strong>.
+    <p class="hint" style="margin-top:0.5rem">{{.T.SettingsLoggedInAs}} <strong>{{if .Data.Email}}{{.Data.Email}}{{else}}{{.Data.Username}}{{end}}</strong>.
       <form action="/logout" method="post" style="display:inline">
         <button type="submit" class="btn-link">{{.T.SettingsLogout}}</button>
       </form>

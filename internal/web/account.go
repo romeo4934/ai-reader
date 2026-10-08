@@ -132,12 +132,22 @@ func (s *Server) handleVerify(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	user, err := s.store.GetUserByID(userID)
-	if err != nil || user.Email == "" || !auth.VerifyLink(s.secret, auth.PurposeVerify, token, strings.ToLower(user.Email)) {
+	if err != nil {
 		bad()
 		return
 	}
-	if err := s.store.MarkEmailVerified(user.ID); err != nil {
-		s.fail(w, http.StatusInternalServerError, err)
+	switch {
+	case user.Email != "" && auth.VerifyLink(s.secret, auth.PurposeVerify, token, strings.ToLower(user.Email)):
+		err = s.store.MarkEmailVerified(user.ID)
+	case user.PendingEmail != "" && auth.VerifyLink(s.secret, auth.PurposeVerify, token, strings.ToLower(user.PendingEmail)):
+		err = s.store.ConfirmPendingEmail(user.ID)
+	default:
+		bad()
+		return
+	}
+	if err != nil {
+		s.log.Error("confirmation email", "user", user.ID, "err", err)
+		bad()
 		return
 	}
 	s.issueSession(w, r, user.ID)
@@ -309,4 +319,31 @@ func (l *rateLimiter) allow(key string) bool {
 		}
 	}
 	return true
+}
+
+// --- adding an email to an older account (from /settings) ---
+
+func (s *Server) handleSettingsEmail(w http.ResponseWriter, r *http.Request) {
+	user := userFromContext(r)
+	T := s.dictFor(r)
+	email := normalizeEmail(r.FormValue("email"))
+	var flash string
+	switch {
+	case !s.limit.allow("addemail:" + clientIP(r)):
+		flash = T["AuthErrTooMany"]
+	case !validEmail(email):
+		flash = T["AuthErrBadEmail"]
+	default:
+		if other, err := s.store.GetUserByLogin(email); err == nil && other.ID != user.ID {
+			flash = T["SettingsEmailTaken"]
+			break
+		}
+		if err := s.store.SetPendingEmail(user.ID, email); err != nil {
+			s.fail(w, http.StatusInternalServerError, err)
+			return
+		}
+		s.sendVerification(r.Context(), T, user.ID, email)
+		flash = fmt.Sprintf(T["SettingsEmailSent"], email)
+	}
+	http.Redirect(w, r, "/settings?msg="+url.QueryEscape(flash), http.StatusSeeOther)
 }
