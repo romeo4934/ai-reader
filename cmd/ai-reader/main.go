@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	_ "time/tzdata" // the tz cookie names IANA zones; don't depend on the host having them
@@ -45,6 +46,8 @@ func run() error {
 	cfg := web.Config{
 		BaseURL:   strings.TrimRight(getenv("AI_READER_BASE_URL", "https://book.getlydi.com"), "/"),
 		FreeQuota: freeQuota,
+		// Next to the database, so it lives on the same (backed-up) volume.
+		CatalogDir: filepath.Join(filepath.Dir(dbPath), "catalog"),
 	}
 
 	st, err := store.Open(dbPath)

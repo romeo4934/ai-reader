@@ -53,6 +53,10 @@ func Open(path string) (*Store, error) {
 		db.Close()
 		return nil, fmt.Errorf("migration vocab.archived : %w", err)
 	}
+	if err := ensureColumn(db, "books", "source", "TEXT NOT NULL DEFAULT ''"); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("migration books.source : %w", err)
+	}
 	if err := ensureColumn(db, "reading_progress", "section_idx", "INTEGER NOT NULL DEFAULT 0"); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("migration reading_progress.section_idx : %w", err)
@@ -471,15 +475,17 @@ type Chapter struct {
 }
 
 // InsertBook stores a book and all of its chapters (idx 0-based, in reading order).
-func (s *Store) InsertBook(userID int64, title, author, language string, chapters []struct{ Title, Content string }) (int64, error) {
+// InsertBook stores an imported book. source is "" for an uploaded epub, or
+// where it came from (a catalog book's Source).
+func (s *Store) InsertBook(userID int64, title, author, language, source string, chapters []struct{ Title, Content string }) (int64, error) {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return 0, err
 	}
 	defer tx.Rollback()
 
-	res, err := tx.Exec(`INSERT INTO books (user_id, title, author, language, added_at) VALUES (?, ?, ?, ?, ?)`,
-		userID, title, author, language, time.Now().UTC().Format(timeLayout))
+	res, err := tx.Exec(`INSERT INTO books (user_id, title, author, language, source, added_at) VALUES (?, ?, ?, ?, ?, ?)`,
+		userID, title, author, language, source, time.Now().UTC().Format(timeLayout))
 	if err != nil {
 		return 0, err
 	}
@@ -494,6 +500,25 @@ func (s *Store) InsertBook(userID int64, title, author, language string, chapter
 		}
 	}
 	return bookID, tx.Commit()
+}
+
+// BookSources maps the sources of this user's catalog books to their ids.
+func (s *Store) BookSources(userID int64) (map[string]int64, error) {
+	rows, err := s.db.Query(`SELECT source, id FROM books WHERE user_id = ? AND source != ''`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]int64{}
+	for rows.Next() {
+		var src string
+		var id int64
+		if err := rows.Scan(&src, &id); err != nil {
+			return nil, err
+		}
+		out[src] = id
+	}
+	return out, rows.Err()
 }
 
 func (s *Store) ListBooks(userID int64) ([]Book, error) {

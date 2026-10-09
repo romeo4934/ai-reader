@@ -10,10 +10,17 @@
   <main class="page">
     <h1>{{.T.LibTitle}}</h1>
 
-    <form class="upload" action="/books" method="post" enctype="multipart/form-data">
-      <input type="file" name="epub" accept=".epub" required>
-      <button type="submit">{{.T.LibUpload}}</button>
-    </form>
+    <div class="add-book">
+      <a href="/catalog" class="add-book-option add-book-catalog">
+        <strong>{{.T.LibFromCatalog}}</strong>
+        <span>{{.T.LibFromCatalogHint}}</span>
+      </a>
+      <form class="upload add-book-option" action="/books" method="post" enctype="multipart/form-data">
+        <strong>{{.T.LibImport}}</strong>
+        <input type="file" name="epub" accept=".epub" required>
+        <button type="submit">{{.T.LibUpload}}</button>
+      </form>
+    </div>
 
     {{if not .Data}}
       <p class="empty">{{.T.LibEmpty}}</p>

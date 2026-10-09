@@ -20,6 +20,7 @@ import (
 
 	"github.com/romeo4934/ai-reader/internal/ai"
 	"github.com/romeo4934/ai-reader/internal/auth"
+	"github.com/romeo4934/ai-reader/internal/catalog"
 	"github.com/romeo4934/ai-reader/internal/epub"
 	"github.com/romeo4934/ai-reader/internal/frequency"
 	"github.com/romeo4934/ai-reader/internal/i18n"
@@ -44,15 +45,16 @@ const maxUploadBytes = 30 << 20 // 30 MiB — plenty for a novel-length epub
 const maxVocabWords = 12
 
 type Server struct {
-	store  *store.Store
-	ai     *ai.Client
-	tmpl   *template.Template
-	log    *slog.Logger
-	secret []byte
-	mail   *mail.Sender
-	cfg    Config
-	limit  *rateLimiter
-	recall *recallCache
+	store   *store.Store
+	ai      *ai.Client
+	tmpl    *template.Template
+	log     *slog.Logger
+	secret  []byte
+	mail    *mail.Sender
+	cfg     Config
+	limit   *rateLimiter
+	recall  *recallCache
+	catalog *catalog.Fetcher
 }
 
 // Config holds the settings for open signup.
@@ -63,6 +65,8 @@ type Config struct {
 	// FreeQuota is the number of AI translations a free-plan account gets
 	// per calendar month.
 	FreeQuota int
+	// CatalogDir caches the built-in library's epubs.
+	CatalogDir string
 }
 
 func New(st *store.Store, aiClient *ai.Client, log *slog.Logger, secret []byte, mailer *mail.Sender, cfg Config) (*Server, error) {
@@ -76,7 +80,7 @@ func New(st *store.Store, aiClient *ai.Client, log *slog.Logger, secret []byte, 
 	if err != nil {
 		return nil, fmt.Errorf("parse templates : %w", err)
 	}
-	return &Server{store: st, ai: aiClient, tmpl: tmpl, log: log, secret: secret, mail: mailer, cfg: cfg, limit: newRateLimiter(10, 10*time.Minute), recall: newRecallCache()}, nil
+	return &Server{store: st, ai: aiClient, tmpl: tmpl, log: log, secret: secret, mail: mailer, cfg: cfg, limit: newRateLimiter(10, 10*time.Minute), recall: newRecallCache(), catalog: catalog.NewFetcher(cfg.CatalogDir)}, nil
 }
 
 func (s *Server) Routes() http.Handler {
@@ -105,6 +109,8 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("POST /review/{id}/answer", s.requireAuth(s.handleReviewAnswer))
 	mux.HandleFunc("POST /review/more", s.requireAuth(s.handleReviewMore))
 	mux.HandleFunc("GET /leaderboard", s.requireAuth(s.handleLeaderboard))
+	mux.HandleFunc("GET /catalog", s.requireAuth(s.handleCatalog))
+	mux.HandleFunc("POST /catalog/{id}/add", s.requireAuth(s.handleCatalogAdd))
 	mux.HandleFunc("GET /friends", s.requireAuth(s.handleFriends))
 	mux.HandleFunc("POST /friends/invite", s.requireAuth(s.handleFriendsInvite))
 	mux.HandleFunc("POST /friends/{id}/remove", s.requireAuth(s.handleFriendRemove))
@@ -327,7 +333,7 @@ func (s *Server) handleUploadBook(w http.ResponseWriter, r *http.Request) {
 		chapters[i] = struct{ Title, Content string }{ch.Title, ch.Content}
 	}
 	user := userFromContext(r)
-	bookID, err := s.store.InsertBook(user.ID, book.Title, book.Author, book.Language, chapters)
+	bookID, err := s.store.InsertBook(user.ID, book.Title, book.Author, book.Language, "", chapters)
 	if err != nil {
 		s.fail(w, http.StatusInternalServerError, err)
 		return
