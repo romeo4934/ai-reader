@@ -15,6 +15,7 @@
 
   function closePopover() {
     popover.hidden = true;
+    document.body.style.paddingBottom = '';
     window.getSelection().removeAllRanges();
     clearHighlight();
   }
@@ -80,15 +81,23 @@
   function positionPopover(rect) {
     if (!rect) return;
     if (useSheet()) {
+      // Always along the bottom edge — a panel that jumps between top and
+      // bottom makes the eyes hunt for it. When scrolling, the page moves
+      // up instead if the word would end up under the panel (room for
+      // that is added below the text while the panel is open).
       popover.classList.add('sheet');
-      // Opposite edge from the word, so the panel never covers it.
-      var low = rect.top + rect.height / 2 > window.innerHeight * 0.55;
-      popover.classList.toggle('sheet-top', low);
       popover.style.left = '';
       popover.style.top = '';
+      document.body.style.paddingBottom = paged ? '' : popover.offsetHeight + 'px';
+      // Measured live (not the rect from the tap): this runs again once the
+      // translation arrives and the panel grows, after a first scroll.
+      var mark = chapterEl.querySelector('.word-highlight');
+      var wordBottom = mark ? mark.getBoundingClientRect().bottom : rect.bottom;
+      var hidden = wordBottom + 12 - (window.innerHeight - popover.offsetHeight);
+      if (!paged && hidden > 0) window.scrollBy(0, hidden);
       return;
     }
-    popover.classList.remove('sheet', 'sheet-top');
+    popover.classList.remove('sheet');
     var margin = 12;
     var w = popover.offsetWidth;
     var h = popover.offsetHeight;

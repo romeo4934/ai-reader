@@ -574,8 +574,8 @@ details[open] .word-row::after { content: '⌄'; }
 .tab-count { display: inline-block; min-width: 1.3em; padding: 0 0.35em; border-radius: 999px; background: var(--border); color: var(--fg); font-size: 0.8em; text-align: center; }
 .lb-tabs a.active .tab-count { background: var(--accent-fg); color: var(--accent); }
 
-/* Translation as a panel along the bottom (or top) edge: on phones, and
-   when turning pages. */
+/* Translation as a panel along the bottom edge: on phones, and when
+   turning pages. */
 .popover.sheet {
   left: 0; right: 0; bottom: 0; top: auto;
   width: auto;
@@ -583,12 +583,6 @@ details[open] .word-row::after { content: '⌄'; }
   border-radius: 16px 16px 0 0;
   border-width: 1px 0 0;
   padding: 1rem 1.2rem calc(1rem + env(safe-area-inset-bottom));
-}
-.popover.sheet.sheet-top {
-  top: 0; bottom: auto;
-  border-radius: 0 0 16px 16px;
-  border-width: 0 0 1px;
-  padding: calc(1rem + env(safe-area-inset-top)) 1.2rem 1rem;
 }
 
 /* Pages mode: the section laid out in one screen-sized column per page. */
