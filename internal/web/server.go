@@ -814,7 +814,7 @@ func (s *Server) handleAPITranslate(w http.ResponseWriter, r *http.Request) {
 		s.log.Error("count translation", "err", err)
 	}
 
-	_, alreadySaved, err := s.store.FindVocabByPhrase(user.ID, phrase)
+	_, alreadySaved, err := s.store.FindVocab(user.ID, phrase, tr.Lemma)
 	if err != nil {
 		s.failJSON(w, http.StatusInternalServerError, err)
 		return

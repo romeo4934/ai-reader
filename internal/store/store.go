@@ -90,6 +90,10 @@ func Open(path string) (*Store, error) {
 		db.Close()
 		return nil, err
 	}
+	if err := mergeDuplicateLemmas(db); err != nil {
+		db.Close()
+		return nil, err
+	}
 	// These index the user_id columns just added above — created here rather
 	// than in schema.sql so they never run before ensureColumn has had a
 	// chance to add the column on an upgraded database.
@@ -184,6 +188,24 @@ func migratePointsByLang(db *sql.DB) error {
 			r.userID, r.day, LangKey(r.lang), r.points); err != nil {
 			return fmt.Errorf("migration points_lang : %w", err)
 		}
+	}
+	return nil
+}
+
+// mergeDuplicateLemmas folds cards saved twice for the same word in
+// different forms (before FindVocab matched on the dictionary form) into
+// one: the most advanced card is kept — highest box, then most recently
+// reviewed, then oldest — and the others are deleted. A no-op once merged.
+func mergeDuplicateLemmas(db *sql.DB) error {
+	_, err := db.Exec(`DELETE FROM vocab WHERE lemma != '' AND id NOT IN (
+		SELECT id FROM (
+			SELECT id, ROW_NUMBER() OVER (
+				PARTITION BY user_id, lemma COLLATE NOCASE
+				ORDER BY box DESC, last_reviewed_at IS NULL, last_reviewed_at DESC, id ASC) AS rn
+			FROM vocab WHERE lemma != ''
+		) WHERE rn = 1)`)
+	if err != nil {
+		return fmt.Errorf("fusion des doublons : %w", err)
 	}
 	return nil
 }
@@ -559,11 +581,15 @@ func (s *Store) InsertVocab(v Vocab) (int64, error) {
 	return res.LastInsertId()
 }
 
-// FindVocabByPhrase returns the id of an existing card for this phrase for
-// this user (case-insensitive), so looking a word up twice doesn't create
-// two cards — scoped per user so two people don't collide on a common word.
-func (s *Store) FindVocabByPhrase(userID int64, phrase string) (id int64, found bool, err error) {
-	err = s.db.QueryRow(`SELECT id FROM vocab WHERE user_id = ? AND phrase = ? COLLATE NOCASE LIMIT 1`, userID, phrase).Scan(&id)
+// FindVocab returns the id of this user's existing card for this word —
+// same phrase, or same dictionary form (case-insensitive) — so looking a
+// word up twice, or in another form ("weirwood", then "weirwoods"),
+// doesn't create two cards. Scoped per user so two people don't collide on
+// a common word.
+func (s *Store) FindVocab(userID int64, phrase, lemma string) (id int64, found bool, err error) {
+	err = s.db.QueryRow(`SELECT id FROM vocab WHERE user_id = ?
+		AND (phrase = ? COLLATE NOCASE OR (? != '' AND lemma = ? COLLATE NOCASE)) LIMIT 1`,
+		userID, phrase, lemma, lemma).Scan(&id)
 	switch {
 	case err == sql.ErrNoRows:
 		return 0, false, nil
