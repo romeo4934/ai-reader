@@ -36,6 +36,7 @@
         {{else if gt $d.NewWaiting 0}}
           <p class="hint daily-waiting">{{printf .T.DailyWaiting $d.NewWaiting}}</p>
           <form action="/review/more" method="post">
+            <input type="hidden" name="lang" value="{{$d.Lang}}">
             <button type="submit" class="btn">{{printf .T.DailyMoreBtn $d.MoreCount}}</button>
           </form>
         {{end}}

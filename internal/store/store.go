@@ -98,6 +98,14 @@ func Open(path string) (*Store, error) {
 		db.Close()
 		return nil, err
 	}
+	// points_lang also holds each language's new-card count and extra
+	// allowance for the day: the daily new-word limit is per language.
+	for _, c := range []string{"new_cards", "extra_new"} {
+		if err := ensureColumn(db, "points_lang", c, "INTEGER NOT NULL DEFAULT 0"); err != nil {
+			db.Close()
+			return nil, fmt.Errorf("migration points_lang.%s : %w", c, err)
+		}
+	}
 	if err := mergeDuplicateLemmas(db); err != nil {
 		db.Close()
 		return nil, err
@@ -262,9 +270,12 @@ func mergeDuplicateLemmas(db *sql.DB) error {
 
 // LangKey normalizes a book's language tag ("en-US", "EN", "fr_FR",
 // "eng") to the two-letter code words, reviews and the leaderboard are
-// grouped by; "" when unknown.
+// grouped by; "und" (undetermined) when the book doesn't say.
 func LangKey(tag string) string {
 	tag = strings.ToLower(strings.TrimSpace(tag))
+	if tag == "" {
+		return "und"
+	}
 	if i := strings.IndexAny(tag, "-_"); i >= 0 {
 		tag = tag[:i]
 	}
@@ -287,7 +298,7 @@ func migrateBookLangKeys(db *sql.DB) error {
 	if err := ensureColumn(db, "books", "lang_key", "TEXT NOT NULL DEFAULT ''"); err != nil {
 		return fmt.Errorf("migration books.lang_key : %w", err)
 	}
-	rows, err := db.Query(`SELECT id, language FROM books WHERE lang_key = '' AND language != ''`)
+	rows, err := db.Query(`SELECT id, language FROM books WHERE lang_key = ''`)
 	if err != nil {
 		return fmt.Errorf("migration books.lang_key : %w", err)
 	}
@@ -976,10 +987,11 @@ func (s *Store) RecordReview(userID int64, day string, wasNew bool, points int, 
 		userID, day, n, points); err != nil {
 		return err
 	}
-	if points > 0 {
-		if _, err := tx.Exec(`INSERT INTO points_lang (user_id, day, lang, points) VALUES (?, ?, ?, ?)
-			ON CONFLICT (user_id, day, lang) DO UPDATE SET points = points + excluded.points`,
-			userID, day, LangKey(lang), points); err != nil {
+	if points > 0 || wasNew {
+		if _, err := tx.Exec(`INSERT INTO points_lang (user_id, day, lang, points, new_cards) VALUES (?, ?, ?, ?, ?)
+			ON CONFLICT (user_id, day, lang) DO UPDATE SET points = points + excluded.points,
+				new_cards = new_cards + excluded.new_cards`,
+			userID, day, LangKey(lang), points, n); err != nil {
 			return err
 		}
 	}
@@ -992,13 +1004,60 @@ func (s *Store) TotalPoints(userID int64) (int, error) {
 	return n, err
 }
 
-// AddExtraNew raises today's new-card allowance, for someone who finished
-// the challenge and wants to keep going.
-func (s *Store) AddExtraNew(userID int64, day string, n int) error {
-	_, err := s.db.Exec(`INSERT INTO daily_activity (user_id, day, extra_new) VALUES (?, ?, ?)
-		ON CONFLICT (user_id, day) DO UPDATE SET extra_new = extra_new + excluded.extra_new`,
-		userID, day, n)
+// AddExtraNew raises today's new-card allowance in one language, for
+// someone who finished the challenge and wants to keep going.
+func (s *Store) AddExtraNew(userID int64, day, lang string, n int) error {
+	_, err := s.db.Exec(`INSERT INTO points_lang (user_id, day, lang, extra_new) VALUES (?, ?, ?, ?)
+		ON CONFLICT (user_id, day, lang) DO UPDATE SET extra_new = extra_new + excluded.extra_new`,
+		userID, day, lang, n)
 	return err
+}
+
+// LangDay is one language's share of a day: new cards introduced and the
+// extra allowance asked for.
+type LangDay struct{ NewCards, ExtraNew int }
+
+func (s *Store) LangDays(userID int64, day string) (map[string]LangDay, error) {
+	rows, err := s.db.Query(`SELECT lang, new_cards, extra_new FROM points_lang WHERE user_id = ? AND day = ?`, userID, day)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]LangDay{}
+	for rows.Next() {
+		var l string
+		var d LangDay
+		if err := rows.Scan(&l, &d.NewCards, &d.ExtraNew); err != nil {
+			return nil, err
+		}
+		out[l] = d
+	}
+	return out, rows.Err()
+}
+
+// DeckCountsByLang is DeckCounts for each language of the user's words.
+func (s *Store) DeckCountsByLang(userID int64, now time.Time) (map[string]DeckCounts, error) {
+	rows, err := s.db.Query(`SELECT b.lang_key,
+			COALESCE(SUM(v.last_reviewed_at IS NOT NULL AND v.next_review_at <= ?), 0),
+			COALESCE(SUM(v.last_reviewed_at IS NULL), 0),
+			COALESCE(SUM(v.last_reviewed_at IS NOT NULL AND v.box <= 2), 0),
+			COUNT(*)
+		FROM vocab v JOIN books b ON b.id = v.book_id
+		WHERE v.user_id = ? GROUP BY b.lang_key`, now.Format(timeLayout), userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]DeckCounts{}
+	for rows.Next() {
+		var l string
+		var c DeckCounts
+		if err := rows.Scan(&l, &c.DueReviews, &c.New, &c.Fragile, &c.Total); err != nil {
+			return nil, err
+		}
+		out[l] = c
+	}
+	return out, rows.Err()
 }
 
 func (s *Store) MarkDayCompleted(userID int64, day string) error {

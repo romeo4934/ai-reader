@@ -68,42 +68,59 @@ type dailyState struct {
 	Fragile      int
 	// NewPaused: new words are waiting but held back by fragileCap.
 	NewPaused bool
+	// Lang is the language the state is scoped to ("" = all), which "add
+	// more new words" applies to.
+	Lang string
 }
 
-// dailyState is today's challenge. The challenge is one for all languages
-// (one streak); lang != "" scopes Remaining, NewLeft and NewWaiting to
-// that language's words, for its review tab, while Done, Total and Percent
+// dailyState is today's challenge. The daily new-word limit (and the
+// fragile-words cap) apply per language, so learning a second language
+// doesn't starve it; the challenge itself is one for all languages (one
+// streak). lang != "" scopes Remaining, NewLeft, NewWaiting and MoreCount
+// to that language's words, for its review tab; Done, Total and Percent
 // stay the whole day's.
 func (s *Server) dailyState(user *store.User, now time.Time, lang string) (dailyState, error) {
-	st := dailyState{Day: dayKey(now), Limit: dailyNewLimit(user)}
+	st := dailyState{Day: dayKey(now), Limit: dailyNewLimit(user), Lang: lang}
 	act, err := s.store.GetDailyActivity(user.ID, st.Day)
 	if err != nil {
 		return st, err
 	}
-	deck, err := s.store.DeckCounts(user.ID, now.UTC(), "")
+	decks, err := s.store.DeckCountsByLang(user.ID, now.UTC())
 	if err != nil {
 		return st, err
 	}
-	scoped := deck
-	if lang != "" {
-		if scoped, err = s.store.DeckCounts(user.ID, now.UTC(), lang); err != nil {
-			return st, err
+	days, err := s.store.LangDays(user.ID, st.Day)
+	if err != nil {
+		return st, err
+	}
+	for l, deck := range decks {
+		d := days[l]
+		allowed := max(0, st.Limit+d.ExtraNew-d.NewCards)
+		room := max(0, fragilePerNew*st.Limit-deck.Fragile)
+		newLeft := min(allowed, deck.New, room)
+		st.AllRemaining += deck.DueReviews + newLeft
+		st.DeckSize += deck.Total
+		st.Fragile += deck.Fragile
+		if lang == "" || l == lang {
+			st.NewLeft += newLeft
+			st.NewWaiting += deck.New - newLeft
+			st.Remaining += deck.DueReviews + newLeft
+			if lang != "" {
+				st.MoreCount = min(st.Limit, deck.New-newLeft, room-newLeft)
+				st.NewPaused = deck.New-newLeft > 0 && room-newLeft <= 0
+				st.Fragile = deck.Fragile
+			}
 		}
 	}
-	allowed := max(0, st.Limit+act.ExtraNew-act.NewCards)
-	room := max(0, fragilePerNew*st.Limit-deck.Fragile)
-	allNewLeft := min(allowed, deck.New, room)
-	st.NewLeft = min(allowed, scoped.New, room)
-	st.NewWaiting = scoped.New - st.NewLeft
-	st.Fragile = deck.Fragile
+	if lang == "" && len(decks) == 1 {
+		// One language: the tab-less review page acts on it.
+		for l := range decks {
+			return s.dailyState(user, now, l)
+		}
+	}
 	st.Done = act.Reviews
 	st.Points = act.Points
-	st.Remaining = scoped.DueReviews + st.NewLeft
-	st.AllRemaining = deck.DueReviews + allNewLeft
 	st.Total = st.Done + st.AllRemaining
-	st.DeckSize = deck.Total
-	st.MoreCount = min(st.Limit, st.NewWaiting, room-st.NewLeft)
-	st.NewPaused = st.NewWaiting > 0 && room-st.NewLeft <= 0
 	if st.Total > 0 {
 		st.Percent = st.Done * 100 / st.Total
 	}
@@ -160,7 +177,8 @@ func streakText(T i18n.Dict, n int) string {
 func (s *Server) handleReviewMore(w http.ResponseWriter, r *http.Request) {
 	user := userFromContext(r)
 	now := time.Now().In(userLocation(r))
-	if err := s.store.AddExtraNew(user.ID, dayKey(now), dailyNewLimit(user)); err != nil {
+	lang := store.LangKey(r.FormValue("lang"))
+	if err := s.store.AddExtraNew(user.ID, dayKey(now), lang, dailyNewLimit(user)); err != nil {
 		s.fail(w, http.StatusInternalServerError, err)
 		return
 	}
