@@ -286,8 +286,19 @@ details[open] .word-row::after { content: '⌄'; }
 /* the words page: the word (and its dictionary form), its translation
    under it, when it comes back on the right */
 .word-main { flex: 1; min-width: 0; }
-.word-main .word-translation { display: block; margin-top: 0.15rem; }
+.word-main .word-translation { display: block; width: fit-content; margin-top: 0.15rem; }
 .word-lemma { font-size: 0.85em; color: var(--muted); font-style: italic; }
+/* hiding the translations (or the words) to quiz oneself: tap to reveal */
+.words-mask { display: inline-flex; border: 1px solid var(--border); border-radius: 999px; overflow: hidden; margin: 0 0 0.3rem; font-family: sans-serif; }
+.words-mask button { border: 0; background: none; color: var(--fg); padding: 0.4rem 0.8rem; font: inherit; font-size: 0.85rem; cursor: pointer; }
+.words-mask button + button { border-left: 1px solid var(--border); }
+.words-mask button[aria-pressed="true"] { background: var(--accent); color: var(--accent-fg); }
+.words-mask-hint { display: none; margin: 0 0 0.6rem; }
+[data-mask] .words-mask-hint { display: block; }
+[data-mask="tr"] .word-row:not(.revealed) .word-translation,
+[data-mask="word"] .word-row:not(.revealed) .word-phrase,
+[data-mask="word"] .word-row:not(.revealed) .word-lemma { color: transparent; background: var(--border); border-radius: 4px; user-select: none; }
+[data-mask="word"] .word-row:not(.revealed) .word-translation { color: var(--fg); }
 .word-due { margin-left: auto; font-size: 0.8rem; color: var(--muted); white-space: nowrap; }
 .word-row:has(.word-due)::after { margin-left: 0; }
 .words-tabs { margin: 0.4rem 0 0.8rem; }

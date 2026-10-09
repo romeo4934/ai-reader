@@ -31,6 +31,12 @@
         {{range .Data.StatusTabs}}<a href="/words?tab={{.Status}}"{{if .Active}} class="active" aria-current="page"{{end}}>{{.Label}} <span class="tab-count">{{.Count}}</span></a>{{end}}
       </nav>
       {{if not .Data.Groups}}<p class="empty">{{.Data.Empty}}</p>{{end}}
+      {{if .Data.Groups}}
+      <div class="words-mask" role="group" aria-label="{{.T.WordsMaskLabel}}">
+        <button type="button" data-mask="" aria-pressed="true">{{.T.WordsMaskNone}}</button><button type="button" data-mask="tr" aria-pressed="false">{{.T.WordsMaskTr}}</button><button type="button" data-mask="word" aria-pressed="false">{{.T.WordsMaskWord}}</button>
+      </div>
+      <p class="hint words-mask-hint">{{.T.WordsMaskHint}}</p>
+      {{end}}
       {{range .Data.Groups}}
       <h2 class="freq-level"><span class="freq-level-num">{{.Level}}</span> {{.Label}} <span class="freq-level-count">{{.Count}}</span></h2>
       <ul class="word-list">
@@ -70,5 +76,6 @@
     {{end}}
   </main>
   {{template "confirmDelete"}}
+  <script src="/static/words.js"></script>
 </body>
 </html>
