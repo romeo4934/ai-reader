@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="{{.T.LangCode}}">
+<head>
+  <title>{{.Title}}</title>
+  {{template "head" .}}
+</head>
+<body>
+  {{template "nav" .}}
+  {{$t := .T}}
+
+  <main class="page">
+    <h1>{{.T.FriendsTitle}}</h1>
+    <p class="friends-lead">{{.T.FriendsLead}}</p>
+    {{if .Data.Bonus}}<p class="hint">{{printf .T.FriendsBonus .Data.Bonus}}</p>{{end}}
+
+    {{if .Data.Message}}<p class="form-ok">{{.Data.Message}}</p>{{end}}
+    {{if .Data.Error}}<p class="form-error">{{.Data.Error}}</p>{{end}}
+
+    <h2 class="settings-section">{{.T.FriendsLinkLabel}}</h2>
+    <div class="invite-link">
+      <input type="text" id="invite-link" value="{{.Data.Link}}" readonly aria-label="{{.T.FriendsLinkLabel}}">
+      <button type="button" class="btn" id="copy-link" data-done="{{.T.FriendsCopied}}">{{.T.FriendsCopy}}</button>
+      <button type="button" class="btn btn-primary" id="share-link" data-text="{{.Data.ShareText}}" hidden>{{.T.FriendsShare}}</button>
+    </div>
+
+    <h2 class="settings-section">{{.T.FriendsEmailTitle}}</h2>
+    <form action="/friends/invite" method="post" class="settings-form">
+      {{if .Data.NeedName}}
+      <label for="display_name">{{.T.FriendsYourName}}</label>
+      <input type="text" id="display_name" name="display_name" value="{{.Data.DisplayName}}" maxlength="24" autocomplete="given-name" required>
+      {{end}}
+      <label for="email">{{.T.FriendsEmailLabel}}</label>
+      <input type="email" id="email" name="email" autocomplete="off" autocapitalize="none" spellcheck="false" required>
+      <button type="submit" class="btn btn-primary">{{.T.FriendsSend}}</button>
+    </form>
+
+    <h2 class="settings-section">{{.T.FriendsListTitle}}</h2>
+    {{if not .Data.Friends}}
+      <p class="hint">{{.T.FriendsNone}}</p>
+    {{else}}
+      <ul class="friend-list">
+        {{range .Data.Friends}}
+        <li>
+          <span>{{.Name}}</span>
+          <form action="/friends/{{.ID}}/remove" method="post" class="confirm-delete" data-confirm="{{$t.FriendsRemoveConfirm}}">
+            <button type="submit" class="btn-link btn-link-danger">{{$t.FriendsRemove}}</button>
+          </form>
+        </li>
+        {{end}}
+      </ul>
+    {{end}}
+
+    {{if .Data.Invites}}
+    <h2 class="settings-section">{{.T.FriendsInvitesTitle}}</h2>
+    <ul class="friend-list">
+      {{range .Data.Invites}}
+      <li><span>{{.Email}}</span><span class="hint">{{if .Accepted}}{{$t.FriendsInviteAccepted}}{{else}}{{$t.FriendsInvitePending}}{{end}}</span></li>
+      {{end}}
+    </ul>
+    {{end}}
+  </main>
+  <script>
+    (function () {
+      var input = document.getElementById('invite-link');
+      var copy = document.getElementById('copy-link');
+      copy.addEventListener('click', function () {
+        input.select();
+        var done = function () { copy.textContent = copy.dataset.done; };
+        if (navigator.clipboard) navigator.clipboard.writeText(input.value).then(done, function () { document.execCommand('copy'); done(); });
+        else { document.execCommand('copy'); done(); }
+      });
+      var share = document.getElementById('share-link');
+      if (navigator.share) {
+        share.hidden = false;
+        share.addEventListener('click', function () {
+          navigator.share({ title: 'Lydi', text: share.dataset.text, url: input.value }).catch(function () {});
+        });
+      }
+    })();
+  </script>
+  {{template "confirmDelete"}}
+</body>
+</html>

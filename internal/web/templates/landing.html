@@ -11,6 +11,7 @@
   {{$t := .T}}
 
   <main>
+    {{if .Data.InviterName}}<p class="invite-banner">{{printf $t.JoinBanner .Data.InviterName}}</p>{{end}}
     <section class="hero">
       <div class="hero-text">
         <h1>{{$t.LandH1}}</h1>

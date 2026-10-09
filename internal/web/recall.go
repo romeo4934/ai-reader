@@ -155,7 +155,7 @@ func (s *Server) handleAPIExplain(w http.ResponseWriter, r *http.Request) {
 		s.failJSON(w, http.StatusInternalServerError, err)
 		return
 	} else if over {
-		writeJSON(w, http.StatusTooManyRequests, map[string]string{"error": fmt.Sprintf(s.dictFor(r)["QuotaReached"], s.cfg.FreeQuota)})
+		writeJSON(w, http.StatusTooManyRequests, map[string]string{"error": fmt.Sprintf(s.dictFor(r)["QuotaReached"], s.quotaFor(user))})
 		return
 	}
 	bookLang := ""

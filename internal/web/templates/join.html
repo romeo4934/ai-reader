@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="{{.T.LangCode}}">
+<head>
+  <title>{{.Title}}</title>
+  {{template "head" .}}
+</head>
+<body>
+  {{template "nav" .}}
+  <main class="page">
+    <h1>{{.T.JoinTitle}}</h1>
+    {{if not .Data.Token}}
+      <p class="form-error">{{.T.JoinBad}}</p>
+    {{else if .Data.Self}}
+      <p>{{.T.JoinSelf}}</p>
+      <p><a href="/friends" class="btn">{{.T.NavFriends}}</a></p>
+    {{else if .Data.Already}}
+      <p>{{printf .T.JoinAlready .Data.InviterName}}</p>
+      <p><a href="/leaderboard?scope=friends" class="btn">{{.T.NavLeaderboard}}</a></p>
+    {{else}}
+      <p>{{printf .T.JoinAsk .Data.InviterName}}</p>
+      <form action="/join" method="post">
+        <input type="hidden" name="i" value="{{.Data.Token}}">
+        <button type="submit" class="btn btn-primary">{{.T.JoinAccept}}</button>
+      </form>
+    {{end}}
+  </main>
+</body>
+</html>

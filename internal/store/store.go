@@ -94,6 +94,28 @@ func Open(path string) (*Store, error) {
 		db.Close()
 		return nil, err
 	}
+	for _, ddl := range []string{
+		`CREATE TABLE IF NOT EXISTS friends (
+			user_id    INTEGER NOT NULL REFERENCES users(id),
+			friend_id  INTEGER NOT NULL REFERENCES users(id),
+			created_at TEXT NOT NULL,
+			PRIMARY KEY (user_id, friend_id)
+		)`,
+		`CREATE TABLE IF NOT EXISTS invites (
+			id          INTEGER PRIMARY KEY AUTOINCREMENT,
+			inviter_id  INTEGER NOT NULL REFERENCES users(id),
+			email       TEXT NOT NULL,
+			created_at  TEXT NOT NULL,
+			accepted_at TEXT NOT NULL DEFAULT ''
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_invites_inviter ON invites(inviter_id, created_at)`,
+		`CREATE INDEX IF NOT EXISTS idx_invites_email ON invites(email COLLATE NOCASE)`,
+	} {
+		if _, err := db.Exec(ddl); err != nil {
+			db.Close()
+			return nil, fmt.Errorf("amis / invitations : %w", err)
+		}
+	}
 	// These index the user_id columns just added above — created here rather
 	// than in schema.sql so they never run before ensureColumn has had a
 	// chance to add the column on an upgraded database.
@@ -124,6 +146,9 @@ func migrateUsersForEmail(db *sql.DB) error {
 		{"pending_email", "TEXT NOT NULL DEFAULT ''"},
 		{"daily_new_limit", "INTEGER NOT NULL DEFAULT 10"},
 		{"display_name", "TEXT NOT NULL DEFAULT ''"},
+		{"invited_by", "INTEGER NOT NULL DEFAULT 0"},
+		{"referral_credited", "INTEGER NOT NULL DEFAULT 0"},
+		{"bonus_quota", "INTEGER NOT NULL DEFAULT 0"},
 	} {
 		if err := ensureColumn(db, "users", c.name, c.decl); err != nil {
 			return fmt.Errorf("migration users.%s : %w", c.name, err)
@@ -295,6 +320,9 @@ type User struct {
 	// DisplayName is the pseudo shown to others on the leaderboard; empty
 	// means anonymous for an email account.
 	DisplayName string
+	// BonusQuota is added to the free plan's monthly translations (earned
+	// by inviting friends).
+	BonusQuota int
 }
 
 // Plans: "free" is bounded by the monthly translation quota; "unlimited"
@@ -304,12 +332,12 @@ const (
 	PlanUnlimited = "unlimited"
 )
 
-const userColumns = `id, username, password_hash, native_lang, created_at, COALESCE(email, ''), email_verified_at != '', plan, pending_email, daily_new_limit, display_name`
+const userColumns = `id, username, password_hash, native_lang, created_at, COALESCE(email, ''), email_verified_at != '', plan, pending_email, daily_new_limit, display_name, bonus_quota`
 
 func scanUser(row interface{ Scan(...any) error }) (User, error) {
 	var u User
 	var createdAt string
-	if err := row.Scan(&u.ID, &u.Username, &u.PasswordHash, &u.NativeLang, &createdAt, &u.Email, &u.EmailVerified, &u.Plan, &u.PendingEmail, &u.DailyNewLimit, &u.DisplayName); err != nil {
+	if err := row.Scan(&u.ID, &u.Username, &u.PasswordHash, &u.NativeLang, &createdAt, &u.Email, &u.EmailVerified, &u.Plan, &u.PendingEmail, &u.DailyNewLimit, &u.DisplayName, &u.BonusQuota); err != nil {
 		return User{}, err
 	}
 	u.CreatedAt, _ = time.Parse(timeLayout, createdAt)
@@ -909,16 +937,33 @@ type LeaderboardRow struct {
 	Points      int
 }
 
-// Leaderboard ranks everyone who earned points in one language between two
-// days (inclusive), best first.
-func (s *Store) Leaderboard(fromDay, toDay, lang string, limit int) ([]LeaderboardRow, error) {
+// onlyUsers restricts a points_lang query to some users (a friends league);
+// nil means everyone.
+func onlyUsers(ids []int64, args []any) (string, []any) {
+	if ids == nil {
+		return "", args
+	}
+	if len(ids) == 0 {
+		return " AND 0", args
+	}
+	clause := " AND p.user_id IN (?" + strings.Repeat(", ?", len(ids)-1) + ")"
+	for _, id := range ids {
+		args = append(args, id)
+	}
+	return clause, args
+}
+
+// Leaderboard ranks everyone (or only the given users) who earned points in
+// one language between two days (inclusive), best first.
+func (s *Store) Leaderboard(fromDay, toDay, lang string, only []int64, limit int) ([]LeaderboardRow, error) {
+	filter, args := onlyUsers(only, []any{fromDay, toDay, lang})
 	rows, err := s.db.Query(`
 		SELECT u.id, u.username, u.display_name, SUM(p.points) AS total
 		FROM points_lang p JOIN users u ON u.id = p.user_id
-		WHERE p.day >= ? AND p.day <= ? AND p.lang = ?
+		WHERE p.day >= ? AND p.day <= ? AND p.lang = ?`+filter+`
 		GROUP BY u.id HAVING total > 0
 		ORDER BY total DESC, u.id ASC
-		LIMIT ?`, fromDay, toDay, lang, limit)
+		LIMIT ?`, append(args, limit)...)
 	if err != nil {
 		return nil, err
 	}
@@ -941,11 +986,12 @@ type LeaderboardLang struct {
 
 // LeaderboardLangs lists the languages someone earned points in between two
 // days, most players first.
-func (s *Store) LeaderboardLangs(fromDay, toDay string) ([]LeaderboardLang, error) {
+func (s *Store) LeaderboardLangs(fromDay, toDay string, only []int64) ([]LeaderboardLang, error) {
+	filter, args := onlyUsers(only, []any{fromDay, toDay})
 	rows, err := s.db.Query(`
-		SELECT lang, COUNT(DISTINCT user_id) AS players FROM points_lang
-		WHERE day >= ? AND day <= ? AND points > 0
-		GROUP BY lang ORDER BY players DESC, lang ASC`, fromDay, toDay)
+		SELECT p.lang, COUNT(DISTINCT p.user_id) AS players FROM points_lang p
+		WHERE p.day >= ? AND p.day <= ? AND p.points > 0`+filter+`
+		GROUP BY p.lang ORDER BY players DESC, p.lang ASC`, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -970,4 +1016,149 @@ func (s *Store) UserBookLang(userID int64) (string, error) {
 		return "", nil
 	}
 	return LangKey(lang), err
+}
+
+// --- friends & invitations ---
+//
+// Friendship is symmetric (stored both ways) and makes up a reader's
+// private league on the leaderboard. Someone who signs up through a
+// friend's invitation becomes their friend once their email is confirmed,
+// and both get ReferralBonus more free translations a month.
+
+const (
+	ReferralBonus    = 100
+	MaxReferralBonus = 500
+)
+
+type Friend struct {
+	ID          int64
+	Username    string
+	DisplayName string
+}
+
+func (s *Store) AddFriendship(a, b int64) error {
+	if a == b {
+		return nil
+	}
+	now := time.Now().UTC().Format(timeLayout)
+	_, err := s.db.Exec(`INSERT OR IGNORE INTO friends (user_id, friend_id, created_at) VALUES (?, ?, ?), (?, ?, ?)`,
+		a, b, now, b, a, now)
+	return err
+}
+
+func (s *Store) RemoveFriendship(a, b int64) error {
+	_, err := s.db.Exec(`DELETE FROM friends WHERE (user_id = ? AND friend_id = ?) OR (user_id = ? AND friend_id = ?)`, a, b, b, a)
+	return err
+}
+
+func (s *Store) Friends(userID int64) ([]Friend, error) {
+	rows, err := s.db.Query(`SELECT u.id, u.username, u.display_name FROM friends f JOIN users u ON u.id = f.friend_id
+		WHERE f.user_id = ? ORDER BY f.created_at`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []Friend
+	for rows.Next() {
+		var f Friend
+		if err := rows.Scan(&f.ID, &f.Username, &f.DisplayName); err != nil {
+			return nil, err
+		}
+		out = append(out, f)
+	}
+	return out, rows.Err()
+}
+
+func (s *Store) AreFriends(a, b int64) (bool, error) {
+	var n int
+	err := s.db.QueryRow(`SELECT COUNT(*) FROM friends WHERE user_id = ? AND friend_id = ?`, a, b).Scan(&n)
+	return n > 0, err
+}
+
+// SetInvitedBy remembers who invited a just-created account, credited when
+// its email gets confirmed (CompleteReferral).
+func (s *Store) SetInvitedBy(userID, inviterID int64) error {
+	_, err := s.db.Exec(`UPDATE users SET invited_by = ? WHERE id = ? AND invited_by = 0`, inviterID, userID)
+	return err
+}
+
+// CompleteReferral turns a confirmed invited account into its inviter's
+// friend and gives both the referral bonus, once. Returns the inviter's id
+// (0 when there was nothing to credit).
+func (s *Store) CompleteReferral(userID int64, email string) (int64, error) {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback()
+	var inviter int64
+	var credited bool
+	if err := tx.QueryRow(`SELECT invited_by, referral_credited FROM users WHERE id = ?`, userID).Scan(&inviter, &credited); err != nil {
+		return 0, err
+	}
+	if inviter == 0 || credited {
+		return 0, nil
+	}
+	now := time.Now().UTC().Format(timeLayout)
+	for _, q := range []struct {
+		sql  string
+		args []any
+	}{
+		{`UPDATE users SET referral_credited = 1, bonus_quota = MIN(bonus_quota + ?, ?) WHERE id = ?`, []any{ReferralBonus, MaxReferralBonus, userID}},
+		{`UPDATE users SET bonus_quota = MIN(bonus_quota + ?, ?) WHERE id = ?`, []any{ReferralBonus, MaxReferralBonus, inviter}},
+		{`INSERT OR IGNORE INTO friends (user_id, friend_id, created_at) VALUES (?, ?, ?), (?, ?, ?)`, []any{userID, inviter, now, inviter, userID, now}},
+		{`UPDATE invites SET accepted_at = ? WHERE inviter_id = ? AND email = ? COLLATE NOCASE AND accepted_at = ''`, []any{now, inviter, email}},
+	} {
+		if _, err := tx.Exec(q.sql, q.args...); err != nil {
+			return 0, err
+		}
+	}
+	return inviter, tx.Commit()
+}
+
+type Invite struct {
+	Email     string
+	CreatedAt time.Time
+	Accepted  bool
+}
+
+func (s *Store) CreateInvite(inviterID int64, email string) error {
+	_, err := s.db.Exec(`INSERT INTO invites (inviter_id, email, created_at) VALUES (?, ?, ?)`,
+		inviterID, email, time.Now().UTC().Format(timeLayout))
+	return err
+}
+
+func (s *Store) CountInvitesSince(inviterID int64, since time.Time) (int, error) {
+	var n int
+	err := s.db.QueryRow(`SELECT COUNT(*) FROM invites WHERE inviter_id = ? AND created_at >= ?`,
+		inviterID, since.UTC().Format(timeLayout)).Scan(&n)
+	return n, err
+}
+
+// InvitedSince reports whether anyone invited this address since `since` —
+// so one address can't be flooded by several inviters, or the same one.
+func (s *Store) InvitedSince(email string, since time.Time) (bool, error) {
+	var n int
+	err := s.db.QueryRow(`SELECT COUNT(*) FROM invites WHERE email = ? COLLATE NOCASE AND created_at >= ?`,
+		email, since.UTC().Format(timeLayout)).Scan(&n)
+	return n > 0, err
+}
+
+func (s *Store) ListInvites(inviterID int64, limit int) ([]Invite, error) {
+	rows, err := s.db.Query(`SELECT email, created_at, accepted_at != '' FROM invites WHERE inviter_id = ? ORDER BY id DESC LIMIT ?`, inviterID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []Invite
+	for rows.Next() {
+		var inv Invite
+		var created string
+		if err := rows.Scan(&inv.Email, &created, &inv.Accepted); err != nil {
+			return nil, err
+		}
+		inv.CreatedAt, _ = time.Parse(timeLayout, created)
+		out = append(out, inv)
+	}
+	return out, rows.Err()
 }

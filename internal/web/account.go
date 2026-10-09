@@ -62,6 +62,7 @@ func (s *Server) handleLoginPost(w http.ResponseWriter, r *http.Request) {
 		fail(T["AuthErrUnverified"], true)
 		return
 	}
+	s.linkPendingInvite(w, r, user.ID)
 	s.issueSession(w, r, user.ID)
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
@@ -106,6 +107,11 @@ func (s *Server) handleSignupPost(w http.ResponseWriter, r *http.Request) {
 		fail(T["AuthErrEmailTaken"])
 		return
 	}
+	if inviter, ok := s.pendingInviter(r); ok {
+		if err := s.store.SetInvitedBy(userID, inviter.ID); err != nil {
+			s.log.Error("invitation", "err", err)
+		}
+	}
 	s.sendVerification(r.Context(), T, userID, email)
 	s.renderAccount(w, r, T, "check_email.html", "AuthCheckTitle", accountView{Email: email, Message: fmt.Sprintf(T["AuthCheckBody"], email)})
 }
@@ -139,6 +145,12 @@ func (s *Server) handleVerify(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case user.Email != "" && auth.VerifyLink(s.secret, auth.PurposeVerify, token, strings.ToLower(user.Email)):
 		err = s.store.MarkEmailVerified(user.ID)
+		if err == nil {
+			if _, err := s.store.CompleteReferral(user.ID, user.Email); err != nil {
+				s.log.Error("parrainage", "user", user.ID, "err", err)
+			}
+			clearInviteCookie(w)
+		}
 	case user.PendingEmail != "" && auth.VerifyLink(s.secret, auth.PurposeVerify, token, strings.ToLower(user.PendingEmail)):
 		err = s.store.ConfirmPendingEmail(user.ID)
 	default:

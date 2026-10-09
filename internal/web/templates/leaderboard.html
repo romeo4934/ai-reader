@@ -10,9 +10,16 @@
   <main class="page">
     <h1>{{.T.LeaderboardTitle}}{{if .Data.LangName}} · {{.Data.LangName}}{{end}}</h1>
     <p class="hint leaderboard-sub">{{.T.LeaderboardThisWeek}} · {{.Data.Ends}}</p>
+    {{$scope := "all"}}{{if .Data.Friends}}{{$scope = "friends"}}{{end}}
+    {{if .Data.HasFriends}}
+    <nav class="lb-tabs lb-scope">
+      <a href="/leaderboard?scope=friends&amp;lang={{.Data.Lang}}"{{if .Data.Friends}} class="active" aria-current="page"{{end}}>{{.T.LeaderboardFriends}}</a>
+      <a href="/leaderboard?scope=all&amp;lang={{.Data.Lang}}"{{if not .Data.Friends}} class="active" aria-current="page"{{end}}>{{.T.LeaderboardAll}}</a>
+    </nav>
+    {{end}}
     {{if gt (len .Data.Tabs) 1}}
     <nav class="lb-tabs">
-      {{range .Data.Tabs}}<a href="/leaderboard?lang={{.Lang}}"{{if .Active}} class="active" aria-current="page"{{end}}>{{.Name}}</a>{{end}}
+      {{range .Data.Tabs}}<a href="/leaderboard?scope={{$scope}}&amp;lang={{.Lang}}"{{if .Active}} class="active" aria-current="page"{{end}}>{{.Name}}</a>{{end}}
     </nav>
     {{end}}
 
@@ -31,6 +38,7 @@
       </ol>
     {{end}}
 
+    <p class="lb-invite"><a href="/friends" class="btn btn-primary">{{.T.LeaderboardInvite}}</a></p>
     {{if not .Data.Ranked}}<p class="hint lb-note">{{.T.LeaderboardNotRanked}}</p>{{end}}
     <p class="hint lb-note">{{.T.LeaderboardHowto}}</p>
     <p class="hint lb-note">

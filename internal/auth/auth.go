@@ -69,6 +69,7 @@ func mac(secret []byte, payload string) string {
 const (
 	PurposeVerify = "verify"
 	PurposeReset  = "reset"
+	PurposeInvite = "invite"
 )
 
 func SignLink(secret []byte, purpose string, userID int64, binding string, ttl time.Duration) string {

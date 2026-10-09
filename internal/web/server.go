@@ -105,6 +105,11 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("POST /review/{id}/answer", s.requireAuth(s.handleReviewAnswer))
 	mux.HandleFunc("POST /review/more", s.requireAuth(s.handleReviewMore))
 	mux.HandleFunc("GET /leaderboard", s.requireAuth(s.handleLeaderboard))
+	mux.HandleFunc("GET /friends", s.requireAuth(s.handleFriends))
+	mux.HandleFunc("POST /friends/invite", s.requireAuth(s.handleFriendsInvite))
+	mux.HandleFunc("POST /friends/{id}/remove", s.requireAuth(s.handleFriendRemove))
+	mux.HandleFunc("GET /join", s.handleJoin)
+	mux.HandleFunc("POST /join", s.requireAuth(s.handleJoinPost))
 
 	mux.HandleFunc("GET /words", s.requireAuth(s.handleWords))
 	mux.HandleFunc("GET /reviewed", s.requireAuth(s.handleReviewed))
@@ -197,7 +202,11 @@ func (s *Server) visitorDict(w http.ResponseWriter, r *http.Request) i18n.Dict {
 
 type landingView struct {
 	Languages []struct{ Code, Name string }
+	// InviterName is set when the visitor came through a friend's invitation.
+	InviterName string
 }
+
+func landingLanguages() []struct{ Code, Name string } { return i18n.Languages }
 
 func (s *Server) unauthenticated(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodGet && !strings.HasPrefix(r.URL.Path, "/api/") {
@@ -717,7 +726,7 @@ func (s *Server) handleSettingsGet(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		s.log.Error("usage", "err", err)
 	}
-	usage := fmt.Sprintf(T["SettingsUsage"], used, s.cfg.FreeQuota)
+	usage := fmt.Sprintf(T["SettingsUsage"], used, s.quotaFor(user))
 	if user.Plan == store.PlanUnlimited {
 		usage = fmt.Sprintf(T["SettingsUsageUnlimited"], used)
 	}
@@ -793,7 +802,12 @@ func (s *Server) overQuota(user *store.User, now time.Time) (bool, error) {
 		return false, nil
 	}
 	used, err := s.store.TranslationsThisMonth(user.ID, now)
-	return used >= s.cfg.FreeQuota, err
+	return used >= s.quotaFor(user), err
+}
+
+// quotaFor is a free-plan user's monthly AI calls, referral bonus included.
+func (s *Server) quotaFor(user *store.User) int {
+	return s.cfg.FreeQuota + user.BonusQuota
 }
 
 // handleAPITranslate translates the selection and saves it as a review card
@@ -825,7 +839,7 @@ func (s *Server) handleAPITranslate(w http.ResponseWriter, r *http.Request) {
 		s.failJSON(w, http.StatusInternalServerError, err)
 		return
 	} else if over {
-		writeJSON(w, http.StatusTooManyRequests, map[string]string{"error": fmt.Sprintf(s.dictFor(r)["QuotaReached"], s.cfg.FreeQuota)})
+		writeJSON(w, http.StatusTooManyRequests, map[string]string{"error": fmt.Sprintf(s.dictFor(r)["QuotaReached"], s.quotaFor(user))})
 		return
 	}
 

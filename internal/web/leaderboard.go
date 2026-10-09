@@ -39,6 +39,10 @@ type leaderboardTab struct {
 }
 
 type leaderboardView struct {
+	// Friends: showing the viewer's private league rather than everyone.
+	Friends    bool
+	HasFriends bool
+	Lang       string
 	Tabs     []leaderboardTab
 	LangName string
 	Entries  []leaderboardEntry
@@ -84,7 +88,22 @@ func (s *Server) handleLeaderboard(w http.ResponseWriter, r *http.Request) {
 	now := time.Now().In(userLocation(r))
 	monday, sunday := weekBounds(now)
 	from, to := dayKey(monday), dayKey(sunday)
-	langs, err := s.store.LeaderboardLangs(from, to)
+	friends, err := s.store.Friends(user.ID)
+	if err != nil {
+		s.fail(w, http.StatusInternalServerError, err)
+		return
+	}
+	// Friends league by default once there are friends; ?scope=all for
+	// everyone.
+	var only []int64
+	showFriends := len(friends) > 0 && r.URL.Query().Get("scope") != "all"
+	if showFriends {
+		only = []int64{user.ID}
+		for _, f := range friends {
+			only = append(only, f.ID)
+		}
+	}
+	langs, err := s.store.LeaderboardLangs(from, to, only)
 	if err != nil {
 		s.fail(w, http.StatusInternalServerError, err)
 		return
@@ -103,7 +122,10 @@ func (s *Server) handleLeaderboard(w http.ResponseWriter, r *http.Request) {
 	if lang == "" && len(langs) > 0 {
 		lang = langs[0].Lang
 	}
-	view := leaderboardView{YourName: publicName(user.ID, user.Username, user.DisplayName), LangName: langName(lang)}
+	view := leaderboardView{
+		YourName: publicName(user.ID, user.Username, user.DisplayName), LangName: langName(lang),
+		Friends: showFriends, HasFriends: len(friends) > 0, Lang: lang,
+	}
 	hasTab := false
 	for _, l := range langs {
 		view.Tabs = append(view.Tabs, leaderboardTab{Lang: l.Lang, Name: langName(l.Lang), Active: l.Lang == lang})
@@ -114,7 +136,7 @@ func (s *Server) handleLeaderboard(w http.ResponseWriter, r *http.Request) {
 		// offer its (empty) board next to the others.
 		view.Tabs = append(view.Tabs, leaderboardTab{Lang: lang, Name: langName(lang), Active: true})
 	}
-	rows, err := s.store.Leaderboard(from, to, lang, leaderboardSize)
+	rows, err := s.store.Leaderboard(from, to, lang, only, leaderboardSize)
 	if err != nil {
 		s.fail(w, http.StatusInternalServerError, err)
 		return
