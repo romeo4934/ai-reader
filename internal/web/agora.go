@@ -64,17 +64,25 @@ func avatarColor(userID int64, key string) string {
 }
 
 type medal struct {
-	X, Y, R  int
 	Symbol   string // emoji, or the initial
 	Color    string
 	Name     string
-	Label    string // short name under the medallion
 	Title    string // tooltip
 	Laurel   bool   // Sage
 	You      bool
 	Progress int // aspirants: completed challenges out of agoraThreshold
-	Dash     string
-	More     int // a "+N" placeholder for those who don't fit
+}
+
+// person is one reader on the game map.
+type person struct {
+	Name   string `json:"name"`
+	Symbol string `json:"symbol"`
+	Color  string `json:"color"`
+	Member bool   `json:"member"`
+	Rank   string `json:"rank"`
+	Days   int    `json:"days"`
+	Laurel bool   `json:"laurel"`
+	You    bool   `json:"you"`
 }
 
 type agoraRow struct {
@@ -90,7 +98,6 @@ type agoraView struct {
 	Rank, NextRank    string
 	NextDays, Left    int
 	Welcome           string
-	Inside, Outside   []medal
 	Members, Gates    []agoraRow
 	Symbols           []string
 	Colors            []struct{ Key, Hex string }
@@ -99,52 +106,17 @@ type agoraView struct {
 	MyInitial         string
 	Threshold         int
 	Percent           int // progress toward the threshold
+	People            []person
 }
 
 func medalFor(userID int64, username, displayName, symbol, color string) medal {
 	name := publicName(userID, username, displayName)
-	m := medal{Name: name, Color: avatarColor(userID, color), Symbol: symbol, Label: name}
-	if r := []rune(name); len(r) > 8 {
-		m.Label = string(r[:7]) + "…"
-	}
+	m := medal{Name: name, Color: avatarColor(userID, color), Symbol: symbol}
 	if m.Symbol == "" {
 		r, _ := utf8.DecodeRuneInString(name)
 		m.Symbol = strings.ToUpper(string(r))
 	}
 	return m
-}
-
-// Scene layout, in the SVG's 400×330 coordinate space: members stand in
-// rows on the temple's steps and between its columns, aspirants on the
-// square in front.
-var (
-	insideRows  = []struct{ Y, Count int }{{190, 9}, {161, 8}, {132, 7}}
-	outsideRows = []struct{ Y, Count int }{{262, 11}, {296, 12}}
-)
-
-func place(medals []medal, rows []struct{ Y, Count int }, r int) []medal {
-	var out []medal
-	i := 0
-	for _, row := range rows {
-		n := min(row.Count, len(medals)-i)
-		if n <= 0 {
-			break
-		}
-		step := 300 / max(row.Count, 1)
-		x0 := 200 - (n-1)*step/2
-		for k := 0; k < n; k++ {
-			m := medals[i]
-			m.X, m.Y, m.R = x0+k*step, row.Y, r
-			out = append(out, m)
-			i++
-		}
-	}
-	if left := len(medals) - i; left > 0 && len(out) > 0 {
-		// The last spot shows how many more there are.
-		last := &out[len(out)-1]
-		*last = medal{X: last.X, Y: last.Y, R: r, More: left + 1, Color: "var(--muted)"}
-	}
-	return out
 }
 
 func (s *Server) handleAgora(w http.ResponseWriter, r *http.Request) {
@@ -160,7 +132,6 @@ func (s *Server) handleAgora(w http.ResponseWriter, r *http.Request) {
 		MySymbol: user.AvatarSymbol, MyColor: avatarColor(user.ID, user.AvatarColor), MyColorKey: user.AvatarColor,
 	}
 	v.MyInitial = medalFor(user.ID, user.Username, user.DisplayName, "", "").Symbol
-	var inside, outside []medal
 	for _, c := range citizens {
 		m := medalFor(c.UserID, c.Username, c.DisplayName, c.AvatarSymbol, c.AvatarColor)
 		m.You = c.UserID == user.ID
@@ -171,24 +142,28 @@ func (s *Server) handleAgora(w http.ResponseWriter, r *http.Request) {
 			m.Laurel = c.Days >= agoraRanks[len(agoraRanks)-1].Days
 			m.Title = m.Name + " · " + row.Rank
 			row.Medal = m
-			inside = append(inside, m)
 			v.Members = append(v.Members, row)
 		} else {
 			m.Progress = c.Days
-			circ := 2 * 3.14159 * 12.5
-			m.Dash = fmt.Sprintf("%.1f %.1f", circ*float64(c.Days)/agoraThreshold, circ)
 			m.Title = fmt.Sprintf("%s · %d / %d", m.Name, c.Days, agoraThreshold)
 			row.Percent = c.Days * 100 / agoraThreshold
 			row.Medal = m
-			outside = append(outside, m)
 			v.Gates = append(v.Gates, row)
 		}
 		if m.You {
 			v.Days = c.Days
 		}
+		v.People = append(v.People, person{
+			Name: m.Name, Symbol: m.Symbol, Color: m.Color, Member: c.Days >= agoraThreshold,
+			Rank: row.Rank, Days: c.Days, Laurel: m.Laurel, You: m.You,
+		})
 	}
-	v.Inside = place(inside, insideRows, 11)
-	v.Outside = place(outside, outsideRows, 10)
+	if v.Days == 0 {
+		// Not on the list yet (no challenge done): still on the map,
+		// outside, as the viewer.
+		me := medalFor(user.ID, user.Username, user.DisplayName, user.AvatarSymbol, user.AvatarColor)
+		v.People = append(v.People, person{Name: me.Name, Symbol: me.Symbol, Color: me.Color, You: true})
+	}
 	v.Member = v.Days >= agoraThreshold
 	if v.Member {
 		v.Rank, v.NextRank, v.NextDays = agoraRank(T, v.Days)

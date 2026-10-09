@@ -3,6 +3,9 @@ package i18n
 // The Lydi Agora.
 var agoraStrings = map[string]Dict{
 	"en": {
+		"AgoraGuardName":    "The guard",
+		"AgoraGuard":        "%d more challenges, citizen!",
+		"AgoraHowTo":        "Tap the map to walk around, tap someone to see who they are.",
 		"NavAgora":          "agora",
 		"AgoraTitle":        "The Lydi Agora",
 		"AgoraIntro":        "In ancient Lydia — the kingdom of Sardis and King Croesus, where the first coins were struck — the agora was where the city gathered. The Lydi Agora welcomes, for good, every reader who has completed 30 daily challenges.",
@@ -26,6 +29,9 @@ var agoraStrings = map[string]Dict{
 		"AgoraRank4":        "Sage of Sardis",
 	},
 	"fr": {
+		"AgoraGuardName":    "Le garde",
+		"AgoraGuard":        "Encore %d défis, citoyen !",
+		"AgoraHowTo":        "Touche la carte pour te déplacer, touche quelqu'un pour savoir qui c'est.",
 		"NavAgora":          "agora",
 		"AgoraTitle":        "L'Agora de Lydi",
 		"AgoraIntro":        "Dans l'antique Lydie, le royaume de Sardes et du roi Crésus, là où furent frappées les premières pièces de monnaie, l'agora était le cœur de la cité. L'Agora de Lydi accueille, pour toujours, chaque lecteur qui a réussi 30 défis du jour.",
@@ -49,6 +55,9 @@ var agoraStrings = map[string]Dict{
 		"AgoraRank4":        "Sage de Sardes",
 	},
 	"es": {
+		"AgoraGuardName":    "El guardia",
+		"AgoraGuard":        "¡Te faltan %d retos, ciudadano!",
+		"AgoraHowTo":        "Toca el mapa para moverte y toca a alguien para saber quién es.",
 		"NavAgora":          "ágora",
 		"AgoraTitle":        "El Ágora de Lydi",
 		"AgoraIntro":        "En la antigua Lidia, el reino de Sardes y del rey Creso, donde se acuñaron las primeras monedas, el ágora era el corazón de la ciudad. El Ágora de Lydi acoge, para siempre, a cada lector que ha cumplido 30 retos del día.",
@@ -72,6 +81,9 @@ var agoraStrings = map[string]Dict{
 		"AgoraRank4":        "Sabio de Sardes",
 	},
 	"pt": {
+		"AgoraGuardName":    "O guarda",
+		"AgoraGuard":        "Faltam %d desafios, cidadão!",
+		"AgoraHowTo":        "Toque no mapa para andar e toque em alguém para saber quem é.",
 		"NavAgora":          "ágora",
 		"AgoraTitle":        "A Ágora de Lydi",
 		"AgoraIntro":        "Na antiga Lídia, o reino de Sardes e do rei Creso, onde foram cunhadas as primeiras moedas, a ágora era o coração da cidade. A Ágora de Lydi acolhe, para sempre, cada leitor que concluiu 30 desafios do dia.",
@@ -95,6 +107,9 @@ var agoraStrings = map[string]Dict{
 		"AgoraRank4":        "Sábio de Sardes",
 	},
 	"it": {
+		"AgoraGuardName":    "La guardia",
+		"AgoraGuard":        "Ancora %d sfide, cittadino!",
+		"AgoraHowTo":        "Tocca la mappa per muoverti, tocca qualcuno per sapere chi è.",
 		"NavAgora":          "agorà",
 		"AgoraTitle":        "L'Agorà di Lydi",
 		"AgoraIntro":        "Nell'antica Lidia, il regno di Sardi e del re Creso, dove furono coniate le prime monete, l'agorà era il cuore della città. L'Agorà di Lydi accoglie, per sempre, ogni lettore che ha completato 30 sfide del giorno.",
@@ -118,6 +133,9 @@ var agoraStrings = map[string]Dict{
 		"AgoraRank4":        "Saggio di Sardi",
 	},
 	"de": {
+		"AgoraGuardName":    "Die Wache",
+		"AgoraGuard":        "Noch %d Tagesziele, Bürger!",
+		"AgoraHowTo":        "Tippe auf die Karte, um herumzulaufen, und auf jemanden, um zu sehen, wer es ist.",
 		"NavAgora":          "Agora",
 		"AgoraTitle":        "Die Lydi-Agora",
 		"AgoraIntro":        "Im antiken Lydien, dem Königreich von Sardes und König Krösus, wo die ersten Münzen geprägt wurden, war die Agora das Herz der Stadt. Die Lydi-Agora nimmt für immer jeden Leser auf, der 30 Tagesziele geschafft hat.",
@@ -141,6 +159,9 @@ var agoraStrings = map[string]Dict{
 		"AgoraRank4":        "Weiser von Sardes",
 	},
 	"nl": {
+		"AgoraGuardName":    "De wacht",
+		"AgoraGuard":        "Nog %d dagdoelen, burger!",
+		"AgoraHowTo":        "Tik op de kaart om rond te lopen, tik op iemand om te zien wie het is.",
 		"NavAgora":          "agora",
 		"AgoraTitle":        "De Lydi-agora",
 		"AgoraIntro":        "In het oude Lydië, het koninkrijk van Sardes en koning Croesus, waar de eerste munten werden geslagen, was de agora het hart van de stad. De Lydi-agora verwelkomt voor altijd elke lezer die 30 dagdoelen heeft gehaald.",
