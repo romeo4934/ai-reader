@@ -350,9 +350,15 @@
     // One column per screen: the column is as wide as the text area and as
     // tall as what's left between the header and the nav.
     function layout() {
-      var top = chapterEl.getBoundingClientRect().top;
-      var navH = navEl ? navEl.offsetHeight + 24 : 24;
-      chapterEl.style.height = Math.max(200, window.innerHeight - top - navH) + 'px';
+      // Docked, the flex layout already gives the text its height (down to
+      // the bottom zone); otherwise, size it to what's left on screen.
+      if (document.documentElement.classList.contains('reader-docked')) {
+        chapterEl.style.height = '';
+      } else {
+        var top = chapterEl.getBoundingClientRect().top;
+        var navH = navEl ? navEl.offsetHeight + 24 : 24;
+        chapterEl.style.height = Math.max(200, window.innerHeight - top - navH) + 'px';
+      }
       chapterEl.style.columnWidth = chapterEl.clientWidth + 'px';
       chapterEl.style.columnGap = GAP + 'px';
       pages = Math.max(1, Math.round((chapterEl.scrollWidth + GAP) / stride()));

@@ -604,29 +604,48 @@ details[open] .word-row::after { content: '⌄'; }
 [data-eink] .btn, [data-eink] .btn-icon { min-height: 48px; min-width: 48px; border-width: 2px; }
 [data-eink] .popover { border: 2px solid #000; }
 
-/* Docked reading (phones, pages): a fixed zone at the bottom holds the page
-   nav, and the translation panel opens exactly over it. */
+/* Docked reading (phones, pages): the screen is laid out like an app — the
+   text scrolls inside its own area, a zone at the bottom holds the page nav,
+   and the translation panel opens exactly over that zone. The page itself
+   never scrolls: on phones, a scrolling page hides and shows the address
+   bar, which resizes the viewport and made anything pinned to the bottom
+   shake. */
 .dock-hint { display: none; }
-/* svh, not vh: vh follows the mobile address bar as it hides and shows
-   while scrolling, which made the docked zone resize — and shake. */
 .reader-docked { --dock: clamp(150px, 24svh, 220px); }
-.reader-docked body { padding-bottom: var(--dock); }
+.reader-docked, .reader-docked body { height: 100%; overflow: hidden; }
+.reader-docked body { display: flex; flex-direction: column; }
+.reader-docked .topnav { flex: none; }
+.reader-docked .reader-page {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 0;
+  margin-bottom: 0;
+}
+.reader-docked .reader-head { flex: none; }
+.reader-docked .chapter {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 1.5rem;
+}
+.reader-docked.paged .chapter { overflow: hidden; }
 .reader-docked .chapter-nav {
-  position: fixed; left: 0; right: 0; bottom: 0;
+  flex: none;
   height: var(--dock);
   margin: 0;
-  padding: 0 16px calc(12px + env(safe-area-inset-bottom));
+  padding: 0 0 calc(12px + env(safe-area-inset-bottom));
   flex-wrap: wrap;
   align-content: flex-end;
-  background: var(--bg);
   border-top: 1px solid var(--border);
-  z-index: 900;
-  transform: translateZ(0); /* own layer: no repaint jitter while scrolling */
 }
 .reader-docked .dock-hint {
   display: block;
   flex: 1 0 100%;
-  align-self: center;
   margin: 0 0 auto;
   padding-top: 1rem;
   text-align: center;
@@ -638,4 +657,3 @@ details[open] .word-row::after { content: '⌄'; }
   max-height: var(--dock);
   border-radius: 0;
 }
-.reader-docked .chapter { padding-bottom: 2rem; }
