@@ -9,7 +9,7 @@
 window.LPC = (function () {
   'use strict';
   var BASE = '/static/lpc/';
-  var VERSION = '?v=1'; // bump when the sheets change: they are cached
+  var VERSION = '?v=2'; // bump when the sheets change: they are cached
   var ANIMS = ['walk', 'idle', 'sit'];
   var palettes = null, images = {}, recolored = {};
 
@@ -57,10 +57,20 @@ window.LPC = (function () {
 
   // The layers of a character, back to front.
   //   spec = { body: 'male'|'female', skin, hair: 'plain'|'long'|'bun'|'curly'|'ponytail'|'',
-  //            hairColor, beard: 'short'|'long'|'', tunic, cape (cloth color or ''),
+  //            hairColor, beard: 'short'|'long'|'', tunic (cloth color),
+  //            cut: 'simple'|'belted'|'vneck'|'short'|'long', cape (cloth color or ''),
+  //            extra: 'beads'|'beads_large'|'bracers'|'scarf'|'mantle'|'',
   //            head: 'headband'|'petasos'|'olive'|'hood'|'laurel'|'crown'|'', guard: bool }
   // (the wreaths and the petasos aren't LPC items: they are drawn over the
   // LPC heads, frame by frame, in the same pixel style)
+  var TOPS = { simple: 'top_', belted: 'top_belted_', vneck: 'top_vneck_', short: 'top_short_', long: 'top_long_' };
+  var EXTRAS = {
+    beads: { id: 'beads_B', z: 80, material: 'metal', color: 'gold' },
+    beads_large: { id: 'beads_large_B', z: 80, material: 'metal', color: 'gold' },
+    bracers: { id: 'bracers_B', z: 70, material: 'metal', color: 'gold' },
+    scarf: { id: 'scarf', z: 90, material: 'cloth', color: 'white' },
+    mantle: { id: 'mantle_B', z: 75, material: 'cloth', color: 'white' }
+  };
   function layers(spec) {
     var b = spec.body === 'female' ? 'female' : 'male', L = [];
     function add(id, z, material, color) { L.push({ id: id, z: z, material: material, color: color }); }
@@ -69,8 +79,11 @@ window.LPC = (function () {
     add('body_' + b, 10, 'body', spec.skin);
     add('sandals_' + b, 15, 'cloth', 'brown');
     add('skirt_' + b, 20, 'cloth', spec.guard ? 'red' : spec.tunic);
-    add('top_' + b, 35, 'cloth', spec.guard ? 'red' : spec.tunic);
+    var cut = !spec.guard && TOPS[spec.cut] ? spec.cut : 'simple';
+    add(TOPS[cut] + b, 35, 'cloth', spec.guard ? 'red' : spec.tunic);
     if (spec.guard) add('armour_legion', 60, 'metal', 'bronze');
+    var extra = !spec.guard && EXTRAS[spec.extra];
+    if (extra) add(extra.id.replace('_B', '_' + b), extra.z, extra.material, extra.color);
     if (spec.cape) add('cape_fg', 85, 'cloth', spec.cape);
     add('head_' + b, 100, 'body', spec.skin);
     if (spec.beard) add('beard_' + spec.beard, 110, 'hair', spec.hairColor);

@@ -516,7 +516,8 @@
 
   // The character editor: a big live preview of the reader's character,
   // turning on itself, and each option's tile drawn on their own character
-  // (close on the head for hair, beard and headwear; capes from behind).
+  // (close on the head for hair, beard and headwear, on the chest for
+  // jewels; capes from behind).
   var preview = document.getElementById('look-preview');
   if (preview && window.LPC) {
     var pal = JSON.parse(document.getElementById('look-palettes').textContent || '{}');
@@ -524,16 +525,17 @@
     var val = function (n) { var el = form.querySelector('input[name="' + n + '"]:checked'); return el ? el.value : ''; };
     var meP = me ? me.p : { member: false, days: 0 };
     var currentSpec = function (field, value) {
-      var v = { body: val('body'), skin: val('skin'), hair: val('hair'), haircolor: val('haircolor'), beard: val('beard'), tunic: val('tunic'), cape: val('cape'), head: val('head') };
+      var v = { body: val('body'), skin: val('skin'), hair: val('hair'), haircolor: val('haircolor'), beard: val('beard'), tunic: val('tunic'), cut: val('cut'), cape: val('cape'), head: val('head'), extra: val('extra') };
       if (field) v[field] = value;
       return {
         body: pal.bodies[Number(v.body)], skin: pal.skins[Number(v.skin)], hair: pal.hairStyles[Number(v.hair)],
         hairColor: pal.hairColors[Number(v.haircolor)], beard: pal.beards[Number(v.beard)],
-        tunic: pal.tunics[v.tunic], cape: pal.capes[v.cape] || '', head: pal.heads[v.head] || '',
+        tunic: pal.tunics[v.tunic], cut: pal.cuts[v.cut], cape: pal.capes[v.cape] || '', head: pal.heads[v.head] || '',
+        extra: pal.extras[v.extra] || '',
       };
     };
     // the head, or the whole figure, within a 64-px frame
-    var CROP = { head: [14, 6, 36, 36], body: [10, 10, 44, 54] };
+    var CROP = { head: [14, 6, 36, 36], bust: [14, 18, 36, 36], body: [10, 10, 44, 54] };
     var paint = function (cv, spec, zoom, field, dir) {
       if (zoom === 'head' && field !== 'head') spec.head = '';
       if (zoom !== 'head' && meP.laurel && !spec.head) spec.head = 'laurel';
@@ -741,7 +743,7 @@
     var s = cam.scale, r = bgScale / s;
     view.setTransform(1, 0, 0, 1, 0, 0);
     view.fillStyle = '#6fa046'; view.fillRect(0, 0, canvas.width, canvas.height); // beyond the map's edges
-    view.drawImage(bg, cam.x * bgScale, cam.y * bgScale, canvas.width * r, canvas.height * r, 0, 0, canvas.width, canvas.height);
+    if (bg.width && bg.height) view.drawImage(bg, cam.x * bgScale, cam.y * bgScale, canvas.width * r, canvas.height * r, 0, 0, canvas.width, canvas.height);
     view.setTransform(s, 0, 0, s, -cam.x * s, -cam.y * s);
     drawWorld(t);
     drawOverlay(t);

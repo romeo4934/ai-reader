@@ -40,11 +40,23 @@ type lookOption struct {
 	Tier        int
 }
 
+// Most colors are for everyone; gold, purple and white — the colors of
+// the great — are for members.
 var lookTunics = []lookOption{
 	{"grey", "gray", -1}, {"beige", "tan", -1}, {"brown", "brown", -1},
-	{"terracotta", "orange", 0}, {"olive", "forest", 0}, {"lapis", "blue", 0}, {"navy", "navy", 0}, {"gold", "yellow", 0},
-	{"purple", "purple", 0}, {"teal", "teal", 0}, {"rose", "rose", 0}, {"red", "red", 0}, {"maroon", "maroon", 0},
-	{"charcoal", "charcoal", 0}, {"white", "white", 0},
+	{"terracotta", "orange", -1}, {"olive", "forest", -1}, {"lapis", "blue", -1}, {"navy", "navy", -1},
+	{"teal", "teal", -1}, {"rose", "rose", -1}, {"red", "red", -1}, {"maroon", "maroon", -1},
+	{"charcoal", "charcoal", -1}, {"gold", "yellow", 0}, {"purple", "purple", 0}, {"white", "white", 0},
+}
+
+// The cut of the tunic.
+var lookCuts = []lookOption{
+	{"belted", "belted", -1}, {"simple", "simple", -1}, {"vneck", "vneck", -1}, {"short", "short", -1}, {"long", "long", -1},
+}
+
+// Jewels and the like.
+var lookExtras = []lookOption{
+	{"none", "", -1}, {"beads", "beads", -1}, {"bracers", "bracers", -1}, {"scarf", "scarf", -1}, {"beads_large", "beads_large", 0},
 }
 
 var lookCapes = []lookOption{
@@ -57,14 +69,24 @@ var lookHeads = []lookOption{
 }
 
 // Look is a character's appearance, stored as
-// "bd=1,s=2,h=1,hc=3,b=0,t=lapis,c=red,w=petasos".
+// "bd=1,s=2,h=1,hc=3,b=0,t=lapis,u=belted,c=red,w=petasos,x=beads".
 type Look struct {
 	Body, Skin, Hair, HairColor, Beard int
-	Tunic, Cape, Head                  string
+	Tunic, Cut, Cape, Head, Extra      string
 }
 
 func (l Look) String() string {
-	return fmt.Sprintf("bd=%d,s=%d,h=%d,hc=%d,b=%d,t=%s,c=%s,w=%s", l.Body, l.Skin, l.Hair, l.HairColor, l.Beard, l.Tunic, l.Cape, l.Head)
+	return fmt.Sprintf("bd=%d,s=%d,h=%d,hc=%d,b=%d,t=%s,u=%s,c=%s,w=%s,x=%s",
+		l.Body, l.Skin, l.Hair, l.HairColor, l.Beard, l.Tunic, l.Cut, l.Cape, l.Head, l.Extra)
+}
+
+// defaultCut: the belted tunic for men (the plain one is shaped for a
+// woman's figure), the plain one for women.
+func defaultCut(body int) string {
+	if body == 0 {
+		return "belted"
+	}
+	return "simple"
 }
 
 // defaultLook gives everyone a different starting face (from their id), in
@@ -76,11 +98,12 @@ func defaultLook(userID int64) Look {
 	l := Look{
 		Skin: n % len(lookSkins), Hair: (n / 7) % len(lookHairStyles), HairColor: (n / 49) % len(lookHairColors),
 		Beard: (n / 343) % len(lookBeards), Tunic: lookTunics[(n/2401)%3].Key, Cape: "none", Head: "none",
-		Body: (n / 7203) % len(lookBodies),
+		Body: (n / 7203) % len(lookBodies), Extra: "none",
 	}
 	if l.Body == 1 {
 		l.Beard = 0
 	}
+	l.Cut = defaultCut(l.Body)
 	return l
 }
 
@@ -108,7 +131,7 @@ func optionSprite(opts []lookOption, key string) string {
 func parseLook(userID int64, stored string, tier int) Look {
 	l := defaultLook(userID)
 	def := l
-	hasBody := false
+	hasBody, hasCut := false, false
 	for _, part := range strings.Split(stored, ",") {
 		k, v, ok := strings.Cut(part, "=")
 		if !ok {
@@ -138,6 +161,10 @@ func parseLook(userID int64, stored string, tier int) Look {
 			}
 		case "t":
 			l.Tunic = v
+		case "u":
+			l.Cut, hasCut = v, true
+		case "x":
+			l.Extra = v
 		case "c":
 			l.Cape = v
 		case "w":
@@ -147,6 +174,12 @@ func parseLook(userID int64, stored string, tier int) Look {
 	// Looks saved before the figure was a choice: a beard means a man.
 	if !hasBody && l.Beard > 0 {
 		l.Body = 0
+	}
+	if _, ok := optionTier(lookCuts, l.Cut); !ok || !hasCut {
+		l.Cut = defaultCut(l.Body)
+	}
+	if t, ok := optionTier(lookExtras, l.Extra); !ok || t > tier {
+		l.Extra = "none"
 	}
 	if t, ok := optionTier(lookTunics, l.Tunic); !ok || t > tier {
 		l.Tunic = def.Tunic
@@ -181,15 +214,18 @@ type lookJSON struct {
 	HairColor string `json:"hairColor"`
 	Beard     string `json:"beard"`
 	Tunic     string `json:"tunic"`
+	Cut       string `json:"cut"`
 	Cape      string `json:"cape"`
 	Head      string `json:"head"`
+	Extra     string `json:"extra"`
 }
 
 func (l Look) json() lookJSON {
 	return lookJSON{
 		Body: lookBodies[l.Body], Skin: lookSkins[l.Skin].Name, Hair: lookHairStyles[l.Hair],
 		HairColor: lookHairColors[l.HairColor].Name, Beard: lookBeards[l.Beard],
-		Tunic: optionSprite(lookTunics, l.Tunic), Cape: optionSprite(lookCapes, l.Cape), Head: optionSprite(lookHeads, l.Head),
+		Tunic: optionSprite(lookTunics, l.Tunic), Cut: optionSprite(lookCuts, l.Cut), Cape: optionSprite(lookCapes, l.Cape),
+		Head: optionSprite(lookHeads, l.Head), Extra: optionSprite(lookExtras, l.Extra),
 	}
 }
 
@@ -200,9 +236,9 @@ func (s *Server) handleAgoraLook(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, http.StatusInternalServerError, err)
 		return
 	}
-	submitted := fmt.Sprintf("bd=%s,s=%s,h=%s,hc=%s,b=%s,t=%s,c=%s,w=%s",
+	submitted := fmt.Sprintf("bd=%s,s=%s,h=%s,hc=%s,b=%s,t=%s,u=%s,c=%s,w=%s,x=%s",
 		r.FormValue("body"), r.FormValue("skin"), r.FormValue("hair"), r.FormValue("haircolor"), r.FormValue("beard"),
-		r.FormValue("tunic"), r.FormValue("cape"), r.FormValue("head"))
+		r.FormValue("tunic"), r.FormValue("cut"), r.FormValue("cape"), r.FormValue("head"), r.FormValue("extra"))
 	look := parseLook(user.ID, submitted, agoraTier(days))
 	if err := s.store.SetAvatarLook(user.ID, look.String()); err != nil {
 		s.fail(w, http.StatusInternalServerError, err)
@@ -228,7 +264,7 @@ type lookChoice struct {
 type lookEditor struct {
 	Look                                          Look
 	Bodies, Skins, HairColors, HairStyles, Beards []lookChoice
-	Tunics, Capes, Heads                          []lookChoice
+	Tunics, Cuts, Capes, Heads, Extras            []lookChoice
 	Palettes                                      map[string]any
 }
 
@@ -241,7 +277,7 @@ func newLookEditor(T map[string]string, look Look, tier int) lookEditor {
 	}
 	e := lookEditor{Look: look}
 	for i := range lookBodies {
-		e.Bodies = append(e.Bodies, lookChoice{Value: strconv.Itoa(i)})
+		e.Bodies = append(e.Bodies, lookChoice{Value: strconv.Itoa(i), Label: T["LookBody"+strconv.Itoa(i)]})
 	}
 	for i, c := range lookSkins {
 		e.Skins = append(e.Skins, lookChoice{Value: strconv.Itoa(i), Hex: c.Hex})
@@ -267,7 +303,9 @@ func newLookEditor(T map[string]string, look Look, tier int) lookEditor {
 		return out
 	}
 	e.Tunics = choices(lookTunics, "")
+	e.Cuts = choices(lookCuts, "LookCut_")
 	e.Capes = choices(lookCapes, "LookCape_")
+	e.Extras = choices(lookExtras, "LookExtra_")
 	e.Heads = choices(lookHeads, "LookHead_")
 	// What static/agora.js needs to turn the form's values into a sprite.
 	names := func(cs []lookColor) []string {
@@ -287,7 +325,8 @@ func newLookEditor(T map[string]string, look Look, tier int) lookEditor {
 	e.Palettes = map[string]any{
 		"bodies": lookBodies, "skins": names(lookSkins), "hairColors": names(lookHairColors),
 		"hairStyles": lookHairStyles, "beards": lookBeards,
-		"tunics": sprites(lookTunics), "capes": sprites(lookCapes), "heads": sprites(lookHeads),
+		"tunics": sprites(lookTunics), "cuts": sprites(lookCuts), "capes": sprites(lookCapes),
+		"heads": sprites(lookHeads), "extras": sprites(lookExtras),
 	}
 	return e
 }

@@ -152,18 +152,21 @@ func TestSuggestBooks(t *testing.T) {
 
 func TestParseLook(t *testing.T) {
 	// an old look (no figure) with a beard is a man's
-	if l := parseLook(7, "s=1,h=2,hc=3,b=2,t=lapis,c=red,w=petasos", 0); l.Body != 0 || l.Beard != 2 || l.Tunic != "lapis" || l.Head != "petasos" {
+	if l := parseLook(7, "s=1,h=2,hc=3,b=2,t=lapis,c=red,w=petasos", 0); l.Body != 0 || l.Beard != 2 || l.Tunic != "lapis" || l.Head != "petasos" || l.Cut != "belted" {
 		t.Errorf("old look: %+v", l)
 	}
 	// items above one's rank fall back
-	l := parseLook(7, "bd=1,s=1,h=2,hc=3,b=0,t=lapis,c=gold,w=crown", -1)
-	if l.Body != 1 || l.Cape != "none" || l.Head != "none" || l.Tunic == "lapis" {
+	l := parseLook(7, "bd=1,s=1,h=2,hc=3,b=0,t=purple,u=long,c=gold,w=crown,x=beads_large", -1)
+	if l.Body != 1 || l.Cape != "none" || l.Head != "none" || l.Tunic == "purple" || l.Cut != "long" || l.Extra != "none" {
 		t.Errorf("aspirant look: %+v", l)
 	}
 	if got := parseLook(7, l.String(), -1); got != l {
 		t.Errorf("round trip: %+v != %+v", got, l)
 	}
-	j := parseLook(7, "bd=1,s=0,h=4,hc=6,b=0,t=beige,c=none,w=headband", -1).json()
+	j := parseLook(7, "bd=1,s=0,h=4,hc=6,b=0,t=beige,c=none,w=headband,x=scarf", -1).json()
+	if j.Cut != "simple" || j.Extra != "scarf" {
+		t.Errorf("json cut/extra: %+v", j)
+	}
 	if j.Body != "female" || j.Skin != "light" || j.Hair != "" || j.HairColor != "orange" || j.Tunic != "tan" || j.Cape != "" || j.Head != "headband" {
 		t.Errorf("json: %+v", j)
 	}

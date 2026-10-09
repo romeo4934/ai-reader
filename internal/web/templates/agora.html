@@ -75,7 +75,7 @@
           <canvas id="look-preview" class="look-preview" width="160" height="200" aria-hidden="true"></canvas>
           <h3>{{.T.LookFace}}</h3>
           <p class="hint">{{.T.LookBody}}</p>
-          <div class="look-tiles">{{range $e.Bodies}}<label><input type="radio" name="body" value="{{.Value}}"{{if eq .Value (printf "%d" $e.Look.Body)}} checked{{end}}><span class="look-tile"><canvas class="look-thumb" data-field="body" data-value="{{.Value}}" data-zoom="body"></canvas></span></label>{{end}}</div>
+          <div class="look-tiles">{{range $e.Bodies}}<label><input type="radio" name="body" value="{{.Value}}"{{if eq .Value (printf "%d" $e.Look.Body)}} checked{{end}}><span class="look-tile"><canvas class="look-thumb" data-field="body" data-value="{{.Value}}" data-zoom="body"></canvas><em>{{.Label}}</em></span></label>{{end}}</div>
           <p class="hint">{{.T.LookSkin}}</p>
           <div class="agora-picks">{{range $e.Skins}}<label><input type="radio" name="skin" value="{{.Value}}"{{if eq .Value (printf "%d" $e.Look.Skin)}} checked{{end}}><span class="agora-swatch" style="background: {{.Hex}}"></span></label>{{end}}</div>
           <p class="hint">{{.T.LookHair}}</p>
@@ -88,6 +88,10 @@
           <h3>{{.T.LookOutfit}}</h3>
           <p class="hint">{{.T.LookTunic}}</p>
           <div class="look-tiles">{{range $e.Tunics}}<label{{if .Locked}} class="locked" title="{{printf $t.LookLocked .Need}}"{{end}}><input type="radio" name="tunic" value="{{.Value}}"{{if eq .Value $e.Look.Tunic}} checked{{end}}{{if .Locked}} disabled{{end}}><span class="look-tile"><canvas class="look-thumb" data-field="tunic" data-value="{{.Value}}" data-zoom="body"></canvas>{{if .Locked}}<b class="look-lock">🔒 {{.Need}}</b>{{end}}</span></label>{{end}}</div>
+          <p class="hint">{{.T.LookCut}}</p>
+          <div class="look-tiles">{{range $e.Cuts}}<label><input type="radio" name="cut" value="{{.Value}}"{{if eq .Value $e.Look.Cut}} checked{{end}}><span class="look-tile"><canvas class="look-thumb" data-field="cut" data-value="{{.Value}}" data-zoom="body"></canvas><em>{{.Label}}</em></span></label>{{end}}</div>
+          <p class="hint">{{.T.LookExtra}}</p>
+          <div class="look-tiles">{{range $e.Extras}}<label{{if .Locked}} class="locked" title="{{printf $t.LookLocked .Need}}"{{end}}><input type="radio" name="extra" value="{{.Value}}"{{if eq .Value $e.Look.Extra}} checked{{end}}{{if .Locked}} disabled{{end}}><span class="look-tile"><canvas class="look-thumb" data-field="extra" data-value="{{.Value}}" data-zoom="bust"></canvas><em>{{.Label}}</em>{{if .Locked}}<b class="look-lock">🔒 {{.Need}}</b>{{end}}</span></label>{{end}}</div>
           <p class="hint">{{.T.LookCape}}</p>
           <div class="look-tiles">{{range $e.Capes}}<label{{if .Locked}} class="locked" title="{{printf $t.LookLocked .Need}}"{{end}}><input type="radio" name="cape" value="{{.Value}}"{{if eq .Value $e.Look.Cape}} checked{{end}}{{if .Locked}} disabled{{end}}><span class="look-tile"><canvas class="look-thumb" data-field="cape" data-value="{{.Value}}" data-zoom="body"></canvas><em>{{.Label}}</em>{{if .Locked}}<b class="look-lock">🔒 {{.Need}}</b>{{end}}</span></label>{{end}}</div>
           <p class="hint">{{.T.LookHead}}</p>
