@@ -288,6 +288,8 @@
 
   function openPopoverFor(phrase, context, rect, original) {
     var myReq = ++requestSeq;
+    var hint = document.getElementById('first-hint');
+    if (hint) hint.remove(); // they've got it
     resetPopoverBody();
     popover.hidden = false;
     elLoading.hidden = false;
@@ -331,8 +333,23 @@
 
   elClose.addEventListener('click', closePopover);
 
+  // First opening of a book: jump past the front matter to the paragraph
+  // where the story starts.
+  function startParaEl() {
+    var n = Number(chapterEl.dataset.startPara || 0);
+    return n > 0 ? chapterEl.querySelectorAll('.para')[n] : null;
+  }
+
   // --- pages ---
   if (paged) setupPages();
+  else {
+    var startEl = startParaEl();
+    if (startEl) {
+      var scroller = document.documentElement.classList.contains('reader-docked') ? chapterEl : document.scrollingElement;
+      var top = startEl.getBoundingClientRect().top - (scroller === chapterEl ? chapterEl.getBoundingClientRect().top : 0);
+      scroller.scrollTop += top - 8;
+    }
+  }
 
   function setupPages() {
     document.documentElement.classList.add('paged');
@@ -429,5 +446,7 @@
 
     layout();
     if (/[?&]pg=last\b/.test(window.location.search)) go(pages - 1);
+    var startEl = startParaEl();
+    if (startEl) go(Math.min(pages - 1, Math.floor((startEl.getBoundingClientRect().left - chapterEl.getBoundingClientRect().left) / stride())));
   }
 })();

@@ -727,6 +727,13 @@ func (s *Store) GetProgress(bookID int64) (chapterIdx, sectionIdx int, err error
 	return chapterIdx, sectionIdx, err
 }
 
+// HasProgress reports whether the book was ever opened (a position saved).
+func (s *Store) HasProgress(bookID int64) (bool, error) {
+	var n int
+	err := s.db.QueryRow(`SELECT COUNT(*) FROM reading_progress WHERE book_id = ?`, bookID).Scan(&n)
+	return n > 0, err
+}
+
 // --- vocab / review deck ---
 
 type Vocab struct {
@@ -1105,6 +1112,12 @@ func (s *Store) DeckCounts(userID int64, now time.Time, lang string) (DeckCounts
 		WHERE v.user_id = ? AND (? = '' OR b.lang_key = ?)`, now.Format(timeLayout), userID, lang, lang).
 		Scan(&c.DueReviews, &c.New, &c.Fragile, &c.Total)
 	return c, err
+}
+
+func (s *Store) CountVocab(userID int64) (int, error) {
+	var n int
+	err := s.db.QueryRow(`SELECT COUNT(*) FROM vocab WHERE user_id = ?`, userID).Scan(&n)
+	return n, err
 }
 
 // VocabLangs lists the languages of the user's words, most words first.

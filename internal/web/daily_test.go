@@ -129,3 +129,23 @@ func TestNextReview(t *testing.T) {
 		}
 	}
 }
+
+func TestSuggestBooks(t *testing.T) {
+	for _, tc := range []struct {
+		lang  string
+		level int
+	}{{"en", 1}, {"fr", 3}, {"es", 1}, {"it", 2}, {"nl", 3}} {
+		got := suggestBooks(tc.lang, tc.level, 3)
+		if len(got) != 3 {
+			t.Errorf("%s/%d: %d books, want 3", tc.lang, tc.level, len(got))
+		}
+		if len(got) > 0 && got[0].Level != tc.level {
+			t.Errorf("%s/%d: first book is level %d", tc.lang, tc.level, got[0].Level)
+		}
+		for _, b := range got {
+			if b.Lang != tc.lang {
+				t.Errorf("%s/%d: got a %s book", tc.lang, tc.level, b.Lang)
+			}
+		}
+	}
+}

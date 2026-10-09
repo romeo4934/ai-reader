@@ -330,6 +330,10 @@ func (s *Server) handleLibrary(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, http.StatusInternalServerError, err)
 		return
 	}
+	if len(books) == 0 && r.URL.Query().Get("skip") == "" {
+		s.renderStart(w, r)
+		return
+	}
 	s.render(w, r, "library.html", s.dictFor(r)["LibTitle"], books)
 }
 
@@ -382,6 +386,33 @@ type readerView struct {
 	SectionCount   int
 	HasPrevSection bool
 	HasNextSection bool
+	// FirstTime: no word looked up yet — show how it works.
+	FirstTime bool
+	// StartPara: on a first opening, the paragraph the story starts at
+	// (past the front matter), scrolled to.
+	StartPara int
+}
+
+// storyStart finds where a book's text actually begins: the first section
+// with a real paragraph in it (front matter is short lines — title, author,
+// publisher, a table of contents).
+// para is that paragraph's index in the section, which the page scrolls to.
+func (s *Server) storyStart(bookID int64, chapterCount int) (chIdx, secIdx, para int) {
+	const realParagraph = 200
+	for ch := 0; ch < min(chapterCount, 8); ch++ {
+		chapter, err := s.store.GetChapterByIdx(bookID, ch)
+		if err != nil {
+			return 0, 0, 0
+		}
+		for sec, paras := range splitIntoSections(strings.Split(chapter.Content, "\n\n"), sectionTargetChars) {
+			for i, p := range paras {
+				if len(p) >= realParagraph {
+					return ch, sec, i
+				}
+			}
+		}
+	}
+	return 0, 0, 0
 }
 
 // sectionTargetChars caps how much text shows on screen at once — a whole
@@ -428,8 +459,14 @@ func (s *Server) handleReader(w http.ResponseWriter, r *http.Request) {
 
 	chQ := r.URL.Query().Get("ch")
 	chIdx, secIdx := 0, 0
+	opened, _ := s.store.HasProgress(bookID)
+	startPara := 0
 	if chQ != "" {
 		chIdx, _ = strconv.Atoi(chQ)
+	} else if !opened {
+		// First time in the book: skip the title page, contents and other
+		// front matter, straight to where the story starts.
+		chIdx, secIdx, startPara = s.storyStart(bookID, book.ChapterCount)
 	} else if savedCh, savedSec, err := s.store.GetProgress(bookID); err == nil {
 		chIdx, secIdx = savedCh, savedSec
 	}
@@ -467,7 +504,13 @@ func (s *Server) handleReader(w http.ResponseWriter, r *http.Request) {
 		native = defaultNativeLang
 	}
 
+	words, err := s.store.CountVocab(user.ID)
+	if err != nil {
+		s.log.Error("count vocab", "err", err)
+	}
 	s.render(w, r, "reader.html", book.Title, readerView{
+		FirstTime:      err == nil && words == 0,
+		StartPara:      startPara,
 		Book:           book,
 		Chapter:        chapter,
 		Paragraphs:     sections[secIdx],

@@ -14,7 +14,8 @@
       <span class="chapter-label">{{.Data.Chapter.Title}}</span>
     </header>
 
-    <article id="chapter" class="chapter" data-reading="{{.Reading}}"
+    {{if .Data.FirstTime}}<p class="first-hint" id="first-hint">{{.T.ReaderFirstHint}}</p>{{end}}
+    <article id="chapter" class="chapter" data-reading="{{.Reading}}"{{if .Data.StartPara}} data-start-para="{{.Data.StartPara}}"{{end}}
       data-book-id="{{.Data.Book.ID}}"
       data-chapter-id="{{.Data.Chapter.ID}}">
       {{range .Data.Paragraphs}}

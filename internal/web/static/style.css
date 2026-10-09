@@ -671,3 +671,16 @@ details[open] .word-row::after { content: '⌄'; }
    section indicator, and the bar only took room and caught the eye. */
 .reader-docked .chapter { scrollbar-width: none; }
 .reader-docked .chapter::-webkit-scrollbar { display: none; }
+
+/* First run */
+.start-steps { display: flex; gap: 0.4rem; list-style: none; padding: 0; margin: -0.4rem 0 1.4rem; }
+.start-steps li { flex: 1; height: 5px; border-radius: 3px; background: var(--border); }
+.start-steps li.done { background: var(--accent); }
+.start-q { font-family: -apple-system, BlinkMacSystemFont, sans-serif; font-size: 1.25rem; margin: 0 0 1rem; }
+.start-choices { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 0.6rem; }
+.start-choices-col { grid-template-columns: 1fr; }
+.start-choice { display: flex; flex-direction: column; gap: 0.2rem; padding: 1rem; border: 1px solid var(--border); border-radius: 12px; background: var(--card-bg); color: var(--fg); text-decoration: none; font-family: sans-serif; }
+.start-choice:hover { border-color: var(--accent); }
+.start-choice span { color: var(--muted); font-size: 0.9rem; }
+.start-back, .start-own { margin-top: 1.2rem; font-family: sans-serif; }
+.first-hint { margin: 0 0 0.8rem; padding: 0.6rem 0.8rem; border-radius: 10px; background: color-mix(in srgb, var(--accent) 12%, transparent); border: 1px solid var(--accent); font-family: sans-serif; font-size: 0.95rem; }

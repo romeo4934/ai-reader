@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="{{.T.LangCode}}"{{if .Theme}} data-theme="{{.Theme}}"{{end}}{{if .Eink}} data-eink{{end}}>
+<head>
+  <title>{{.Title}}</title>
+  {{template "head" .}}
+</head>
+<body>
+  {{template "nav" .}}
+  {{$t := .T}}{{$d := .Data}}
+  <main class="page start-page">
+    <h1>{{.T.StartTitle}}</h1>
+    <ol class="start-steps" aria-hidden="true">
+      <li{{if ge $d.Step 1}} class="done"{{end}}></li><li{{if ge $d.Step 2}} class="done"{{end}}></li><li{{if ge $d.Step 3}} class="done"{{end}}></li>
+    </ol>
+
+    {{if eq $d.Step 1}}
+      <h2 class="start-q">{{.T.StartLangQ}}</h2>
+      <div class="start-choices">
+        {{range $d.Langs}}<a href="/?lang={{.Value}}" class="start-choice"><strong>{{.Name}}</strong></a>{{end}}
+      </div>
+    {{else if eq $d.Step 2}}
+      <h2 class="start-q">{{printf .T.StartLevelQ $d.LangName}}</h2>
+      <div class="start-choices start-choices-col">
+        {{range $d.Levels}}<a href="/?lang={{$d.Lang}}&amp;level={{.Value}}" class="start-choice"><strong>{{.Name}}</strong><span>{{.Hint}}</span></a>{{end}}
+      </div>
+      <p class="start-back"><a href="/">{{.T.StartBack}}</a></p>
+    {{else}}
+      <h2 class="start-q">{{.T.StartBooksQ}}</h2>
+      <p class="hint">{{.T.StartBooksHint}}</p>
+      <ul class="catalog-list start-books">
+        {{range $d.Books}}
+        <li>
+          <div class="catalog-book">
+            <span class="book-title">{{.Title}}</span>
+            <span class="book-author">{{.Author}}</span>
+          </div>
+          <form action="/catalog/{{.ID}}/add" method="post" class="catalog-add">
+            <button type="submit" class="btn btn-primary" data-busy="{{$t.CatalogAdding}}">{{$t.StartStart}}</button>
+          </form>
+        </li>
+        {{end}}
+      </ul>
+      <p class="start-back"><a href="/?lang={{$d.Lang}}">{{.T.StartBack}}</a> · <a href="/catalog?lang={{$d.Lang}}">{{.T.StartMore}}</a></p>
+    {{end}}
+
+    <p class="hint start-own"><a href="/?skip=1">{{.T.StartOwn}}</a></p>
+  </main>
+  <script>
+    document.querySelectorAll('form.catalog-add').forEach(function (f) {
+      f.addEventListener('submit', function () {
+        var b = f.querySelector('button');
+        b.disabled = true;
+        b.textContent = b.dataset.busy;
+      });
+    });
+  </script>
+</body>
+</html>
