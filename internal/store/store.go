@@ -153,6 +153,9 @@ func migrateUsersForEmail(db *sql.DB) error {
 		{"invited_by", "INTEGER NOT NULL DEFAULT 0"},
 		{"referral_credited", "INTEGER NOT NULL DEFAULT 0"},
 		{"bonus_quota", "INTEGER NOT NULL DEFAULT 0"},
+		{"timezone", "TEXT NOT NULL DEFAULT ''"},
+		{"reminders", "INTEGER NOT NULL DEFAULT 1"},
+		{"last_reminder_day", "TEXT NOT NULL DEFAULT ''"},
 	} {
 		if err := ensureColumn(db, "users", c.name, c.decl); err != nil {
 			return fmt.Errorf("migration users.%s : %w", c.name, err)
@@ -327,6 +330,11 @@ type User struct {
 	// BonusQuota is added to the free plan's monthly translations (earned
 	// by inviting friends).
 	BonusQuota int
+	// Timezone is the browser's IANA zone, last seen; "" if never.
+	Timezone string
+	// Reminders: the evening email when the daily challenge isn't done.
+	Reminders       bool
+	LastReminderDay string
 }
 
 // Plans: "free" is bounded by the monthly translation quota; "unlimited"
@@ -336,12 +344,12 @@ const (
 	PlanUnlimited = "unlimited"
 )
 
-const userColumns = `id, username, password_hash, native_lang, created_at, COALESCE(email, ''), email_verified_at != '', plan, pending_email, daily_new_limit, display_name, bonus_quota`
+const userColumns = `id, username, password_hash, native_lang, created_at, COALESCE(email, ''), email_verified_at != '', plan, pending_email, daily_new_limit, display_name, bonus_quota, timezone, reminders, last_reminder_day`
 
 func scanUser(row interface{ Scan(...any) error }) (User, error) {
 	var u User
 	var createdAt string
-	if err := row.Scan(&u.ID, &u.Username, &u.PasswordHash, &u.NativeLang, &createdAt, &u.Email, &u.EmailVerified, &u.Plan, &u.PendingEmail, &u.DailyNewLimit, &u.DisplayName, &u.BonusQuota); err != nil {
+	if err := row.Scan(&u.ID, &u.Username, &u.PasswordHash, &u.NativeLang, &createdAt, &u.Email, &u.EmailVerified, &u.Plan, &u.PendingEmail, &u.DailyNewLimit, &u.DisplayName, &u.BonusQuota, &u.Timezone, &u.Reminders, &u.LastReminderDay); err != nil {
 		return User{}, err
 	}
 	u.CreatedAt, _ = time.Parse(timeLayout, createdAt)
@@ -442,6 +450,43 @@ func (s *Store) SetPasswordHash(userID int64, hash string) error {
 func (s *Store) SetUserNativeLang(userID int64, lang string) error {
 	_, err := s.db.Exec(`UPDATE users SET native_lang = ? WHERE id = ?`, lang, userID)
 	return err
+}
+
+func (s *Store) SetTimezone(userID int64, tz string) error {
+	_, err := s.db.Exec(`UPDATE users SET timezone = ? WHERE id = ?`, tz, userID)
+	return err
+}
+
+func (s *Store) SetReminders(userID int64, on bool) error {
+	_, err := s.db.Exec(`UPDATE users SET reminders = ? WHERE id = ?`, on, userID)
+	return err
+}
+
+func (s *Store) SetLastReminderDay(userID int64, day string) error {
+	_, err := s.db.Exec(`UPDATE users SET last_reminder_day = ? WHERE id = ?`, day, userID)
+	return err
+}
+
+// ReminderCandidates lists confirmed-email accounts with reminders on that
+// reviewed at least once since `sinceDay` — the evening reminder is for
+// people building a habit, not for waking up long-gone accounts.
+func (s *Store) ReminderCandidates(sinceDay string) ([]User, error) {
+	rows, err := s.db.Query(`SELECT `+userColumns+` FROM users
+		WHERE reminders = 1 AND COALESCE(email, '') != '' AND email_verified_at != ''
+		AND id IN (SELECT user_id FROM daily_activity WHERE day >= ? AND reviews > 0)`, sinceDay)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []User
+	for rows.Next() {
+		u, err := scanUser(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, u)
+	}
+	return out, rows.Err()
 }
 
 func (s *Store) SetDisplayName(userID int64, name string) error {

@@ -3,6 +3,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -67,6 +68,7 @@ func run() error {
 	}
 
 	log.Info("démarrage", "addr", addr, "db", dbPath)
+	go srv.RunReminders(context.Background())
 	return http.ListenAndServe(addr, srv.Routes())
 }
 

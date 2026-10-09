@@ -67,9 +67,10 @@ func mac(secret []byte, payload string) string {
 // stays unchanged (the email being verified; the current password hash for a
 // reset, which makes a reset link single-use — using it changes the hash).
 const (
-	PurposeVerify = "verify"
-	PurposeReset  = "reset"
-	PurposeInvite = "invite"
+	PurposeVerify      = "verify"
+	PurposeReset       = "reset"
+	PurposeInvite      = "invite"
+	PurposeUnsubscribe = "unsubscribe"
 )
 
 func SignLink(secret []byte, purpose string, userID int64, binding string, ttl time.Duration) string {

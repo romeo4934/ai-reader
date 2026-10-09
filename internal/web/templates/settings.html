@@ -36,6 +36,11 @@
         {{range .Data.DailyNewLimits}}<option value="{{.}}"{{if eq . $cur}} selected{{end}}>{{.}}</option>{{end}}
       </select>
       <p class="hint">{{.T.SettingsDailyNewHint}}</p>
+      {{if .Data.Email}}
+      <input type="hidden" name="reminders_shown" value="1">
+      <label class="check-row"><input type="checkbox" name="reminders" value="1"{{if .Data.Reminders}} checked{{end}}> {{.T.SettingsRemindersLabel}}</label>
+      <p class="hint">{{.T.SettingsRemindersHint}}</p>
+      {{end}}
       <button type="submit" class="btn btn-primary">{{.T.SettingsSave}}</button>
     </form>
 

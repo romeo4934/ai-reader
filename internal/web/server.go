@@ -115,6 +115,7 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("POST /friends/invite", s.requireAuth(s.handleFriendsInvite))
 	mux.HandleFunc("POST /friends/{id}/remove", s.requireAuth(s.handleFriendRemove))
 	mux.HandleFunc("GET /join", s.handleJoin)
+	mux.HandleFunc("GET /unsubscribe", s.handleUnsubscribe)
 	mux.HandleFunc("POST /join", s.requireAuth(s.handleJoinPost))
 
 	mux.HandleFunc("GET /words", s.requireAuth(s.handleWords))
@@ -171,6 +172,13 @@ func (s *Server) withSessionUser(r *http.Request) (*http.Request, bool) {
 	user, err := s.store.GetUserByID(userID)
 	if err != nil {
 		return r, false
+	}
+	// Remember the browser's time zone, for the evening reminder email
+	// (sent when no request is there to carry the cookie).
+	if loc := userLocation(r); loc != time.UTC && loc.String() != user.Timezone {
+		if err := s.store.SetTimezone(user.ID, loc.String()); err == nil {
+			user.Timezone = loc.String()
+		}
 	}
 	return r.WithContext(context.WithValue(r.Context(), ctxUser, &user)), true
 }
@@ -740,7 +748,8 @@ func (s *Server) handleSettingsGet(w http.ResponseWriter, r *http.Request) {
 		NativeLang: native, Username: user.Username, Usage: usage,
 		DailyNewLimit: dailyNewLimit(user), DailyNewLimits: DailyNewLimits,
 		DisplayName: user.DisplayName, PublicName: publicName(user.ID, user.Username, user.DisplayName),
-		Email: user.Email, PendingEmail: user.PendingEmail, Message: r.URL.Query().Get("msg"),
+		Reminders: user.Reminders,
+		Email:     user.Email, PendingEmail: user.PendingEmail, Message: r.URL.Query().Get("msg"),
 	})
 }
 
@@ -756,6 +765,7 @@ type settingsView struct {
 	DailyNewLimits []int
 	DisplayName    string
 	PublicName     string // what others see when DisplayName is empty
+	Reminders      bool
 }
 
 func (s *Server) handleSettingsPost(w http.ResponseWriter, r *http.Request) {
@@ -771,6 +781,12 @@ func (s *Server) handleSettingsPost(w http.ResponseWriter, r *http.Request) {
 	if err := s.store.SetUserNativeLang(user.ID, native); err != nil {
 		s.fail(w, http.StatusInternalServerError, err)
 		return
+	}
+	if r.FormValue("reminders_shown") == "1" {
+		if err := s.store.SetReminders(user.ID, r.FormValue("reminders") == "1"); err != nil {
+			s.fail(w, http.StatusInternalServerError, err)
+			return
+		}
 	}
 	if name, ok := cleanDisplayName(r.FormValue("display_name")); ok {
 		if err := s.store.SetDisplayName(user.ID, name); err != nil {

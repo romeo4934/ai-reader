@@ -539,3 +539,5 @@ details[open] .word-row::after { content: '⌄'; }
 .catalog-book { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
 .catalog-list .btn { flex: none; }
 .catalog-add { margin: 0; flex: none; }
+.check-row { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.4rem; }
+.settings-form .check-row input { width: auto; padding: 0; }
