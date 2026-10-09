@@ -3,6 +3,10 @@ package i18n
 // The evening reminder email and its setting.
 var reminderStrings = map[string]Dict{
 	"en": {
+		"SettingsThemeLabel":        "Appearance",
+		"SettingsThemeAuto":         "Automatic (like my device)",
+		"SettingsThemeLight":        "Light",
+		"SettingsThemeDark":         "Dark",
 		"MailReminderSubject":       "%d cards are waiting for you on Lydi",
 		"MailReminderSubjectStreak": "🔥 Your %d-day streak is on the line",
 		"MailReminderBody":          "You haven't done today's challenge yet: %d cards are waiting for you (about %d min).\n\nReview now:\n%s\n\nTo stop getting this evening reminder:\n%s",
@@ -13,6 +17,10 @@ var reminderStrings = map[string]Dict{
 		"SettingsRemindersHint":     "An email around 7 pm if today's challenge isn't done yet.",
 	},
 	"fr": {
+		"SettingsThemeLabel":        "Apparence",
+		"SettingsThemeAuto":         "Automatique (comme mon appareil)",
+		"SettingsThemeLight":        "Clair",
+		"SettingsThemeDark":         "Sombre",
 		"MailReminderSubject":       "%d cartes t'attendent sur Lydi",
 		"MailReminderSubjectStreak": "🔥 Ta série de %d jours est en jeu",
 		"MailReminderBody":          "Tu n'as pas encore fait ton défi du jour : %d cartes t'attendent (environ %d min).\n\nRéviser maintenant :\n%s\n\nPour ne plus recevoir ce rappel du soir :\n%s",
@@ -23,6 +31,10 @@ var reminderStrings = map[string]Dict{
 		"SettingsRemindersHint":     "Un email vers 19 h si ton défi du jour n'est pas encore fait.",
 	},
 	"es": {
+		"SettingsThemeLabel":        "Apariencia",
+		"SettingsThemeAuto":         "Automática (como mi dispositivo)",
+		"SettingsThemeLight":        "Clara",
+		"SettingsThemeDark":         "Oscura",
 		"MailReminderSubject":       "%d tarjetas te esperan en Lydi",
 		"MailReminderSubjectStreak": "🔥 Tu racha de %d días está en juego",
 		"MailReminderBody":          "Todavía no has hecho el reto de hoy: %d tarjetas te esperan (unos %d min).\n\nRepasar ahora:\n%s\n\nPara dejar de recibir este recordatorio:\n%s",
@@ -33,6 +45,10 @@ var reminderStrings = map[string]Dict{
 		"SettingsRemindersHint":     "Un email hacia las 19 h si aún no has hecho el reto del día.",
 	},
 	"pt": {
+		"SettingsThemeLabel":        "Aparência",
+		"SettingsThemeAuto":         "Automática (como meu aparelho)",
+		"SettingsThemeLight":        "Clara",
+		"SettingsThemeDark":         "Escura",
 		"MailReminderSubject":       "%d cartões esperam por você no Lydi",
 		"MailReminderSubjectStreak": "🔥 Sua sequência de %d dias está em jogo",
 		"MailReminderBody":          "Você ainda não fez o desafio de hoje: %d cartões esperam por você (cerca de %d min).\n\nRevisar agora:\n%s\n\nPara não receber mais este lembrete:\n%s",
@@ -43,6 +59,10 @@ var reminderStrings = map[string]Dict{
 		"SettingsRemindersHint":     "Um email por volta das 19 h se o desafio do dia ainda não estiver feito.",
 	},
 	"it": {
+		"SettingsThemeLabel":        "Aspetto",
+		"SettingsThemeAuto":         "Automatico (come il mio dispositivo)",
+		"SettingsThemeLight":        "Chiaro",
+		"SettingsThemeDark":         "Scuro",
 		"MailReminderSubject":       "%d carte ti aspettano su Lydi",
 		"MailReminderSubjectStreak": "🔥 La tua serie di %d giorni è in gioco",
 		"MailReminderBody":          "Non hai ancora fatto la sfida di oggi: %d carte ti aspettano (circa %d min).\n\nRipassa ora:\n%s\n\nPer non ricevere più questo promemoria:\n%s",
@@ -53,6 +73,10 @@ var reminderStrings = map[string]Dict{
 		"SettingsRemindersHint":     "Un'email verso le 19 se la sfida del giorno non è ancora fatta.",
 	},
 	"de": {
+		"SettingsThemeLabel":        "Darstellung",
+		"SettingsThemeAuto":         "Automatisch (wie mein Gerät)",
+		"SettingsThemeLight":        "Hell",
+		"SettingsThemeDark":         "Dunkel",
 		"MailReminderSubject":       "%d Karten warten auf dich bei Lydi",
 		"MailReminderSubjectStreak": "🔥 Deine Serie von %d Tagen steht auf dem Spiel",
 		"MailReminderBody":          "Du hast das heutige Tagesziel noch nicht geschafft: %d Karten warten auf dich (etwa %d Min.).\n\nJetzt wiederholen:\n%s\n\nUm diese Abend-Erinnerung nicht mehr zu bekommen:\n%s",
@@ -63,6 +87,10 @@ var reminderStrings = map[string]Dict{
 		"SettingsRemindersHint":     "Eine E-Mail gegen 19 Uhr, wenn dein Tagesziel noch offen ist.",
 	},
 	"nl": {
+		"SettingsThemeLabel":        "Weergave",
+		"SettingsThemeAuto":         "Automatisch (zoals mijn apparaat)",
+		"SettingsThemeLight":        "Licht",
+		"SettingsThemeDark":         "Donker",
 		"MailReminderSubject":       "%d kaarten wachten op je bij Lydi",
 		"MailReminderSubjectStreak": "🔥 Je reeks van %d dagen staat op het spel",
 		"MailReminderBody":          "Je hebt het dagdoel van vandaag nog niet gehaald: %d kaarten wachten op je (ongeveer %d min).\n\nNu herhalen:\n%s\n\nOm deze avondherinnering niet meer te krijgen:\n%s",

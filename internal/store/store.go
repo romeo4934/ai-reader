@@ -167,6 +167,7 @@ func migrateUsersForEmail(db *sql.DB) error {
 		{"timezone", "TEXT NOT NULL DEFAULT ''"},
 		{"reminders", "INTEGER NOT NULL DEFAULT 1"},
 		{"last_reminder_day", "TEXT NOT NULL DEFAULT ''"},
+		{"theme", "TEXT NOT NULL DEFAULT ''"},
 	} {
 		if err := ensureColumn(db, "users", c.name, c.decl); err != nil {
 			return fmt.Errorf("migration users.%s : %w", c.name, err)
@@ -346,6 +347,9 @@ type User struct {
 	// Reminders: the evening email when the daily challenge isn't done.
 	Reminders       bool
 	LastReminderDay string
+	// Theme: "light" or "dark" when chosen in the settings, "" to follow
+	// the system.
+	Theme string
 }
 
 // Plans: "free" is bounded by the monthly translation quota; "unlimited"
@@ -355,12 +359,12 @@ const (
 	PlanUnlimited = "unlimited"
 )
 
-const userColumns = `id, username, password_hash, native_lang, created_at, COALESCE(email, ''), email_verified_at != '', plan, pending_email, daily_new_limit, display_name, bonus_quota, timezone, reminders, last_reminder_day`
+const userColumns = `id, username, password_hash, native_lang, created_at, COALESCE(email, ''), email_verified_at != '', plan, pending_email, daily_new_limit, display_name, bonus_quota, timezone, reminders, last_reminder_day, theme`
 
 func scanUser(row interface{ Scan(...any) error }) (User, error) {
 	var u User
 	var createdAt string
-	if err := row.Scan(&u.ID, &u.Username, &u.PasswordHash, &u.NativeLang, &createdAt, &u.Email, &u.EmailVerified, &u.Plan, &u.PendingEmail, &u.DailyNewLimit, &u.DisplayName, &u.BonusQuota, &u.Timezone, &u.Reminders, &u.LastReminderDay); err != nil {
+	if err := row.Scan(&u.ID, &u.Username, &u.PasswordHash, &u.NativeLang, &createdAt, &u.Email, &u.EmailVerified, &u.Plan, &u.PendingEmail, &u.DailyNewLimit, &u.DisplayName, &u.BonusQuota, &u.Timezone, &u.Reminders, &u.LastReminderDay, &u.Theme); err != nil {
 		return User{}, err
 	}
 	u.CreatedAt, _ = time.Parse(timeLayout, createdAt)
@@ -460,6 +464,11 @@ func (s *Store) SetPasswordHash(userID int64, hash string) error {
 
 func (s *Store) SetUserNativeLang(userID int64, lang string) error {
 	_, err := s.db.Exec(`UPDATE users SET native_lang = ? WHERE id = ?`, lang, userID)
+	return err
+}
+
+func (s *Store) SetTheme(userID int64, theme string) error {
+	_, err := s.db.Exec(`UPDATE users SET theme = ? WHERE id = ?`, theme, userID)
 	return err
 }
 

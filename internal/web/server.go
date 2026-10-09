@@ -266,6 +266,7 @@ type pageData struct {
 	DueCount int
 	LoggedIn bool
 	IsAdmin  bool
+	Theme    string // "light" / "dark" chosen by the user, "" = system
 	T        i18n.Dict
 	Data     any
 }
@@ -305,6 +306,7 @@ func (s *Server) renderDict(w http.ResponseWriter, r *http.Request, T i18n.Dict,
 		pd.DueCount = daily.Remaining
 		pd.LoggedIn = true
 		pd.IsAdmin = s.isAdmin(user)
+		pd.Theme = user.Theme
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := s.tmpl.ExecuteTemplate(w, name, pd); err != nil {
@@ -758,8 +760,8 @@ func (s *Server) handleSettingsGet(w http.ResponseWriter, r *http.Request) {
 		NativeLang: native, Username: user.Username, Usage: usage,
 		DailyNewLimit: dailyNewLimit(user), DailyNewLimits: DailyNewLimits,
 		DisplayName: user.DisplayName, PublicName: publicName(user.ID, user.Username, user.DisplayName),
-		Reminders: user.Reminders,
-		Email:     user.Email, PendingEmail: user.PendingEmail, Message: r.URL.Query().Get("msg"),
+		Reminders: user.Reminders, Theme: user.Theme,
+		Email: user.Email, PendingEmail: user.PendingEmail, Message: r.URL.Query().Get("msg"),
 	})
 }
 
@@ -776,6 +778,7 @@ type settingsView struct {
 	DisplayName    string
 	PublicName     string // what others see when DisplayName is empty
 	Reminders      bool
+	Theme          string
 }
 
 func (s *Server) handleSettingsPost(w http.ResponseWriter, r *http.Request) {
@@ -791,6 +794,12 @@ func (s *Server) handleSettingsPost(w http.ResponseWriter, r *http.Request) {
 	if err := s.store.SetUserNativeLang(user.ID, native); err != nil {
 		s.fail(w, http.StatusInternalServerError, err)
 		return
+	}
+	if theme := r.FormValue("theme"); theme == "" || theme == "light" || theme == "dark" {
+		if err := s.store.SetTheme(user.ID, theme); err != nil {
+			s.fail(w, http.StatusInternalServerError, err)
+			return
+		}
 	}
 	if r.FormValue("reminders_shown") == "1" {
 		if err := s.store.SetReminders(user.ID, r.FormValue("reminders") == "1"); err != nil {
