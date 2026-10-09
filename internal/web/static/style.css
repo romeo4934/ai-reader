@@ -753,3 +753,16 @@ details[open] .word-row::after { content: '⌄'; }
 .agora-picks label.locked { cursor: not-allowed; opacity: 0.55; }
 .agora-picks label.locked .agora-swatch { display: inline-grid; place-items: center; font-size: 0.8rem; }
 .look-unlock { font-style: italic; }
+/* Character editor: every option is a drawn tile */
+.look-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 0.45rem; margin-bottom: 0.6rem; }
+.look-tiles label { cursor: pointer; position: relative; }
+.look-tiles input { position: absolute; opacity: 0; pointer-events: none; }
+.look-tile { display: flex; flex-direction: column; align-items: center; gap: 0.15rem; padding: 0.35rem 0.25rem 0.4rem; border-radius: 10px; border: 2px solid rgba(120,90,40,0.25); background: radial-gradient(circle at 50% 45%, #fffaf0, #efe2c3); }
+.look-tiles input:checked + .look-tile { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+.look-tiles input:focus-visible + .look-tile { outline: 2px solid var(--accent); }
+.look-thumb { width: 64px; height: 64px; display: block; }
+.look-tile em { font-style: normal; font-family: sans-serif; font-size: 0.72rem; text-align: center; line-height: 1.15; color: #4a3820; }
+.look-tiles label.locked { cursor: not-allowed; }
+.look-tiles label.locked .look-thumb { filter: grayscale(0.85); opacity: 0.55; }
+.look-lock { position: absolute; top: 4px; left: 4px; right: 4px; font-family: sans-serif; font-size: 0.62rem; font-weight: 700; color: #fff; background: rgba(60,40,15,0.75); border-radius: 6px; padding: 0.1rem 0.25rem; text-align: center; }
+.look-preview { width: 150px; height: 180px; }

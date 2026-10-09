@@ -69,19 +69,19 @@
           <p class="hint">{{.T.LookSkin}}</p>
           <div class="agora-picks">{{range $e.Skins}}<label><input type="radio" name="skin" value="{{.Value}}"{{if eq .Value (printf "%d" $e.Look.Skin)}} checked{{end}}><span class="agora-swatch" style="background: {{.Hex}}"></span></label>{{end}}</div>
           <p class="hint">{{.T.LookHair}}</p>
-          <div class="agora-picks agora-picks-text">{{range $e.HairStyles}}<label><input type="radio" name="hair" value="{{.Value}}"{{if eq .Value (printf "%d" $e.Look.Hair)}} checked{{end}}><span>{{.Label}}</span></label>{{end}}</div>
+          <div class="look-tiles">{{range $e.HairStyles}}<label><input type="radio" name="hair" value="{{.Value}}"{{if eq .Value (printf "%d" $e.Look.Hair)}} checked{{end}}><span class="look-tile"><canvas class="look-thumb" data-field="hair" data-value="{{.Value}}" data-zoom="head"></canvas><em>{{.Label}}</em></span></label>{{end}}</div>
           <p class="hint">{{.T.LookHairColor}}</p>
           <div class="agora-picks">{{range $e.HairColors}}<label><input type="radio" name="haircolor" value="{{.Value}}"{{if eq .Value (printf "%d" $e.Look.HairColor)}} checked{{end}}><span class="agora-swatch" style="background: {{.Hex}}"></span></label>{{end}}</div>
           <p class="hint">{{.T.LookBeard}}</p>
-          <div class="agora-picks agora-picks-text">{{range $e.Beards}}<label><input type="radio" name="beard" value="{{.Value}}"{{if eq .Value (printf "%d" $e.Look.Beard)}} checked{{end}}><span>{{.Label}}</span></label>{{end}}</div>
+          <div class="look-tiles">{{range $e.Beards}}<label><input type="radio" name="beard" value="{{.Value}}"{{if eq .Value (printf "%d" $e.Look.Beard)}} checked{{end}}><span class="look-tile"><canvas class="look-thumb" data-field="beard" data-value="{{.Value}}" data-zoom="head"></canvas><em>{{.Label}}</em></span></label>{{end}}</div>
 
           <h3>{{.T.LookOutfit}}</h3>
           <p class="hint">{{.T.LookTunic}}</p>
-          <div class="agora-picks">{{range $e.Tunics}}<label{{if .Locked}} class="locked" title="{{printf $t.LookLocked .Need}}"{{end}}><input type="radio" name="tunic" value="{{.Value}}"{{if eq .Value $e.Look.Tunic}} checked{{end}}{{if .Locked}} disabled{{end}}><span class="agora-swatch" style="background: {{.Hex}}">{{if .Locked}}🔒{{end}}</span></label>{{end}}</div>
+          <div class="look-tiles">{{range $e.Tunics}}<label{{if .Locked}} class="locked" title="{{printf $t.LookLocked .Need}}"{{end}}><input type="radio" name="tunic" value="{{.Value}}"{{if eq .Value $e.Look.Tunic}} checked{{end}}{{if .Locked}} disabled{{end}}><span class="look-tile"><canvas class="look-thumb" data-field="tunic" data-value="{{.Value}}" data-zoom="body"></canvas>{{if .Locked}}<b class="look-lock">🔒 {{.Need}}</b>{{end}}</span></label>{{end}}</div>
           <p class="hint">{{.T.LookCape}}</p>
-          <div class="agora-picks agora-picks-text">{{range $e.Capes}}<label{{if .Locked}} class="locked" title="{{printf $t.LookLocked .Need}}"{{end}}><input type="radio" name="cape" value="{{.Value}}"{{if eq .Value $e.Look.Cape}} checked{{end}}{{if .Locked}} disabled{{end}}><span>{{if .Hex}}<i class="dot" style="background: {{.Hex}}"></i>{{end}}{{.Label}}{{if .Locked}} 🔒{{end}}</span></label>{{end}}</div>
+          <div class="look-tiles">{{range $e.Capes}}<label{{if .Locked}} class="locked" title="{{printf $t.LookLocked .Need}}"{{end}}><input type="radio" name="cape" value="{{.Value}}"{{if eq .Value $e.Look.Cape}} checked{{end}}{{if .Locked}} disabled{{end}}><span class="look-tile"><canvas class="look-thumb" data-field="cape" data-value="{{.Value}}" data-zoom="body"></canvas><em>{{.Label}}</em>{{if .Locked}}<b class="look-lock">🔒 {{.Need}}</b>{{end}}</span></label>{{end}}</div>
           <p class="hint">{{.T.LookHead}}</p>
-          <div class="agora-picks agora-picks-text">{{range $e.Heads}}<label{{if .Locked}} class="locked" title="{{printf $t.LookLocked .Need}}"{{end}}><input type="radio" name="head" value="{{.Value}}"{{if eq .Value $e.Look.Head}} checked{{end}}{{if .Locked}} disabled{{end}}><span>{{.Label}}{{if .Locked}} 🔒{{end}}</span></label>{{end}}</div>
+          <div class="look-tiles">{{range $e.Heads}}<label{{if .Locked}} class="locked" title="{{printf $t.LookLocked .Need}}"{{end}}><input type="radio" name="head" value="{{.Value}}"{{if eq .Value $e.Look.Head}} checked{{end}}{{if .Locked}} disabled{{end}}><span class="look-tile"><canvas class="look-thumb" data-field="head" data-value="{{.Value}}" data-zoom="head"></canvas><em>{{.Label}}</em>{{if .Locked}}<b class="look-lock">🔒 {{.Need}}</b>{{end}}</span></label>{{end}}</div>
           <p class="hint look-unlock">{{.T.LookUnlockHint}}</p>
 
           <h3>{{.T.AgoraAvatarTitle}}</h3>

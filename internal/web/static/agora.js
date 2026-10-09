@@ -542,20 +542,38 @@
     var form = document.getElementById('look-form');
     var pctx = preview.getContext('2d');
     if (!pctx.roundRect) pctx.roundRect = function (x, y, w, h) { this.rect(x, y, w, h); };
-    var drawPreview = function () {
-      var val = function (n) { var el = form.querySelector('input[name="' + n + '"]:checked'); return el ? el.value : ''; };
-      var meP = me ? me.p : { member: false, days: 0 };
-      var lookNow = {
-        skin: pal.skins[Number(val('skin'))], hair: Number(val('hair')), hairColor: pal.hairColors[Number(val('haircolor'))],
-        beard: Number(val('beard')), tunic: pal.tunics[val('tunic')], cape: pal.capes[val('cape')] || '', head: val('head'),
+    var val = function (n) { var el = form.querySelector('input[name="' + n + '"]:checked'); return el ? el.value : ''; };
+    var meP = me ? me.p : { member: false, days: 0 };
+    function currentLook(field, value) {
+      var v = { skin: val('skin'), hair: val('hair'), haircolor: val('haircolor'), beard: val('beard'), tunic: val('tunic'), cape: val('cape'), head: val('head') };
+      if (field) v[field] = value;
+      return {
+        skin: pal.skins[Number(v.skin)], hair: Number(v.hair), hairColor: pal.hairColors[Number(v.haircolor)],
+        beard: Number(v.beard), tunic: pal.tunics[v.tunic], cape: pal.capes[v.cape] || '', head: v.head,
       };
+    }
+    // Draws the character into a canvas: whole ("body") or close on the
+    // head ("head"), so each tile shows the option on the reader's own face.
+    function paint(cv, look, zoom, field) {
+      // Close-ups leave out what would hide the face: the rank's item and
+      // sash, and — for hair and beard — the headwear.
+      if (zoom === 'head' && field !== 'head') look.head = 'none';
+      var who = zoom === 'head' ? { member: false, days: 0, look: look } : { member: meP.member, days: meP.days, laurel: meP.laurel, look: look };
       var dpr = window.devicePixelRatio || 1;
-      preview.width = preview.clientWidth * dpr; preview.height = preview.clientHeight * dpr;
-      var saved = g; g = pctx;
-      pctx.setTransform(preview.width / 30, 0, 0, preview.width / 30, 0, 0);
-      pctx.clearRect(0, 0, 30, 40);
-      drawPerson({ p: { member: meP.member, days: meP.days, laurel: meP.laurel, look: lookNow }, pos: { x: 14, y: 25 }, path: [], phase: 0 }, 0);
+      cv.width = cv.clientWidth * dpr; cv.height = cv.clientHeight * dpr;
+      var c = cv.getContext('2d');
+      if (!c.roundRect) c.roundRect = function (x, y, w, h) { this.rect(x, y, w, h); };
+      var span = zoom === 'head' ? 14 : 30, cx = 14, cy = zoom === 'head' ? 15 : 22;
+      var k = cv.width / span;
+      c.setTransform(k, 0, 0, k, cv.width / 2 - cx * k, cv.height / 2 - cy * k);
+      c.clearRect(-50, -50, 150, 150);
+      var saved = g; g = c;
+      drawPerson({ p: who, pos: { x: 14, y: 25 }, path: [], phase: 0 }, 0);
       g = saved;
+    }
+    var drawPreview = function () {
+      paint(preview, currentLook(), 'body');
+      form.querySelectorAll('.look-thumb').forEach(function (cv) { paint(cv, currentLook(cv.dataset.field, cv.dataset.value), cv.dataset.zoom, cv.dataset.field); });
     };
     form.addEventListener('change', drawPreview);
     document.querySelectorAll('[data-open="panel-look"]').forEach(function (b) { b.addEventListener('click', function () { setTimeout(drawPreview, 0); }); });
