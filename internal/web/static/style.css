@@ -786,3 +786,13 @@ details[open] .word-row::after { content: '⌄'; }
 a.agora-enter { display: block; text-align: center; text-decoration: none; }
 .land-agora { text-align: center; max-width: 640px; margin: 3rem auto; }
 .land-agora p { font-size: 1.1rem; line-height: 1.5; }
+
+/* "install the app" card */
+.install-card { position: relative; margin: 1rem 0 1.4rem; padding: 1rem 1.1rem; border: 1px solid var(--border); border-radius: 14px; background: var(--card-bg); font-family: sans-serif; max-width: 520px; }
+.install-head { display: flex; gap: 0.8rem; align-items: center; margin-bottom: 0.7rem; padding-right: 2rem; }
+.install-head p { margin: 0.15rem 0 0; }
+.install-icon { border-radius: 10px; flex: none; }
+.install-close { position: absolute; top: 0.4rem; right: 0.4rem; width: 40px; height: 40px; border: 0; background: none; color: var(--muted); font-size: 1.6rem; line-height: 1; cursor: pointer; }
+.install-steps { margin: 0; padding-left: 1.3rem; line-height: 1.7; }
+.install-share { width: 1.2em; height: 1.2em; vertical-align: -0.2em; color: #0a84ff; }
+.install-card p[data-step] { margin: 0; line-height: 1.5; }

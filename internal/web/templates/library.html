@@ -9,6 +9,7 @@
 
   <main class="page">
     <h1>{{.T.LibTitle}}</h1>
+    {{if .Data}}{{template "install" (installCard .T "banner")}}{{end}}
 
     <div class="add-book">
       <a href="/catalog" class="add-book-option add-book-catalog">
@@ -38,5 +39,6 @@
       </ul>
     {{end}}
   </main>
+  <script src="/static/install.js"></script>
 </body>
 </html>

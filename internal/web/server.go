@@ -82,6 +82,8 @@ func New(st *store.Store, aiClient *ai.Client, log *slog.Logger, secret []byte, 
 		"highlight": highlightPhrase,
 		"freqLabel": frequency.Label,
 		"timeAgo":   timeAgo,
+		// the arguments of the "install" partial
+		"installCard": func(T i18n.Dict, mode string) map[string]any { return map[string]any{"T": T, "Mode": mode} },
 	}).ParseFS(templateFS, "templates/*.html")
 	if err != nil {
 		return nil, fmt.Errorf("parse templates : %w", err)
@@ -96,6 +98,8 @@ func (s *Server) Routes() http.Handler {
 
 	mux.HandleFunc("GET /ready", s.handleReady)
 	mux.Handle("GET /static/", noCache(http.FileServerFS(staticFS)))
+	mux.HandleFunc("GET /manifest.webmanifest", serveStaticAt("manifest.webmanifest", "application/manifest+json"))
+	mux.HandleFunc("GET /sw.js", serveStaticAt("sw.js", "text/javascript; charset=utf-8"))
 
 	mux.HandleFunc("GET /login", s.handleLoginGet)
 	mux.HandleFunc("POST /login", s.handleLoginPost)
@@ -1122,4 +1126,3 @@ func timeAgo(t *time.Time) string {
 		return fmt.Sprintf("il y a %dj", int(d.Hours()/24))
 	}
 }
-

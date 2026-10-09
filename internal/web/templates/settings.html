@@ -102,6 +102,9 @@
     </form>
     {{end}}
 
+    <h2 class="settings-section">{{.T.InstallSection}}</h2>
+    {{template "install" (installCard .T "settings")}}
+
     <p class="hint" style="margin-top:2rem">{{.Data.Usage}}</p>
     <p class="hint" style="margin-top:0.5rem">{{.T.SettingsLoggedInAs}} <strong>{{if .Data.Email}}{{.Data.Email}}{{else}}{{.Data.Username}}{{end}}</strong>.
       <form action="/logout" method="post" style="display:inline">
@@ -109,5 +112,6 @@
       </form>
     </p>
   </main>
+  <script src="/static/install.js"></script>
 </body>
 </html>

@@ -3,6 +3,27 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <link rel="stylesheet" href="/static/style.css">
 <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Lydi">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#fbfaf7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#17181a" media="(prefers-color-scheme: dark)">
+<script>
+  // Installable as an app: the service worker, and the browser's install
+  // offer kept for the "install the app" card (static/install.js), as it
+  // can come before that script runs.
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () { navigator.serviceWorker.register('/sw.js').catch(function () {}); });
+  }
+  window.addEventListener('beforeinstallprompt', function (e) {
+    e.preventDefault();
+    window.lydiInstallPrompt = e;
+    document.dispatchEvent(new Event('lydi-installable'));
+  });
+</script>
 <script>
   // The daily review challenge follows the reader's own midnight.
   try {
@@ -44,4 +65,28 @@
     });
   });
 </script>
+{{end}}
+
+{{/* The "install the app" card: one tap where the browser can install it
+     (Android, desktop Chrome), the three steps on iPhone/iPad, else where
+     to find it in the browser's menu. Hidden in the installed app. */}}
+{{define "install"}}
+<div class="install-card" data-mode="{{.Mode}}" hidden>
+  {{if eq .Mode "banner"}}<button type="button" class="install-close" data-install-close aria-label="{{.T.InstallLater}}">×</button>{{end}}
+  <div class="install-head">
+    <img src="/static/icons/icon-192.png" alt="" width="44" height="44" class="install-icon">
+    <div>
+      <strong>{{.T.InstallTitle}}</strong>
+      <p class="hint">{{.T.InstallLead}}</p>
+    </div>
+  </div>
+  <div data-step="native" hidden><button type="button" class="btn btn-primary" data-install-go>{{.T.InstallButton}}</button></div>
+  <ol class="install-steps" data-step="ios" hidden>
+    <li>{{.T.InstallIOS1}} <svg class="install-share" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7.5 7.5 12 3l4.5 4.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M8 10H6a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-9a1 1 0 0 0-1-1h-2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></li>
+    <li>{{.T.InstallIOS2}}</li>
+    <li>{{.T.InstallIOS3}}</li>
+  </ol>
+  <p data-step="other" hidden>{{.T.InstallOther}}</p>
+  <p data-step="installed" hidden>{{.T.InstallDone}}</p>
+</div>
 {{end}}
