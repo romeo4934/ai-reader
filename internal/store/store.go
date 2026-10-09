@@ -114,6 +114,17 @@ func Open(path string) (*Store, error) {
 		)`,
 		`CREATE INDEX IF NOT EXISTS idx_invites_inviter ON invites(inviter_id, created_at)`,
 		`CREATE INDEX IF NOT EXISTS idx_invites_email ON invites(email COLLATE NOCASE)`,
+		`CREATE TABLE IF NOT EXISTS ai_usage (
+			day         TEXT NOT NULL,
+			user_id     INTEGER NOT NULL,
+			kind        TEXT NOT NULL,
+			calls       INTEGER NOT NULL DEFAULT 0,
+			input       INTEGER NOT NULL DEFAULT 0,
+			cache_write INTEGER NOT NULL DEFAULT 0,
+			cache_read  INTEGER NOT NULL DEFAULT 0,
+			output      INTEGER NOT NULL DEFAULT 0,
+			PRIMARY KEY (day, user_id, kind)
+		)`,
 	} {
 		if _, err := db.Exec(ddl); err != nil {
 			db.Close()
@@ -1229,6 +1240,133 @@ func (s *Store) ListInvites(inviterID int64, limit int) ([]Invite, error) {
 		}
 		inv.CreatedAt, _ = time.Parse(timeLayout, created)
 		out = append(out, inv)
+	}
+	return out, rows.Err()
+}
+
+// --- AI usage & admin dashboard ---
+
+type TokenUsage struct {
+	Calls, Input, CacheWrite, CacheRead, Output int64
+}
+
+func (s *Store) RecordAIUsage(day string, userID int64, kind string, u TokenUsage) error {
+	_, err := s.db.Exec(`INSERT INTO ai_usage (day, user_id, kind, calls, input, cache_write, cache_read, output)
+		VALUES (?, ?, ?, 1, ?, ?, ?, ?)
+		ON CONFLICT (day, user_id, kind) DO UPDATE SET calls = calls + 1, input = input + excluded.input,
+			cache_write = cache_write + excluded.cache_write, cache_read = cache_read + excluded.cache_read,
+			output = output + excluded.output`,
+		day, userID, kind, u.Input, u.CacheWrite, u.CacheRead, u.Output)
+	return err
+}
+
+// AIUsageByKind sums token usage since a day, per kind of call.
+func (s *Store) AIUsageByKind(sinceDay string) (map[string]TokenUsage, error) {
+	rows, err := s.db.Query(`SELECT kind, SUM(calls), SUM(input), SUM(cache_write), SUM(cache_read), SUM(output)
+		FROM ai_usage WHERE day >= ? GROUP BY kind`, sinceDay)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]TokenUsage{}
+	for rows.Next() {
+		var k string
+		var u TokenUsage
+		if err := rows.Scan(&k, &u.Calls, &u.Input, &u.CacheWrite, &u.CacheRead, &u.Output); err != nil {
+			return nil, err
+		}
+		out[k] = u
+	}
+	return out, rows.Err()
+}
+
+type AdminUser struct {
+	ID                 int64
+	Username, Email    string
+	DisplayName, Plan  string
+	CreatedAt          time.Time
+	Verified           bool
+	InvitedBy          int64
+	Books, Words       int
+	Reviews, Reviews7d int
+	LastActive         string // last day with a review, "" if never
+	TranslationsMonth  int
+	AI                 TokenUsage // this month
+}
+
+// AdminUsers is one row per account with what the dashboard needs.
+func (s *Store) AdminUsers(sevenDaysAgo, monthStart, month string) ([]AdminUser, error) {
+	rows, err := s.db.Query(`SELECT u.id, u.username, COALESCE(u.email, ''), u.display_name, u.plan, u.created_at,
+			u.email_verified_at != '', u.invited_by,
+			(SELECT COUNT(*) FROM books b WHERE b.user_id = u.id),
+			(SELECT COUNT(*) FROM vocab v WHERE v.user_id = u.id),
+			(SELECT COALESCE(SUM(reviews), 0) FROM daily_activity d WHERE d.user_id = u.id),
+			(SELECT COALESCE(SUM(reviews), 0) FROM daily_activity d WHERE d.user_id = u.id AND d.day >= ?),
+			(SELECT COALESCE(MAX(day), '') FROM daily_activity d WHERE d.user_id = u.id AND d.reviews > 0),
+			(SELECT COALESCE(SUM(translations), 0) FROM usage g WHERE g.user_id = u.id AND g.month = ?),
+			(SELECT COALESCE(SUM(calls), 0) FROM ai_usage a WHERE a.user_id = u.id AND a.day >= ?),
+			(SELECT COALESCE(SUM(input), 0) FROM ai_usage a WHERE a.user_id = u.id AND a.day >= ?),
+			(SELECT COALESCE(SUM(cache_write), 0) FROM ai_usage a WHERE a.user_id = u.id AND a.day >= ?),
+			(SELECT COALESCE(SUM(cache_read), 0) FROM ai_usage a WHERE a.user_id = u.id AND a.day >= ?),
+			(SELECT COALESCE(SUM(output), 0) FROM ai_usage a WHERE a.user_id = u.id AND a.day >= ?)
+		FROM users u ORDER BY u.id`,
+		sevenDaysAgo, month, monthStart, monthStart, monthStart, monthStart, monthStart)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []AdminUser
+	for rows.Next() {
+		var a AdminUser
+		var created string
+		if err := rows.Scan(&a.ID, &a.Username, &a.Email, &a.DisplayName, &a.Plan, &created, &a.Verified, &a.InvitedBy,
+			&a.Books, &a.Words, &a.Reviews, &a.Reviews7d, &a.LastActive, &a.TranslationsMonth,
+			&a.AI.Calls, &a.AI.Input, &a.AI.CacheWrite, &a.AI.CacheRead, &a.AI.Output); err != nil {
+			return nil, err
+		}
+		a.CreatedAt, _ = time.Parse(timeLayout, created)
+		out = append(out, a)
+	}
+	return out, rows.Err()
+}
+
+type DayStat struct {
+	Day                      string
+	Signups, Active, Reviews int
+}
+
+// DayStats gives signups, active readers (at least one review) and reviews
+// per day since a day.
+func (s *Store) DayStats(sinceDay string) (map[string]DayStat, error) {
+	out := map[string]DayStat{}
+	rows, err := s.db.Query(`SELECT day, COUNT(DISTINCT user_id), SUM(reviews) FROM daily_activity
+		WHERE day >= ? AND reviews > 0 GROUP BY day`, sinceDay)
+	if err != nil {
+		return nil, err
+	}
+	for rows.Next() {
+		var d DayStat
+		if err := rows.Scan(&d.Day, &d.Active, &d.Reviews); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		out[d.Day] = d
+	}
+	rows.Close()
+	rows, err = s.db.Query(`SELECT substr(created_at, 1, 10), COUNT(*) FROM users WHERE created_at >= ? GROUP BY 1`, sinceDay)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var day string
+		var n int
+		if err := rows.Scan(&day, &n); err != nil {
+			return nil, err
+		}
+		d := out[day]
+		d.Day, d.Signups = day, n
+		out[day] = d
 	}
 	return out, rows.Err()
 }

@@ -49,6 +49,10 @@ func run() error {
 		FreeQuota: freeQuota,
 		// Next to the database, so it lives on the same (backed-up) volume.
 		CatalogDir: filepath.Join(filepath.Dir(dbPath), "catalog"),
+		Admins:     strings.Split(getenv("AI_READER_ADMINS", "antoine"), ","),
+		// Claude Sonnet list prices, overridable when they change.
+		PriceIn:  getenvFloat("AI_PRICE_INPUT_PER_MTOK", 3),
+		PriceOut: getenvFloat("AI_PRICE_OUTPUT_PER_MTOK", 15),
 	}
 
 	st, err := store.Open(dbPath)
@@ -74,6 +78,13 @@ func run() error {
 
 func getenv(key, fallback string) string {
 	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return fallback
+}
+
+func getenvFloat(key string, fallback float64) float64 {
+	if v, err := strconv.ParseFloat(os.Getenv(key), 64); err == nil {
 		return v
 	}
 	return fallback

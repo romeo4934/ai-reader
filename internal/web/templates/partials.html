@@ -27,6 +27,7 @@
       <a href="/friends">{{.T.NavFriends}}</a>
       <a href="/reviewed">{{.T.NavHistory}}</a>
       <a href="/settings">{{.T.NavSettings}}</a>
+      {{if .IsAdmin}}<a href="/admin">admin</a>{{end}}
     {{else}}
       <a href="/login">{{.T.NavLogin}}</a>
     {{end}}

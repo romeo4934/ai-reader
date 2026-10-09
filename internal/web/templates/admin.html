@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <title>{{.Title}}</title>
+  {{template "head" .}}
+</head>
+<body>
+  {{template "nav" .}}
+  {{$d := .Data}}
+  <main class="page admin">
+    <h1>Tableau de bord</h1>
+
+    <div class="admin-cards">
+      <div class="admin-card"><span class="admin-num">{{$d.Users}}</span><span>comptes</span></div>
+      <div class="admin-card"><span class="admin-num">{{$d.New7d}}</span><span>nouveaux (7 j)</span></div>
+      <div class="admin-card"><span class="admin-num">{{$d.Active1d}}</span><span>actifs aujourd'hui</span></div>
+      <div class="admin-card"><span class="admin-num">{{$d.Active7d}}</span><span>actifs (7 j)</span></div>
+      <div class="admin-card"><span class="admin-num">{{$d.TranslationsMonth}}</span><span>traductions ({{$d.Month}})</span></div>
+      <div class="admin-card"><span class="admin-num">{{$d.CostMonth}}</span><span>coût IA estimé ({{$d.Month}})</span></div>
+    </div>
+
+    <h2 class="settings-section">Entonnoir</h2>
+    <ul class="admin-funnel">
+      {{range $d.Funnel}}
+      <li>
+        <div class="admin-funnel-label"><span>{{.Label}}</span><strong>{{.Count}} · {{.Percent}} %</strong></div>
+        <div class="daily-bar"><div class="daily-bar-fill" style="width: {{.Percent}}%"></div></div>
+      </li>
+      {{end}}
+    </ul>
+
+    <h2 class="settings-section">Coût IA ({{$d.Month}})</h2>
+    <div class="admin-scroll">
+      <table class="admin-table">
+        <tr><th>Type d'appel</th><th>Appels</th><th>Coût estimé</th></tr>
+        {{range $d.Kinds}}<tr><td>{{if eq .Kind "translate"}}Traductions{{else if eq .Kind "recall"}}Phrases à trous{{else}}Explications d'erreurs{{end}}</td><td>{{.Calls}}</td><td>{{.Cost}}</td></tr>{{end}}
+      </table>
+    </div>
+    <p class="hint">{{if $d.CostPerActive}}Soit {{$d.CostPerActive}} par lecteur actif ce mois-ci. {{end}}Estimation d'après les tokens consommés, enregistrés depuis le 9 octobre 2026.</p>
+
+    <h2 class="settings-section">14 derniers jours</h2>
+    <div class="admin-scroll">
+      <table class="admin-table">
+        <tr><th>Jour</th><th>Inscriptions</th><th>Actifs</th><th>Révisions</th></tr>
+        {{range $d.Days}}<tr><td>{{.Day}}</td><td>{{.Signups}}</td><td>{{.Active}}</td><td>{{.Reviews}}</td></tr>{{end}}
+      </table>
+    </div>
+
+    <h2 class="settings-section">Lecteurs</h2>
+    <div class="admin-scroll">
+      <table class="admin-table">
+        <tr><th>Nom</th><th>Email</th><th>Plan</th><th>Inscrit le</th><th>Livres</th><th>Mots</th><th>Révisions 7 j</th><th>Dernière révision</th><th>Trad. mois</th><th>Appels IA</th><th>Coût</th></tr>
+        {{range $d.Rows}}
+        <tr>
+          <td>{{.Name}}</td>
+          <td>{{.Email}}{{if and .Email (not .Verified)}} <span class="hint">(non confirmé)</span>{{end}}</td>
+          <td>{{.Plan}}</td>
+          <td>{{.CreatedAt.Format "2006-01-02"}}</td>
+          <td>{{.Books}}</td><td>{{.Words}}</td><td>{{.Reviews7d}}</td>
+          <td>{{if .LastActive}}{{.LastActive}}{{else}}—{{end}}</td>
+          <td>{{.TranslationsMonth}}</td><td>{{.AI.Calls}}</td><td>{{.Cost}}</td>
+        </tr>
+        {{end}}
+      </table>
+    </div>
+  </main>
+</body>
+</html>

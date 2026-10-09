@@ -541,3 +541,16 @@ details[open] .word-row::after { content: '⌄'; }
 .catalog-add { margin: 0; flex: none; }
 .check-row { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.4rem; }
 .settings-form .check-row input { width: auto; padding: 0; }
+
+/* Admin dashboard */
+.admin-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 0.6rem; font-family: sans-serif; }
+.admin-card { display: flex; flex-direction: column; gap: 0.2rem; padding: 0.8rem; border: 1px solid var(--border); border-radius: 10px; background: var(--card-bg); font-size: 0.85rem; color: var(--muted); }
+.admin-num { font-size: 1.5rem; font-weight: 700; color: var(--fg); }
+.admin-funnel { list-style: none; padding: 0; margin: 0; font-family: sans-serif; font-size: 0.9rem; }
+.admin-funnel li { margin-bottom: 0.7rem; }
+.admin-funnel-label { display: flex; justify-content: space-between; gap: 1rem; margin-bottom: 0.25rem; }
+.admin-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.admin-table { border-collapse: collapse; font-family: sans-serif; font-size: 0.85rem; white-space: nowrap; }
+.admin-table th, .admin-table td { text-align: left; padding: 0.4rem 0.7rem 0.4rem 0; border-bottom: 1px solid var(--border); }
+.admin-table th { color: var(--muted); font-weight: 600; }
+.admin-funnel-label strong { white-space: nowrap; }

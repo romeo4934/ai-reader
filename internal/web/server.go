@@ -67,6 +67,11 @@ type Config struct {
 	FreeQuota int
 	// CatalogDir caches the built-in library's epubs.
 	CatalogDir string
+	// Admins (usernames or emails) can see the /admin dashboard.
+	Admins []string
+	// PriceIn / PriceOut: USD per million input / output tokens, for the
+	// dashboard's cost estimate.
+	PriceIn, PriceOut float64
 }
 
 func New(st *store.Store, aiClient *ai.Client, log *slog.Logger, secret []byte, mailer *mail.Sender, cfg Config) (*Server, error) {
@@ -80,7 +85,9 @@ func New(st *store.Store, aiClient *ai.Client, log *slog.Logger, secret []byte, 
 	if err != nil {
 		return nil, fmt.Errorf("parse templates : %w", err)
 	}
-	return &Server{store: st, ai: aiClient, tmpl: tmpl, log: log, secret: secret, mail: mailer, cfg: cfg, limit: newRateLimiter(10, 10*time.Minute), recall: newRecallCache(), catalog: catalog.NewFetcher(cfg.CatalogDir)}, nil
+	s := &Server{store: st, ai: aiClient, tmpl: tmpl, log: log, secret: secret, mail: mailer, cfg: cfg, limit: newRateLimiter(10, 10*time.Minute), recall: newRecallCache(), catalog: catalog.NewFetcher(cfg.CatalogDir)}
+	aiClient.OnUsage = s.recordAIUsage
+	return s, nil
 }
 
 func (s *Server) Routes() http.Handler {
@@ -116,6 +123,7 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("POST /friends/{id}/remove", s.requireAuth(s.handleFriendRemove))
 	mux.HandleFunc("GET /join", s.handleJoin)
 	mux.HandleFunc("GET /unsubscribe", s.handleUnsubscribe)
+	mux.HandleFunc("GET /admin", s.requireAuth(s.handleAdmin))
 	mux.HandleFunc("POST /join", s.requireAuth(s.handleJoinPost))
 
 	mux.HandleFunc("GET /words", s.requireAuth(s.handleWords))
@@ -257,6 +265,7 @@ type pageData struct {
 	Title    string
 	DueCount int
 	LoggedIn bool
+	IsAdmin  bool
 	T        i18n.Dict
 	Data     any
 }
@@ -295,6 +304,7 @@ func (s *Server) renderDict(w http.ResponseWriter, r *http.Request, T i18n.Dict,
 		}
 		pd.DueCount = daily.Remaining
 		pd.LoggedIn = true
+		pd.IsAdmin = s.isAdmin(user)
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := s.tmpl.ExecuteTemplate(w, name, pd); err != nil {
@@ -548,7 +558,7 @@ func (s *Server) generateRecallCard(ctx context.Context, user *store.User, card 
 		lemma = card.Phrase
 	}
 
-	callCtx, cancel := context.WithTimeout(ctx, 25*time.Second)
+	callCtx, cancel := context.WithTimeout(withUsageUser(ctx, user.ID), 25*time.Second)
 	defer cancel()
 	start := time.Now()
 	defer func() { s.log.Info("recall card", "vocab_id", card.ID, "ms", time.Since(start).Milliseconds()) }()
