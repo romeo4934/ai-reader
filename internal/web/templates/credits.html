@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="{{.T.LangCode}}"{{if .Theme}} data-theme="{{.Theme}}"{{end}}{{if .Eink}} data-eink{{end}}>
+<head>
+  <title>{{.Title}}</title>
+  {{template "head" .}}
+</head>
+<body>
+  {{template "nav" .}}
+  <main class="page credits">
+    <h1>{{.T.CreditsTitle}}</h1>
+    <p>{{.T.CreditsIntro}}</p>
+    <ul class="credits-list">
+      {{range .Data}}<li>
+        <strong>{{.Name}}</strong> — {{$.T.CreditsBy}} {{range $i, $a := .Authors}}{{if $i}}, {{end}}{{$a}}{{end}}
+        <br><span class="hint">{{$.T.CreditsLicense}} : {{range $i, $l := .Licenses}}{{if $i}} / {{end}}{{$l}}{{end}}</span>
+        <br><span class="credits-links">{{range .URLs}}<a href="{{.}}" rel="noopener" target="_blank">{{.}}</a> {{end}}</span>
+      </li>{{end}}
+    </ul>
+    <p class="hint">{{.T.CreditsOurs}} <a href="https://github.com/LiberatedPixelCup/Universal-LPC-Spritesheet-Character-Generator" rel="noopener" target="_blank">Universal LPC Spritesheet Character Generator</a> · <a href="/static/lpc/CREDITS.csv">CREDITS.csv</a></p>
+  </main>
+</body>
+</html>

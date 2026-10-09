@@ -35,6 +35,8 @@ var lookStrings = map[string]Dict{
 		"LookHead_olive":    "Olive wreath",
 		"LookHead_hood":     "Thinker's hood",
 		"LookHead_laurel":   "Golden laurel",
+		"LookHead_crown":    "Royal crown",
+		"LookBody":          "Figure",
 	},
 	"fr": {
 		"LookTitle":         "Ton personnage",
@@ -69,6 +71,8 @@ var lookStrings = map[string]Dict{
 		"LookHead_olive":    "Couronne d'olivier",
 		"LookHead_hood":     "Capuche de penseur",
 		"LookHead_laurel":   "Laurier d'or",
+		"LookHead_crown":    "Couronne royale",
+		"LookBody":          "Silhouette",
 	},
 	"es": {
 		"LookTitle":         "Tu personaje",
@@ -103,6 +107,8 @@ var lookStrings = map[string]Dict{
 		"LookHead_olive":    "Corona de olivo",
 		"LookHead_hood":     "Capucha de pensador",
 		"LookHead_laurel":   "Laurel de oro",
+		"LookHead_crown":    "Corona real",
+		"LookBody":          "Silueta",
 	},
 	"pt": {
 		"LookTitle":         "Seu personagem",
@@ -137,6 +143,8 @@ var lookStrings = map[string]Dict{
 		"LookHead_olive":    "Coroa de oliveira",
 		"LookHead_hood":     "Capuz de pensador",
 		"LookHead_laurel":   "Louro de ouro",
+		"LookHead_crown":    "Coroa real",
+		"LookBody":          "Silhueta",
 	},
 	"it": {
 		"LookTitle":         "Il tuo personaggio",
@@ -171,6 +179,8 @@ var lookStrings = map[string]Dict{
 		"LookHead_olive":    "Corona d'ulivo",
 		"LookHead_hood":     "Cappuccio del pensatore",
 		"LookHead_laurel":   "Alloro d'oro",
+		"LookHead_crown":    "Corona reale",
+		"LookBody":          "Figura",
 	},
 	"de": {
 		"LookTitle":         "Deine Figur",
@@ -205,6 +215,8 @@ var lookStrings = map[string]Dict{
 		"LookHead_olive":    "Olivenkranz",
 		"LookHead_hood":     "Denkerkapuze",
 		"LookHead_laurel":   "Goldener Lorbeer",
+		"LookHead_crown":    "Königskrone",
+		"LookBody":          "Figur",
 	},
 	"nl": {
 		"LookTitle":         "Je personage",
@@ -239,6 +251,8 @@ var lookStrings = map[string]Dict{
 		"LookHead_olive":    "Olijfkrans",
 		"LookHead_hood":     "Denkerskap",
 		"LookHead_laurel":   "Gouden laurier",
+		"LookHead_crown":    "Koningskroon",
+		"LookBody":          "Figuur",
 	},
 }
 

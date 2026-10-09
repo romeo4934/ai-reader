@@ -126,6 +126,7 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("POST /friends/invite", s.requireAuth(s.handleFriendsInvite))
 	mux.HandleFunc("POST /friends/{id}/remove", s.requireAuth(s.handleFriendRemove))
 	mux.HandleFunc("GET /join", s.handleJoin)
+	mux.HandleFunc("GET /credits", s.handleCredits)
 	mux.HandleFunc("GET /unsubscribe", s.handleUnsubscribe)
 	mux.HandleFunc("GET /admin", s.requireAuth(s.handleAdmin))
 	mux.HandleFunc("POST /admin/users/{id}/plan", s.requireAuth(s.handleAdminPlan))
@@ -1079,10 +1080,16 @@ func (s *Server) failJSON(w http.ResponseWriter, status int, err error) {
 // files carry no real mtime, so the browser's default HTTP caching has
 // nothing to revalidate against and was serving stale CSS/JS straight from
 // cache after a deploy — a hard refresh was the only way to see a fix.
-// These files are tiny, so there's no real cost to never caching them.
+// These files are tiny, so there's no real cost to never caching them —
+// except the Agora's sprites (a hundred files, loaded with a version
+// parameter that static/lpc.js bumps when they change): those are cached.
 func noCache(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Cache-Control", "no-store")
+		if strings.HasPrefix(r.URL.Path, "/static/lpc/") && r.URL.Query().Has("v") {
+			w.Header().Set("Cache-Control", "public, max-age=2592000, immutable")
+		} else {
+			w.Header().Set("Cache-Control", "no-store")
+		}
 		next.ServeHTTP(w, r)
 	})
 }

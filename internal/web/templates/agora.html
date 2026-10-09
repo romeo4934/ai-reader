@@ -41,6 +41,7 @@
           </div>
         </div>
         <button type="button" class="btn btn-primary agora-enter" data-close>{{.T.AgoraEnter}}</button>
+        <p class="hint agora-credits"><a href="/credits">{{.T.CreditsLink}}</a> · sprites LPC</p>
       </div>
 
       <!-- the registry: who's in, who's at the gates -->
@@ -66,6 +67,8 @@
         <form action="/agora/look" method="post" class="agora-avatar" id="look-form">
           <canvas id="look-preview" class="look-preview" width="160" height="200" aria-hidden="true"></canvas>
           <h3>{{.T.LookFace}}</h3>
+          <p class="hint">{{.T.LookBody}}</p>
+          <div class="look-tiles">{{range $e.Bodies}}<label><input type="radio" name="body" value="{{.Value}}"{{if eq .Value (printf "%d" $e.Look.Body)}} checked{{end}}><span class="look-tile"><canvas class="look-thumb" data-field="body" data-value="{{.Value}}" data-zoom="body"></canvas></span></label>{{end}}</div>
           <p class="hint">{{.T.LookSkin}}</p>
           <div class="agora-picks">{{range $e.Skins}}<label><input type="radio" name="skin" value="{{.Value}}"{{if eq .Value (printf "%d" $e.Look.Skin)}} checked{{end}}><span class="agora-swatch" style="background: {{.Hex}}"></span></label>{{end}}</div>
           <p class="hint">{{.T.LookHair}}</p>
@@ -117,6 +120,7 @@
       setTimeout(function () { var h = document.getElementById('agora-hint'); if (h) h.classList.add('agora-hint-gone'); }, 6000);
     })();
   </script>
+  <script src="/static/lpc.js"></script>
   <script src="/static/agora.js"></script>
 </body>
 </html>
