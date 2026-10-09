@@ -23,6 +23,7 @@
     </article>
 
     <nav class="chapter-nav">
+      <p class="dock-hint">{{.T.ReaderTapHint}}</p>
       {{if .Data.HasPrev}}
         <a href="/books/{{.Data.Book.ID}}?ch={{sub .Data.ChapterIdx 1}}" class="btn btn-icon" aria-label="{{.T.ReaderPrevChapter}}">«</a>
       {{else}}<span></span>{{end}}

@@ -3,6 +3,7 @@ package i18n
 // The evening reminder email and its setting.
 var reminderStrings = map[string]Dict{
 	"en": {
+		"ReaderTapHint":             "Tap a word to translate it",
 		"SettingsReadingLabel":      "Reading",
 		"SettingsReadingAuto":       "Automatic (pages on a tablet, scrolling on a phone)",
 		"SettingsReadingScroll":     "Scrolling",
@@ -26,6 +27,7 @@ var reminderStrings = map[string]Dict{
 		"SettingsRemindersHint":     "An email around 7 pm if today's challenge isn't done yet.",
 	},
 	"fr": {
+		"ReaderTapHint":             "Touche un mot pour le traduire",
 		"SettingsReadingLabel":      "Lecture",
 		"SettingsReadingAuto":       "Automatique (pages sur tablette, défilement sur téléphone)",
 		"SettingsReadingScroll":     "Défilement",
@@ -49,6 +51,7 @@ var reminderStrings = map[string]Dict{
 		"SettingsRemindersHint":     "Un email vers 19 h si ton défi du jour n'est pas encore fait.",
 	},
 	"es": {
+		"ReaderTapHint":             "Toca una palabra para traducirla",
 		"SettingsReadingLabel":      "Lectura",
 		"SettingsReadingAuto":       "Automática (páginas en tableta, desplazamiento en móvil)",
 		"SettingsReadingScroll":     "Desplazamiento",
@@ -72,6 +75,7 @@ var reminderStrings = map[string]Dict{
 		"SettingsRemindersHint":     "Un email hacia las 19 h si aún no has hecho el reto del día.",
 	},
 	"pt": {
+		"ReaderTapHint":             "Toque numa palavra para traduzi-la",
 		"SettingsReadingLabel":      "Leitura",
 		"SettingsReadingAuto":       "Automática (páginas no tablet, rolagem no celular)",
 		"SettingsReadingScroll":     "Rolagem",
@@ -95,6 +99,7 @@ var reminderStrings = map[string]Dict{
 		"SettingsRemindersHint":     "Um email por volta das 19 h se o desafio do dia ainda não estiver feito.",
 	},
 	"it": {
+		"ReaderTapHint":             "Tocca una parola per tradurla",
 		"SettingsReadingLabel":      "Lettura",
 		"SettingsReadingAuto":       "Automatica (pagine su tablet, scorrimento su telefono)",
 		"SettingsReadingScroll":     "Scorrimento",
@@ -118,6 +123,7 @@ var reminderStrings = map[string]Dict{
 		"SettingsRemindersHint":     "Un'email verso le 19 se la sfida del giorno non è ancora fatta.",
 	},
 	"de": {
+		"ReaderTapHint":             "Tippe auf ein Wort, um es zu übersetzen",
 		"SettingsReadingLabel":      "Lesen",
 		"SettingsReadingAuto":       "Automatisch (Seiten auf dem Tablet, Scrollen auf dem Handy)",
 		"SettingsReadingScroll":     "Scrollen",
@@ -141,6 +147,7 @@ var reminderStrings = map[string]Dict{
 		"SettingsRemindersHint":     "Eine E-Mail gegen 19 Uhr, wenn dein Tagesziel noch offen ist.",
 	},
 	"nl": {
+		"ReaderTapHint":             "Tik op een woord om het te vertalen",
 		"SettingsReadingLabel":      "Lezen",
 		"SettingsReadingAuto":       "Automatisch (pagina's op tablet, scrollen op telefoon)",
 		"SettingsReadingScroll":     "Scrollen",
