@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -179,3 +180,23 @@ func (s *Server) handleAdmin(w http.ResponseWriter, r *http.Request) {
 }
 
 func usd(x float64) string { return fmt.Sprintf("$%.2f", x) }
+
+// handleAdminPlan switches an account between the free and unlimited plans.
+func (s *Server) handleAdminPlan(w http.ResponseWriter, r *http.Request) {
+	if !s.isAdmin(userFromContext(r)) {
+		http.NotFound(w, r)
+		return
+	}
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	plan := r.FormValue("plan")
+	if err != nil || (plan != store.PlanFree && plan != store.PlanUnlimited) {
+		s.fail(w, http.StatusBadRequest, fmt.Errorf("plan invalide"))
+		return
+	}
+	if err := s.store.SetPlan(id, plan); err != nil {
+		s.fail(w, http.StatusInternalServerError, err)
+		return
+	}
+	s.log.Info("plan changé", "user", id, "plan", plan)
+	http.Redirect(w, r, "/admin#lecteurs", http.StatusSeeOther)
+}

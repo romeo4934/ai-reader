@@ -124,6 +124,7 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("GET /join", s.handleJoin)
 	mux.HandleFunc("GET /unsubscribe", s.handleUnsubscribe)
 	mux.HandleFunc("GET /admin", s.requireAuth(s.handleAdmin))
+	mux.HandleFunc("POST /admin/users/{id}/plan", s.requireAuth(s.handleAdminPlan))
 	mux.HandleFunc("POST /join", s.requireAuth(s.handleJoinPost))
 
 	mux.HandleFunc("GET /words", s.requireAuth(s.handleWords))

@@ -46,7 +46,7 @@
       </table>
     </div>
 
-    <h2 class="settings-section">Lecteurs</h2>
+    <h2 class="settings-section" id="lecteurs">Lecteurs</h2>
     <div class="admin-scroll">
       <table class="admin-table">
         <tr><th>Nom</th><th>Email</th><th>Plan</th><th>Inscrit le</th><th>Livres</th><th>Mots</th><th>Révisions 7 j</th><th>Dernière révision</th><th>Trad. mois</th><th>Appels IA</th><th>Coût</th></tr>
@@ -54,7 +54,14 @@
         <tr>
           <td>{{.Name}}</td>
           <td>{{.Email}}{{if and .Email (not .Verified)}} <span class="hint">(non confirmé)</span>{{end}}</td>
-          <td>{{.Plan}}</td>
+          <td>
+            <form action="/admin/users/{{.ID}}/plan" method="post" class="admin-plan">
+              <select name="plan" onchange="this.form.submit()" aria-label="Plan de {{.Name}}">
+                <option value="free"{{if eq .Plan "free"}} selected{{end}}>free</option>
+                <option value="unlimited"{{if eq .Plan "unlimited"}} selected{{end}}>unlimited</option>
+              </select>
+            </form>
+          </td>
           <td>{{.CreatedAt.Format "2006-01-02"}}</td>
           <td>{{.Books}}</td><td>{{.Words}}</td><td>{{.Reviews7d}}</td>
           <td>{{if .LastActive}}{{.LastActive}}{{else}}—{{end}}</td>

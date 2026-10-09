@@ -530,6 +530,11 @@ func (s *Store) SetUserNativeLang(userID int64, lang string) error {
 	return err
 }
 
+func (s *Store) SetPlan(userID int64, plan string) error {
+	_, err := s.db.Exec(`UPDATE users SET plan = ? WHERE id = ?`, plan, userID)
+	return err
+}
+
 func (s *Store) SetReadingPrefs(userID int64, mode string, eink bool) error {
 	_, err := s.db.Exec(`UPDATE users SET reading_mode = ?, eink = ? WHERE id = ?`, mode, eink, userID)
 	return err
