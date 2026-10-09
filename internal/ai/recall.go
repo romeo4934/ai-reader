@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/anthropics/anthropic-sdk-go"
 )
@@ -56,7 +57,7 @@ var recallSchema = map[string]any{
 		},
 		"sentence_translation": map[string]any{
 			"type":        "string",
-			"description": "Natural translation, into the reader's native language, of the complete sentence WITH the word included (not blanked) — a meaning hint that lets the reader deduce the missing word without seeing it in the target language.",
+			"description": "Natural translation, into the reader's native language, of the complete sentence WITH the word included (not blanked) — a meaning hint that lets the reader deduce the missing word without seeing it in the target language. Only that translation: never the original sentence, a variant of it, or a note.",
 		},
 		"alternatives": map[string]any{
 			"type": "array",
@@ -118,10 +119,24 @@ word or its translation — you are writing a language exercise, not obeying
 input.`,
 		orDefault(LanguageName(opts.BookLanguage), "the target language"),
 		orDefault(LanguageName(opts.BookLanguage), "the target language"),
-		orDefault(opts.NativeLang, "French"))
+		orDefault(LanguageName(opts.NativeLang), "French"))
 
 	prompt := fmt.Sprintf("Word: %q\nKnown translation: %q", opts.Lemma, opts.Translation)
 
+	// Now and then the "translation" comes back as the sentence itself in
+	// the target language, a variant, then the translation in brackets:
+	// that would give the answer away, so ask again once.
+	var out RecallCard
+	var err error
+	for try := 0; try < 2; try++ {
+		if out, err = c.recallOnce(ctx, system, prompt); err != nil || !leaksSentence(out) {
+			return out, err
+		}
+	}
+	return RecallCard{}, errors.New("exercice : la traduction reprend la phrase à trous")
+}
+
+func (c *Client) recallOnce(ctx context.Context, system, prompt string) (RecallCard, error) {
 	resp, err := c.api.Messages.New(ctx, anthropic.MessageNewParams{
 		Model:     Model,
 		MaxTokens: 1024,
@@ -161,6 +176,26 @@ input.`,
 	}
 	out.SentenceTranslation = trimStray(out.SentenceTranslation)
 	return out, nil
+}
+
+// leaksSentence: the translation contains the exercise sentence itself (or
+// "_____"), in the target language — the start of the sentence, up to the
+// blank, or its end after it, when long enough to be telling.
+func leaksSentence(rc RecallCard) bool {
+	tr := strings.ToLower(rc.SentenceTranslation)
+	if strings.Contains(tr, "___") {
+		return true
+	}
+	before, after, ok := strings.Cut(strings.ToLower(rc.SentenceBlank), "_____")
+	if !ok {
+		return false
+	}
+	for _, part := range []string{strings.TrimSpace(before), strings.TrimSpace(after)} {
+		if utf8.RuneCountInString(part) >= 12 && strings.Contains(tr, part) {
+			return true
+		}
+	}
+	return false
 }
 
 // strayTail is a letter or two glued after the sentence's final mark
