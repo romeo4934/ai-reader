@@ -177,7 +177,12 @@ func streakText(T i18n.Dict, n int) string {
 func (s *Server) handleReviewMore(w http.ResponseWriter, r *http.Request) {
 	user := userFromContext(r)
 	now := time.Now().In(userLocation(r))
-	lang := store.LangKey(r.FormValue("lang"))
+	lang := r.FormValue("lang")
+	if lang == "" {
+		http.Redirect(w, r, "/review", http.StatusSeeOther)
+		return
+	}
+	lang = store.LangKey(lang)
 	if err := s.store.AddExtraNew(user.ID, dayKey(now), lang, dailyNewLimit(user)); err != nil {
 		s.fail(w, http.StatusInternalServerError, err)
 		return

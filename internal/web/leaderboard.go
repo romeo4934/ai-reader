@@ -110,9 +110,18 @@ func (s *Server) handleLeaderboard(w http.ResponseWriter, r *http.Request) {
 	}
 	// The tab shown: the one asked for, else the language of the viewer's
 	// latest book, else the busiest board.
-	lang := store.LangKey(r.URL.Query().Get("lang"))
-	if !validLangKey(lang) {
-		lang = ""
+	// LangKey maps "" to "und" (a book without a language): only for an
+	// actual ?lang=, or the viewer's own default below would be skipped.
+	lang := ""
+	if q := r.URL.Query().Get("lang"); q != "" && validLangKey(store.LangKey(q)) {
+		lang = store.LangKey(q)
+	}
+	// Default: where the viewer scored most this week, else the language
+	// of their latest book.
+	if lang == "" {
+		if lang, err = s.store.UserTopLang(user.ID, from, to); err != nil {
+			s.log.Error("user top lang", "err", err)
+		}
 	}
 	if lang == "" {
 		if lang, err = s.store.UserBookLang(user.ID); err != nil {
@@ -181,7 +190,7 @@ var langNames = map[string]string{
 	"de": "Deutsch", "nl": "Nederlands", "sv": "Svenska", "da": "Dansk", "no": "Norsk",
 	"nb": "Norsk", "fi": "Suomi", "pl": "Polski", "cs": "Čeština", "ru": "Русский",
 	"uk": "Українська", "el": "Ελληνικά", "tr": "Türkçe", "ar": "العربية", "he": "עברית",
-	"ja": "日本語", "zh": "中文", "ko": "한국어", "ca": "Català", "ro": "Română", "hu": "Magyar",
+	"ja": "日本語", "zh": "中文", "und": "?", "ko": "한국어", "ca": "Català", "ro": "Română", "hu": "Magyar",
 }
 
 func langName(code string) string {

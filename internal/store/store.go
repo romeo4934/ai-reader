@@ -1237,6 +1237,18 @@ func (s *Store) LeaderboardLangs(fromDay, toDay string, only []int64) ([]Leaderb
 	return out, rows.Err()
 }
 
+// UserTopLang is the language the user earned the most points in between
+// two days; "" if none.
+func (s *Store) UserTopLang(userID int64, fromDay, toDay string) (string, error) {
+	var lang string
+	err := s.db.QueryRow(`SELECT lang FROM points_lang WHERE user_id = ? AND day >= ? AND day <= ? AND points > 0
+		GROUP BY lang ORDER BY SUM(points) DESC LIMIT 1`, userID, fromDay, toDay).Scan(&lang)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", nil
+	}
+	return lang, err
+}
+
 // UserBookLang is the language of the user's most recently added book, the
 // default leaderboard tab for them; "" without books.
 func (s *Store) UserBookLang(userID int64) (string, error) {
