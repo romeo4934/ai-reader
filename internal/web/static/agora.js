@@ -55,13 +55,17 @@
   }
 
   // --- seats: tiers by prestige, the most assiduous in the middle ---
+  // Each tier belongs to a rank (front row: Sages' thrones, then the
+  // Philosophers, two rows of Orators, two of Citizens): seats show even
+  // when empty, so everyone sees the places waiting for them.
+  var TIER_RANK = [3, 2, 1, 1, 0, 0];
   function makeSeats() {
     var out = [];
     TIERS.r.forEach(function (r, tier) {
       var n = Math.floor((TIERS.to - TIERS.from) * r / 17), row = [];
       for (var k = 0; k < n; k++) {
         var a = TIERS.from + (TIERS.to - TIERS.from) * (k + 0.5) / n;
-        row.push({ x: TIERS.cx + Math.cos(a) * r, y: TIERS.cy + Math.sin(a) * r, tier: tier, mid: Math.abs(a - Math.PI / 2) });
+        row.push({ x: TIERS.cx + Math.cos(a) * r, y: TIERS.cy + Math.sin(a) * r, tier: tier, rank: TIER_RANK[tier], mid: Math.abs(a - Math.PI / 2) });
       }
       row.sort(function (a, b) { return a.mid - b.mid; });
       out = out.concat(row);
@@ -72,10 +76,18 @@
 
   // --- characters ---
   var actors = [];
+  // A seat in one's own rank's tiers, else further back, else anywhere.
+  function takeSeat(rank) {
+    var free = seatList.filter(function (s) { return !s.taken; });
+    var seat = free.filter(function (s) { return s.rank === rank; })[0] ||
+      free.filter(function (s) { return s.rank < rank; })[0] || free[0];
+    if (seat) seat.taken = true;
+    return seat;
+  }
   people.filter(function (p) { return p.member; })
     .sort(function (a, b) { return b.days - a.days; })
-    .forEach(function (p, i) {
-      var seat = seatList[i];
+    .forEach(function (p) {
+      var seat = takeSeat(rankTier(p.days));
       actors.push({ p: p, inside: true, seat: seat, sitting: !!seat, path: [], wait: 3 + Math.random() * 6,
         phase: Math.random() * 6, pos: seat ? { x: seat.x, y: seat.y } : randomSpot(true) });
     });
@@ -113,12 +125,16 @@
   // The map covers the whole canvas (scaled to fill it, cropping the longer
   // side); the camera follows the reader's character, Zelda-style, and a
   // drag pans it to look around until the next tap.
-  var cam = { x: 0, y: 0, scale: 1, follow: true };
+  var cam = { x: 0, y: 0, scale: 1, base: 1, zoom: 1, follow: true };
+  var bgScale = 1; // the scale the scenery was last drawn at
+  var ZOOM_MAX = 3;
+  cam.zoomMin = 1; // set on resize: the whole map fits
   function viewSize() { return { w: canvas.width / cam.scale, h: canvas.height / cam.scale }; }
+  // Zoomed out past the map's edge on one side, it's centered on that side.
   function clampCam() {
     var v = viewSize();
-    cam.x = Math.max(0, Math.min(W - v.w, cam.x));
-    cam.y = Math.max(0, Math.min(H - v.h, cam.y));
+    cam.x = v.w >= W ? (W - v.w) / 2 : Math.max(0, Math.min(W - v.w, cam.x));
+    cam.y = v.h >= H ? (H - v.h) / 2 : Math.max(0, Math.min(H - v.h, cam.y));
   }
   function updateCamera(snap) {
     if (!cam.follow) return;
@@ -132,9 +148,52 @@
     var r = canvas.getBoundingClientRect(), k = canvas.width / r.width;
     return { x: cam.x + (e.clientX - r.left) * k / cam.scale, y: cam.y + (e.clientY - r.top) * k / cam.scale };
   }
-  var drag = null, dragged = false;
-  canvas.addEventListener('pointerdown', function (e) { drag = { x: e.clientX, y: e.clientY, cx: cam.x, cy: cam.y }; dragged = false; });
+  // Zoom around a point of the screen (the pinch's middle, the mouse), which
+  // stays put; the scenery is redrawn sharp once the gesture settles.
+  var redrawTimer = null;
+  function setZoom(z, clientX, clientY) {
+    var r = canvas.getBoundingClientRect(), k = canvas.width / r.width;
+    var px = (clientX === undefined ? r.width / 2 : clientX - r.left) * k;
+    var py = (clientY === undefined ? r.height / 2 : clientY - r.top) * k;
+    var wx = cam.x + px / cam.scale, wy = cam.y + py / cam.scale;
+    cam.zoom = Math.max(cam.zoomMin, Math.min(ZOOM_MAX, z));
+    cam.scale = cam.base * cam.zoom;
+    cam.x = wx - px / cam.scale; cam.y = wy - py / cam.scale;
+    cam.follow = false;
+    clampCam();
+    clearTimeout(redrawTimer);
+    redrawTimer = setTimeout(redrawScenery, 250);
+    if (still) frame(performance.now());
+  }
+  canvas.addEventListener('wheel', function (e) {
+    e.preventDefault();
+    setZoom(cam.zoom * Math.exp(-e.deltaY * 0.0015), e.clientX, e.clientY);
+  }, { passive: false });
+  document.querySelectorAll('[data-zoom]').forEach(function (b) {
+    b.addEventListener('click', function () { setZoom(cam.zoom * Number(b.dataset.zoom)); });
+  });
+
+  var drag = null, dragged = false, pointers = {}, pinch = null;
+  canvas.addEventListener('pointerdown', function (e) {
+    pointers[e.pointerId] = { x: e.clientX, y: e.clientY };
+    var ids = Object.keys(pointers);
+    if (ids.length === 2) {
+      var a = pointers[ids[0]], b = pointers[ids[1]];
+      pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), zoom: cam.zoom };
+      drag = null; dragged = true;
+      return;
+    }
+    drag = { x: e.clientX, y: e.clientY, cx: cam.x, cy: cam.y }; dragged = false;
+  });
   window.addEventListener('pointermove', function (e) {
+    if (pointers[e.pointerId]) pointers[e.pointerId] = { x: e.clientX, y: e.clientY };
+    if (pinch) {
+      var ids = Object.keys(pointers);
+      if (ids.length < 2) return;
+      var a = pointers[ids[0]], b = pointers[ids[1]];
+      setZoom(pinch.zoom * Math.hypot(a.x - b.x, a.y - b.y) / pinch.d, (a.x + b.x) / 2, (a.y + b.y) / 2);
+      return;
+    }
     if (!drag) return;
     var dx = e.clientX - drag.x, dy = e.clientY - drag.y;
     if (!dragged && Math.hypot(dx, dy) < 8) return;
@@ -144,7 +203,13 @@
     clampCam();
     if (still) frame(performance.now());
   });
-  window.addEventListener('pointerup', function () { drag = null; });
+  function pointerEnd(e) {
+    delete pointers[e.pointerId];
+    if (Object.keys(pointers).length < 2) pinch = null;
+    drag = null;
+  }
+  window.addEventListener('pointerup', pointerEnd);
+  window.addEventListener('pointercancel', pointerEnd);
 
   canvas.addEventListener('click', function (e) {
     if (dragged) { dragged = false; return; }
@@ -278,11 +343,30 @@
     rect(STATUE.x - 10, STATUE.y - 2, 20, 14, '#b9ab90'); rect(STATUE.x - 10, STATUE.y - 2, 20, 3, '#d3c7ae');
     circle(STATUE.x, STATUE.y - 8, 6, '#d9d2c3'); circle(STATUE.x, STATUE.y - 15, 4, '#e6dfd1'); rect(STATUE.x - 4, STATUE.y - 20, 8, 2, '#d9b84c');
     circle(FOUNTAIN.x, FOUNTAIN.y, FOUNTAIN.r, '#c4b083'); circle(FOUNTAIN.x, FOUNTAIN.y, FOUNTAIN.r - 4, '#5aa8d6');
-    [[82, 60], [398, 60], [82, 200], [398, 200]].forEach(function (p) {
+    [[82, 200], [398, 200]].forEach(function (p) {
       rect(p[0] - 8, p[1] - 6, 16, 12, '#9b6b3c');
       circle(p[0] - 3, p[1] - 4, 3, '#e85d75'); circle(p[0] + 3, p[1] - 5, 3, '#f4d35e'); circle(p[0], p[1] - 1, 3, '#5a9a3c');
     });
-    [[140, 64], [146, 74], [334, 64], [340, 76]].forEach(function (p) { circle(p[0], p[1], 4, '#b5603a'); rect(p[0] - 1, p[1] - 7, 2, 3, '#8a4527'); });
+    // seats by rank: thrones, purple and blue cushions, stone benches
+    seatList.forEach(function (st) {
+      if (st.rank === 3) {
+        rect(st.x - 6, st.y - 9, 12, 5, '#c9a227'); rect(st.x - 6, st.y - 9, 12, 1.5, '#f0d26a');
+        rect(st.x - 5, st.y - 4, 10, 7, '#7d3c98'); rect(st.x - 7, st.y - 6, 2, 9, '#c9a227'); rect(st.x + 5, st.y - 6, 2, 9, '#c9a227');
+      } else if (st.rank === 2) {
+        c.fillStyle = '#7d4bb3'; c.beginPath(); c.roundRect(st.x - 5, st.y - 3, 10, 6, 2); c.fill();
+      } else if (st.rank === 1) {
+        c.fillStyle = '#3b7dd8'; c.beginPath(); c.roundRect(st.x - 5, st.y - 3, 10, 6, 2); c.fill();
+      } else {
+        rect(st.x - 5, st.y - 2, 10, 4, 'rgba(255,255,255,0.35)');
+      }
+    });
+    // the library (scrolls on its shelves) and Croesus's treasury (gold)
+    rect(78, 52, 56, 40, '#efe3c6'); rect(78, 52, 56, 14, '#5d7a99'); rect(78, 64, 56, 2, '#3f5a78');
+    for (k = 0; k < 4; k++) rect(82 + k * 13, 70, 9, 16, '#9b6b3c');
+    for (k = 0; k < 4; k++) for (var sc = 0; sc < 3; sc++) circle(86.5 + k * 13, 73 + sc * 5, 1.8, '#f3ead2');
+    rect(346, 52, 56, 40, '#efe3c6'); rect(346, 52, 56, 14, '#b8862f'); rect(346, 64, 56, 2, '#8a6420');
+    rect(352, 70, 44, 18, '#6b4a2a');
+    [[358, 84], [364, 84], [370, 84], [376, 84], [382, 84], [388, 84], [361, 80], [367, 80], [373, 80], [379, 80], [385, 80], [364, 76], [370, 76], [376, 76], [382, 76], [373, 72]].forEach(function (cn) { circle(cn[0], cn[1], 2.6, '#f2c94c'); circle(cn[0] - 0.6, cn[1] - 0.6, 1, '#fff2b0'); });
     c.restore();
   }
 
@@ -309,6 +393,27 @@
     }
     circle(x, y - 9 + sit, 4, '#f0cfa8');
     circle(x, y - 11 + sit, 3, '#4a2f1c');
+    // what each rank carries: citizens an olive branch, orators a scroll,
+    // philosophers a lamp, sages a golden staff
+    if (a.p && a.p.member) {
+      var hx = x + 6, hy = y + sit;
+      switch (rankTier(a.p.days)) {
+        case 0:
+          g.strokeStyle = '#5a8a3a'; g.lineWidth = 1; g.beginPath(); g.moveTo(hx, hy + 2); g.lineTo(hx + 2, hy - 6); g.stroke();
+          circle(hx + 0.5, hy - 2, 1.3, '#7bbf4a'); circle(hx + 1.8, hy - 4.5, 1.3, '#7bbf4a');
+          break;
+        case 1:
+          rect(hx - 1, hy - 4, 3, 7, '#f3ead2'); rect(hx - 1.5, hy - 4.5, 4, 1.5, '#c9b07a'); rect(hx - 1.5, hy + 2.5, 4, 1.5, '#c9b07a');
+          break;
+        case 2:
+          g.fillStyle = '#b5603a'; g.beginPath(); g.ellipse(hx + 1, hy, 3, 1.6, 0, 0, Math.PI * 2); g.fill();
+          circle(hx + 3.5, hy - 1.5 - (still ? 0 : Math.abs(Math.sin(t / 120)) * 0.6), 1.3, '#f7c948');
+          break;
+        case 3:
+          rect(hx, hy - 12, 1.6, 18, '#c9a227'); circle(hx + 0.8, hy - 13, 2.4, '#f2d36b');
+          break;
+      }
+    }
     if (a.p && a.p.laurel) { g.strokeStyle = '#7bbf4a'; g.lineWidth = 1.6; g.beginPath(); g.arc(x, y - 9 + sit, 4.5, Math.PI * 1.05, Math.PI * 1.95); g.stroke(); }
     if (a.guard) {
       g.fillStyle = '#b08d3c'; g.beginPath(); g.arc(x, y - 10, 4.5, Math.PI, 0); g.fill();
@@ -342,6 +447,40 @@
       else { b.pos.x += (b.home.x - b.pos.x) * 0.03; b.pos.y += (b.home.y - b.pos.y) * 0.03; }
       circle(b.pos.x, b.pos.y, 2.4, '#8d8f99'); rect(b.pos.x + 1.5, b.pos.y - 1, 1.5, 1, '#e3a72f');
     });
+    var tt = still ? 0 : t;
+    // banners fluttering on the wall corners
+    [[WALL.x0 + 2, WALL.y0 - 2, '#c0392b'], [WALL.x1 - 2, WALL.y0 - 2, '#2f5d9c'], [GATE.x0 - 4, WALL.y1 - 18, '#c0392b'], [GATE.x1 + 4, WALL.y1 - 18, '#2f5d9c']].forEach(function (f, i) {
+      rect(f[0] - 0.75, f[1] - 14, 1.5, 16, '#6b4527');
+      var wave = Math.sin(tt / 180 + i) * 2;
+      g.fillStyle = f[2]; g.beginPath(); g.moveTo(f[0], f[1] - 14); g.lineTo(f[0] + 11, f[1] - 11 + wave); g.lineTo(f[0], f[1] - 7); g.fill();
+    });
+    // merchants behind their stalls, a glint on the coins
+    [[452, 88, '#8e5a9c'], [452, 168, '#3c8c6e'], [452, 248, '#b5603a']].forEach(function (m) {
+      circle(m[0], m[1] + 4, 4.5, m[2]); circle(m[0], m[1] - 1, 3.2, '#f0cfa8'); circle(m[0], m[1] - 3, 2.4, '#4a2f1c');
+    });
+    if (Math.sin(tt / 400) > 0.92) { rect(445, 99, 1.5, 4, '#fff'); rect(443.5, 100.5, 4.5, 1.5, '#fff'); }
+    // ducks on the river, and now and then a fish jumps
+    for (var d = 0; d < 3; d++) {
+      var dx = ((tt / 90 + d * 150) % (W + 40)) - 20, dy = 17 + Math.sin(dx / 40) * 3 + d % 2;
+      circle(dx, dy, 3.2, '#f2f0e6'); circle(dx + 2.6, dy - 2, 1.8, '#3f7d47'); rect(dx + 4, dy - 2.3, 2, 1, '#e3a72f');
+    }
+    var jump = (tt / 1000) % 7;
+    if (jump < 0.8) {
+      var fx = 120 + Math.floor(tt / 7000) % 5 * 60, fy = 18 - Math.sin(jump / 0.8 * Math.PI) * 9;
+      g.fillStyle = '#d9822b'; g.beginPath(); g.ellipse(fx + jump * 10, fy, 3, 1.6, -0.6 + jump, 0, Math.PI * 2); g.fill();
+      if (jump > 0.65) circle(fx + 8, 19, 3 * (jump - 0.6) * 5, 'rgba(255,255,255,0.5)');
+    }
+    // a cat asleep by Croesus's statue, tail swishing
+    circle(STATUE.x + 16, STATUE.y + 10, 4.5, '#e08a3c'); circle(STATUE.x + 19.5, STATUE.y + 8, 2.6, '#e08a3c');
+    g.strokeStyle = '#e08a3c'; g.lineWidth = 1.6; g.beginPath(); g.moveTo(STATUE.x + 12, STATUE.y + 11);
+    g.quadraticCurveTo(STATUE.x + 7, STATUE.y + 14 + Math.sin(tt / 300) * 2, STATUE.x + 6, STATUE.y + 8); g.stroke();
+    // smoke wisps rising from the braziers
+    BRAZIERS.forEach(function (b, i) {
+      for (var k = 0; k < 3; k++) {
+        var life = ((tt / 1400 + k / 3 + i * 0.17) % 1);
+        circle(b.x + Math.sin(life * 6 + i) * 3, b.y - 8 - life * 22, 1.5 + life * 3, 'rgba(120,120,120,' + (0.25 * (1 - life)) + ')');
+      }
+    });
     // people, back to front
     actors.concat([guard]).sort(function (a, b) { return a.pos.y - b.pos.y; }).forEach(function (a) { drawPerson(a, t); });
     // butterflies
@@ -350,6 +489,16 @@
       var by = b.y + Math.sin(b.s * 3) * 6, w = Math.abs(Math.sin(b.s * 20)) * 2.5 + 0.5;
       rect(b.x - w, by, w, 2, b.c); rect(b.x + 0.5, by, w, 2, b.c);
     });
+    // a flock of birds crossing the sky now and then
+    var flight = (tt / 1000) % 25;
+    if (flight < 9) {
+      var bx = -30 + flight * 60, by = 60 + Math.sin(flight) * 10;
+      g.strokeStyle = 'rgba(40,40,40,0.75)'; g.lineWidth = 1.2;
+      [[0, 0], [-8, -5], [-8, 5], [-16, -10], [-16, 10]].forEach(function (o, k) {
+        var flap = Math.sin(tt / 90 + k) * 1.6, x0 = bx + o[0], y0 = by + o[1];
+        g.beginPath(); g.moveTo(x0 - 3, y0 - flap); g.lineTo(x0, y0); g.lineTo(x0 + 3, y0 - flap); g.stroke();
+      });
+    }
     // cloud shadows drifting over everything
     if (!still) for (var k = 0; k < 2; k++) {
       var cx = ((t / 120 + k * 260) % (W + 200)) - 100;
@@ -372,41 +521,63 @@
   }
 
   // --- names and bubbles, at full resolution ---
+  // Names and bubbles keep the same size on screen whatever the zoom: they
+  // are positioned in world units, sized in screen pixels (u = one CSS px).
   function drawOverlay(t) {
-    var s = cam.scale;
+    var s = cam.scale, u = (window.devicePixelRatio || 1) / s;
     view.setTransform(s, 0, 0, s, -cam.x * s, -cam.y * s);
     view.textAlign = 'center';
     view.lineJoin = 'round'; // no miter spikes on outlined text
     actors.forEach(function (a) {
-      var name = a.p.name.length > 9 ? a.p.name.slice(0, 8) + '…' : a.p.name;
-      view.font = (a.p.you ? 'bold ' : '') + '7px sans-serif';
-      view.lineWidth = 2.5; view.strokeStyle = 'rgba(255,255,255,0.75)';
-      view.strokeText(name, a.pos.x, a.pos.y + 17);
-      view.fillStyle = '#2b2416'; view.fillText(name, a.pos.x, a.pos.y + 17);
+      var name = a.p.name.length > 12 ? a.p.name.slice(0, 11) + '…' : a.p.name;
+      view.font = (a.p.you ? 'bold ' : '') + (11 * u) + 'px sans-serif';
+      view.lineWidth = 3 * u; view.strokeStyle = 'rgba(255,255,255,0.8)';
+      view.strokeText(name, a.pos.x, a.pos.y + 9 + 11 * u);
+      view.fillStyle = '#2b2416'; view.fillText(name, a.pos.x, a.pos.y + 9 + 11 * u);
       if (a.p.you) {
-        var b = still ? 0 : Math.sin(t / 200) * 2;
+        var b = still ? 0 : Math.sin(t / 200) * 3 * u;
+        var top = a.pos.y - 15 - 12 * u + b;
         view.fillStyle = '#2f6f4f';
-        view.beginPath(); view.moveTo(a.pos.x - 4, a.pos.y - 22 + b); view.lineTo(a.pos.x + 4, a.pos.y - 22 + b); view.lineTo(a.pos.x, a.pos.y - 17 + b); view.fill();
+        view.beginPath(); view.moveTo(a.pos.x - 6 * u, top); view.lineTo(a.pos.x + 6 * u, top); view.lineTo(a.pos.x, top + 8 * u); view.fill();
       }
     });
     view.font = 'bold 8px Georgia, serif'; view.fillStyle = '#5b3a22'; view.fillText('ΛΥΔΙ', 240, 68);
+    view.font = '5px Georgia, serif'; view.fillStyle = '#f4ecda';
+    view.fillText('ΒΙΒΛΙΟΘΗΚΗ', 106, 61); view.fillText('ΘΗΣΑΥΡΟΣ', 374, 61);
+    // the rank of each block of tiers, engraved at its end
+    var ranks = (txt.ranks || '').split('|');
+    // (written along the tier, at its left end, so the blocks don't collide)
+    view.font = 'italic 6px Georgia, serif'; view.fillStyle = 'rgba(90,65,30,0.85)';
+    [[TIERS.r[0], 3], [TIERS.r[1], 2], [(TIERS.r[2] + TIERS.r[3]) / 2, 1], [(TIERS.r[4] + TIERS.r[5]) / 2, 0]].forEach(function (z) {
+      if (!ranks[z[1]]) return;
+      var a = TIERS.to - 0.02;
+      view.save();
+      view.translate(TIERS.cx + Math.cos(a) * z[0], TIERS.cy + Math.sin(a) * z[0]);
+      view.rotate(Math.atan2(Math.cos(a), -Math.sin(a)));
+      view.textAlign = 'left'; view.fillText(ranks[z[1]], 2, 2);
+      view.restore();
+    });
+    view.textAlign = 'center';
     view.font = '6px Georgia, serif'; view.fillStyle = '#4a3418'; view.fillText('ΣΑΡΔΕΙΣ', 289, 345);
     [guard].concat(actors).forEach(function (a) {
       if (!a.bubble || t > a.bubble.until) return;
-      view.font = '8px sans-serif';
-      var w = Math.min(view.measureText(a.bubble.text).width + 12, 220);
-      var x = Math.max(4, Math.min(W - w - 4, a.pos.x - w / 2)), y = a.pos.y - 40;
-      view.fillStyle = 'rgba(255,253,245,0.96)'; view.beginPath(); view.roundRect(x, y, w, 15, 5); view.fill();
-      view.strokeStyle = 'rgba(60,40,10,0.35)'; view.lineWidth = 0.8; view.stroke();
-      view.fillStyle = '#2b2416'; view.textAlign = 'left'; view.fillText(a.bubble.text, x + 6, y + 10.5, w - 12); view.textAlign = 'center';
+      view.font = (12 * u) + 'px sans-serif';
+      var pad = 8 * u, h = 22 * u;
+      var w = Math.min(view.measureText(a.bubble.text).width + 2 * pad, 300 * u);
+      var x = a.pos.x - w / 2, y = a.pos.y - 18 - h;
+      view.fillStyle = 'rgba(255,253,245,0.96)'; view.beginPath(); view.roundRect(x, y, w, h, 7 * u); view.fill();
+      view.strokeStyle = 'rgba(60,40,10,0.35)'; view.lineWidth = u; view.stroke();
+      view.beginPath(); view.moveTo(a.pos.x - 5 * u, y + h); view.lineTo(a.pos.x + 5 * u, y + h); view.lineTo(a.pos.x, y + h + 6 * u); view.fill();
+      view.fillStyle = '#2b2416'; view.textAlign = 'left'; view.fillText(a.bubble.text, x + pad, y + h * 0.68, w - 2 * pad); view.textAlign = 'center';
     });
   }
 
   function frame(t) {
     updateCamera(false);
-    var s = cam.scale;
+    var s = cam.scale, r = bgScale / s;
     view.setTransform(1, 0, 0, 1, 0, 0);
-    view.drawImage(bg, cam.x * s, cam.y * s, canvas.width, canvas.height, 0, 0, canvas.width, canvas.height);
+    view.fillStyle = '#6fa046'; view.fillRect(0, 0, canvas.width, canvas.height); // beyond the map's edges
+    view.drawImage(bg, cam.x * bgScale, cam.y * bgScale, canvas.width * r, canvas.height * r, 0, 0, canvas.width, canvas.height);
     view.setTransform(s, 0, 0, s, -cam.x * s, -cam.y * s);
     drawWorld(t);
     drawOverlay(t);
@@ -465,15 +636,31 @@
     if (!document.hidden) requestAnimationFrame(step);
   }
 
+  // The scenery is drawn at the current scale, capped so a big zoom on a
+  // big screen doesn't make a huge offscreen image.
+  function redrawScenery() {
+    var s = Math.min(cam.scale, 4096 / W);
+    bg.width = Math.ceil(W * s); bg.height = Math.ceil(H * s);
+    bgScale = s;
+    drawBackground();
+    if (still) frame(performance.now());
+  }
+  var resized = false;
+
   // The canvas takes its size from the page layout (the whole screen under
   // the top bar); the map is scaled to cover it.
   function resize() {
     var dpr = window.devicePixelRatio || 1;
     canvas.width = Math.round(canvas.clientWidth * dpr);
     canvas.height = Math.round(canvas.clientHeight * dpr);
-    cam.scale = Math.max(canvas.width / W, canvas.height / H);
-    bg.width = Math.ceil(W * cam.scale); bg.height = Math.ceil(H * cam.scale);
-    drawBackground();
+    // Zoomed in past "cover", so the map is wider AND taller than the
+    // screen: the camera (and a drag) can move every way to see it all.
+    cam.base = Math.max(canvas.width / W, canvas.height / H);
+    cam.zoomMin = Math.min(canvas.width / W, canvas.height / H) / cam.base;
+    if (!resized) cam.zoom = canvas.clientWidth < 700 ? 1.6 : 1.3;
+    resized = true;
+    cam.scale = cam.base * cam.zoom;
+    redrawScenery();
     updateCamera(true);
     frame(performance.now());
   }

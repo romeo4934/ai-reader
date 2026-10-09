@@ -11,11 +11,13 @@
     <figure class="agora-scene">
       <canvas id="agora-game" aria-label="{{.T.AgoraTitle}}"
         data-guard="{{.T.AgoraGuard}}" data-hello="χαῖρε !" data-guard-name="{{.T.AgoraGuardName}}"
-        data-days="{{.T.AgoraDays}}" data-speech="{{.T.AgoraSpeech}}" data-threshold="{{$d.Threshold}}"></canvas>
+        data-days="{{.T.AgoraDays}}" data-speech="{{.T.AgoraSpeech}}" data-ranks="{{.T.AgoraRank1}}|{{.T.AgoraRank2}}|{{.T.AgoraRank3}}|{{.T.AgoraRank4}}" data-threshold="{{$d.Threshold}}"></canvas>
 
       <div class="agora-hud">
         <button type="button" class="agora-pill" data-open="panel-registry">🏛️ {{if $d.Member}}{{$d.Rank}} · {{printf $t.AgoraDays $d.Days}}{{else}}Agora · {{$d.Days}} / {{$d.Threshold}}{{end}}</button>
         <span class="agora-hud-gap"></span>
+        <button type="button" class="agora-round" data-zoom="0.8" aria-label="−">−</button>
+        <button type="button" class="agora-round" data-zoom="1.25" aria-label="+">+</button>
         <button type="button" class="agora-round" data-open="panel-medal" aria-label="{{.T.AgoraAvatarTitle}}">🪙</button>
         <button type="button" class="agora-round" data-open="panel-intro" aria-label="{{.T.AgoraTitle}}">?</button>
       </div>
