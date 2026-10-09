@@ -1116,16 +1116,3 @@ func timeAgo(t *time.Time) string {
 	}
 }
 
-func highlightPhrase(context, phrase string) template.HTML {
-	if phrase == "" {
-		return template.HTML(template.HTMLEscapeString(context))
-	}
-	idx := strings.Index(context, phrase)
-	if idx < 0 {
-		return template.HTML(template.HTMLEscapeString(context))
-	}
-	before := template.HTMLEscapeString(context[:idx])
-	match := template.HTMLEscapeString(context[idx : idx+len(phrase)])
-	after := template.HTMLEscapeString(context[idx+len(phrase):])
-	return template.HTML(before + "<mark>" + match + "</mark>" + after)
-}

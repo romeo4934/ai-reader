@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/anthropics/anthropic-sdk-go"
@@ -158,7 +159,16 @@ input.`,
 	if err := json.Unmarshal([]byte(raw), &out); err != nil {
 		return RecallCard{}, fmt.Errorf("parse exercice : %w", err)
 	}
+	out.SentenceTranslation = trimStray(out.SentenceTranslation)
 	return out, nil
+}
+
+// strayTail is a letter or two glued after the sentence's final mark
+// ("antes de salir.A"), which the model now and then leaves behind.
+var strayTail = regexp.MustCompile(`([.!?…»”"])\pL{1,2}$`)
+
+func trimStray(s string) string {
+	return strayTail.ReplaceAllString(strings.TrimSpace(s), "$1")
 }
 
 var explainSchema = map[string]any{
