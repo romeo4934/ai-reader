@@ -172,6 +172,8 @@ func migrateUsersForEmail(db *sql.DB) error {
 		{"reminders", "INTEGER NOT NULL DEFAULT 1"},
 		{"last_reminder_day", "TEXT NOT NULL DEFAULT ''"},
 		{"theme", "TEXT NOT NULL DEFAULT ''"},
+		{"reading_mode", "TEXT NOT NULL DEFAULT ''"},
+		{"eink", "INTEGER NOT NULL DEFAULT 0"},
 	} {
 		if err := ensureColumn(db, "users", c.name, c.decl); err != nil {
 			return fmt.Errorf("migration users.%s : %w", c.name, err)
@@ -394,6 +396,12 @@ type User struct {
 	// Theme: "light" or "dark" when chosen in the settings, "" to follow
 	// the system.
 	Theme string
+	// ReadingMode: "scroll", "pages", or "" (auto: scroll on a phone,
+	// pages on a tablet).
+	ReadingMode string
+	// Eink: e-reader display mode (pure black on white, no animation,
+	// pages).
+	Eink bool
 }
 
 // Plans: "free" is bounded by the monthly translation quota; "unlimited"
@@ -403,12 +411,12 @@ const (
 	PlanUnlimited = "unlimited"
 )
 
-const userColumns = `id, username, password_hash, native_lang, created_at, COALESCE(email, ''), email_verified_at != '', plan, pending_email, daily_new_limit, display_name, bonus_quota, timezone, reminders, last_reminder_day, theme`
+const userColumns = `id, username, password_hash, native_lang, created_at, COALESCE(email, ''), email_verified_at != '', plan, pending_email, daily_new_limit, display_name, bonus_quota, timezone, reminders, last_reminder_day, theme, reading_mode, eink`
 
 func scanUser(row interface{ Scan(...any) error }) (User, error) {
 	var u User
 	var createdAt string
-	if err := row.Scan(&u.ID, &u.Username, &u.PasswordHash, &u.NativeLang, &createdAt, &u.Email, &u.EmailVerified, &u.Plan, &u.PendingEmail, &u.DailyNewLimit, &u.DisplayName, &u.BonusQuota, &u.Timezone, &u.Reminders, &u.LastReminderDay, &u.Theme); err != nil {
+	if err := row.Scan(&u.ID, &u.Username, &u.PasswordHash, &u.NativeLang, &createdAt, &u.Email, &u.EmailVerified, &u.Plan, &u.PendingEmail, &u.DailyNewLimit, &u.DisplayName, &u.BonusQuota, &u.Timezone, &u.Reminders, &u.LastReminderDay, &u.Theme, &u.ReadingMode, &u.Eink); err != nil {
 		return User{}, err
 	}
 	u.CreatedAt, _ = time.Parse(timeLayout, createdAt)
@@ -508,6 +516,11 @@ func (s *Store) SetPasswordHash(userID int64, hash string) error {
 
 func (s *Store) SetUserNativeLang(userID int64, lang string) error {
 	_, err := s.db.Exec(`UPDATE users SET native_lang = ? WHERE id = ?`, lang, userID)
+	return err
+}
+
+func (s *Store) SetReadingPrefs(userID int64, mode string, eink bool) error {
+	_, err := s.db.Exec(`UPDATE users SET reading_mode = ?, eink = ? WHERE id = ?`, mode, eink, userID)
 	return err
 }
 

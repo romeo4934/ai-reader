@@ -267,8 +267,11 @@ type pageData struct {
 	LoggedIn bool
 	IsAdmin  bool
 	Theme    string // "light" / "dark" chosen by the user, "" = system
-	T        i18n.Dict
-	Data     any
+	Eink     bool
+	// Reading: the reading mode, "scroll", "pages" or "" (auto).
+	Reading string
+	T       i18n.Dict
+	Data    any
 }
 
 // dictFor resolves the UI language to use for this request: the logged-in
@@ -307,6 +310,12 @@ func (s *Server) renderDict(w http.ResponseWriter, r *http.Request, T i18n.Dict,
 		pd.LoggedIn = true
 		pd.IsAdmin = s.isAdmin(user)
 		pd.Theme = user.Theme
+		pd.Eink = user.Eink
+		pd.Reading = user.ReadingMode
+		if user.Eink {
+			// E-ink: always pure black on white, turning pages.
+			pd.Theme, pd.Reading = "light", "pages"
+		}
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := s.tmpl.ExecuteTemplate(w, name, pd); err != nil {
@@ -808,7 +817,7 @@ func (s *Server) handleSettingsGet(w http.ResponseWriter, r *http.Request) {
 		NativeLang: native, Username: user.Username, Usage: usage,
 		DailyNewLimit: dailyNewLimit(user), DailyNewLimits: DailyNewLimits,
 		DisplayName: user.DisplayName, PublicName: publicName(user.ID, user.Username, user.DisplayName),
-		Reminders: user.Reminders, Theme: user.Theme,
+		Reminders: user.Reminders, Theme: user.Theme, ReadingMode: user.ReadingMode, Eink: user.Eink,
 		Email: user.Email, PendingEmail: user.PendingEmail, Message: r.URL.Query().Get("msg"),
 	})
 }
@@ -827,6 +836,8 @@ type settingsView struct {
 	PublicName     string // what others see when DisplayName is empty
 	Reminders      bool
 	Theme          string
+	ReadingMode    string
+	Eink           bool
 }
 
 func (s *Server) handleSettingsPost(w http.ResponseWriter, r *http.Request) {
@@ -842,6 +853,12 @@ func (s *Server) handleSettingsPost(w http.ResponseWriter, r *http.Request) {
 	if err := s.store.SetUserNativeLang(user.ID, native); err != nil {
 		s.fail(w, http.StatusInternalServerError, err)
 		return
+	}
+	if mode := r.FormValue("reading_mode"); mode == "" || mode == "scroll" || mode == "pages" {
+		if err := s.store.SetReadingPrefs(user.ID, mode, r.FormValue("eink") == "1"); err != nil {
+			s.fail(w, http.StatusInternalServerError, err)
+			return
+		}
 	}
 	if theme := r.FormValue("theme"); theme == "" || theme == "light" || theme == "dark" {
 		if err := s.store.SetTheme(user.ID, theme); err != nil {
@@ -877,6 +894,8 @@ type translateRequest struct {
 	ChapterID int64  `json:"chapter_id"`
 	Phrase    string `json:"phrase"`
 	Context   string `json:"context"`
+	// Sentence: the sentence of Context the phrase was tapped in.
+	Sentence string `json:"sentence"`
 }
 
 type translateResponse struct {
@@ -939,6 +958,7 @@ func (s *Server) handleAPITranslate(w http.ResponseWriter, r *http.Request) {
 		NativeLang:   native,
 		Context:      req.Context,
 		Phrase:       phrase,
+		Sentence:     strings.TrimSpace(req.Sentence),
 	})
 	if err != nil {
 		if errors.Is(err, ai.ErrNoKey) {

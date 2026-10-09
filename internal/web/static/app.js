@@ -8,6 +8,7 @@
   var elLoading = document.getElementById('tp-loading');
   var elError = document.getElementById('tp-error');
   var elSentence = document.getElementById('tp-sentence');
+  var elOriginal = document.getElementById('tp-original');
   var elClose = document.getElementById('tp-close');
 
   var bookID = chapterEl.dataset.bookId;
@@ -23,6 +24,27 @@
     elLoading.hidden = true;
     elError.hidden = true;
     elSentence.hidden = true;
+    elOriginal.hidden = true;
+  }
+
+  // --- reading mode ---
+  // "pages": the section is laid out in screen-sized columns, turned by
+  // tapping the edges (or swiping, or the arrow keys) — what an e-ink
+  // screen needs, where scrolling smears. "scroll": the page scrolls.
+  // Auto (no setting): pages on a tablet, scroll on a phone.
+  var reading = chapterEl.dataset.reading;
+  function isPaged() {
+    if (reading === 'pages') return true;
+    if (reading === 'scroll') return false;
+    return Math.min(window.screen.width, window.screen.height) >= 600 && window.innerWidth >= 600;
+  }
+  var paged = isPaged();
+
+  // On a phone, or turning pages, the translation opens in a panel along
+  // the bottom (or top) edge instead of a bubble next to the word: there's
+  // no room for a bubble, and a panel never hides the word.
+  function useSheet() {
+    return paged || window.innerWidth < 700;
   }
 
   // Renders `sentence` as text, with the exact substring `highlight` (if it
@@ -59,6 +81,16 @@
   // hid "précédent/suivant" underneath).
   function positionPopover(rect) {
     if (!rect) return;
+    if (useSheet()) {
+      popover.classList.add('sheet');
+      // Opposite edge from the word, so the panel never covers it.
+      var low = rect.top + rect.height / 2 > window.innerHeight * 0.55;
+      popover.classList.toggle('sheet-top', low);
+      popover.style.left = '';
+      popover.style.top = '';
+      return;
+    }
+    popover.classList.remove('sheet', 'sheet-top');
     var margin = 12;
     var w = popover.offsetWidth;
     var h = popover.offsetHeight;
@@ -187,7 +219,7 @@
       var bounds = sentenceBounds(context, word.start, word.end);
       highlightSentence(paraEl, word.start, word.end, bounds);
 
-      openPopoverFor(text, context, rect);
+      openPopoverFor(text, context, rect, originalOf(context, word, bounds));
     }, SETTLE_MS);
   });
 
@@ -232,16 +264,29 @@
     var markEl = hit.paraEl.querySelector('.word-highlight');
     var rect = markEl ? markEl.getBoundingClientRect() : hit.paraEl.getBoundingClientRect();
 
-    openPopoverFor(text, hit.context, rect);
+    openPopoverFor(text, hit.context, rect, originalOf(hit.context, word, bounds));
   });
+
+  // The sentence as it is in the book, with the looked-up word in it — shown
+  // above its translation, so both read side by side.
+  function originalOf(text, word, bounds) {
+    return {
+      sentence: text.slice(bounds.start, bounds.end).trim(),
+      word: text.slice(word.start, word.end).trim(),
+    };
+  }
 
   var requestSeq = 0;
 
-  function openPopoverFor(phrase, context, rect) {
+  function openPopoverFor(phrase, context, rect, original) {
     var myReq = ++requestSeq;
     resetPopoverBody();
     popover.hidden = false;
     elLoading.hidden = false;
+    if (original && original.sentence) {
+      renderSentence(elOriginal, original.sentence, original.word);
+      elOriginal.hidden = false;
+    }
     positionPopover(rect);
 
     fetch('/api/translate', {
@@ -252,6 +297,7 @@
         chapter_id: Number(chapterID),
         phrase: phrase,
         context: context,
+        sentence: original ? original.sentence : '',
       }),
     })
       .then(function (res) {
@@ -280,4 +326,98 @@
   }
 
   elClose.addEventListener('click', closePopover);
+
+  // --- pages ---
+  if (paged) setupPages();
+
+  function setupPages() {
+    document.documentElement.classList.add('paged');
+    var GAP = 48;
+    var EDGE = 0.15; // a tap this close to the left/right edge turns the page
+    var page = 0, pages = 1;
+    var navEl = document.querySelector('.chapter-nav');
+    var indicator = document.querySelector('.page-indicator');
+    var baseIndicator = indicator ? indicator.textContent : '';
+    var prevLink = document.querySelector('[data-step="prev"]');
+    var nextLink = document.querySelector('[data-step="next"]');
+
+    function stride() { return chapterEl.clientWidth + GAP; }
+
+    // One column per screen: the column is as wide as the text area and as
+    // tall as what's left between the header and the nav.
+    function layout() {
+      var top = chapterEl.getBoundingClientRect().top;
+      var navH = navEl ? navEl.offsetHeight + 24 : 24;
+      chapterEl.style.height = Math.max(200, window.innerHeight - top - navH) + 'px';
+      chapterEl.style.columnWidth = chapterEl.clientWidth + 'px';
+      chapterEl.style.columnGap = GAP + 'px';
+      pages = Math.max(1, Math.round((chapterEl.scrollWidth + GAP) / stride()));
+      go(Math.min(page, pages - 1));
+    }
+
+    function go(n) {
+      page = n;
+      chapterEl.scrollLeft = n * stride();
+      if (indicator) indicator.textContent = baseIndicator + (pages > 1 ? ' · ' + (n + 1) + '/' + pages : '');
+    }
+
+    // Past the last page: the next section (or chapter); before the first:
+    // the previous one, opened on its last page.
+    function next() {
+      closePopover();
+      if (page < pages - 1) go(page + 1);
+      else if (nextLink) window.location = nextLink.href;
+    }
+    function prev() {
+      closePopover();
+      if (page > 0) go(page - 1);
+      else if (prevLink) window.location = prevLink.href + '&pg=last';
+    }
+
+    if (nextLink) nextLink.addEventListener('click', function (e) { e.preventDefault(); next(); });
+    if (prevLink) prevLink.addEventListener('click', function (e) { e.preventDefault(); prev(); });
+
+    // Edge taps turn the page; taps anywhere else still translate (the
+    // word-tap handler runs after this one, which stops it for edge taps).
+    // Judged by position, not target: past the end of a short last page
+    // there's no text under the finger, only the page itself.
+    document.addEventListener('click', function (e) {
+      if (popover.contains(e.target) || (navEl && navEl.contains(e.target))) return;
+      var r = chapterEl.getBoundingClientRect();
+      if (e.clientY < r.top || e.clientY > r.bottom) return;
+      var x = (e.clientX - r.left) / r.width;
+      if (x < EDGE) { e.stopPropagation(); e.preventDefault(); prev(); }
+      else if (x > 1 - EDGE) { e.stopPropagation(); e.preventDefault(); next(); }
+    }, true);
+
+    var touch = null;
+    chapterEl.addEventListener('touchstart', function (e) {
+      var t = e.changedTouches[0];
+      touch = { x: t.clientX, y: t.clientY, at: Date.now() };
+    }, { passive: true });
+    chapterEl.addEventListener('touchend', function (e) {
+      if (!touch) return;
+      var t = e.changedTouches[0];
+      var dx = t.clientX - touch.x, dy = t.clientY - touch.y;
+      var quick = Date.now() - touch.at < 600;
+      touch = null;
+      var sel = window.getSelection();
+      if (!quick || Math.abs(dx) < 50 || Math.abs(dy) > 40 || (sel && !sel.isCollapsed)) return;
+      if (dx < 0) next(); else prev();
+    }, { passive: true });
+
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ' ') { e.preventDefault(); next(); }
+      else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); prev(); }
+    });
+
+    var resizeTimer = null;
+    window.addEventListener('resize', function () {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(layout, 150);
+    });
+
+    layout();
+    if (/[?&]pg=last\b/.test(window.location.search)) go(pages - 1);
+  }
 })();

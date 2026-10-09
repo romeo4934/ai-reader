@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="{{.T.LangCode}}"{{if .Theme}} data-theme="{{.Theme}}"{{end}}>
+<html lang="{{.T.LangCode}}"{{if .Theme}} data-theme="{{.Theme}}"{{end}}{{if .Eink}} data-eink{{end}}>
 <head>
   <title>{{.Title}}</title>
   {{template "head" .}}
@@ -36,6 +36,15 @@
         <option value="light"{{if eq .Data.Theme "light"}} selected{{end}}>{{.T.SettingsThemeLight}}</option>
         <option value="dark"{{if eq .Data.Theme "dark"}} selected{{end}}>{{.T.SettingsThemeDark}}</option>
       </select>
+
+      <label for="reading_mode">{{.T.SettingsReadingLabel}}</label>
+      <select id="reading_mode" name="reading_mode">
+        <option value=""{{if eq .Data.ReadingMode ""}} selected{{end}}>{{.T.SettingsReadingAuto}}</option>
+        <option value="scroll"{{if eq .Data.ReadingMode "scroll"}} selected{{end}}>{{.T.SettingsReadingScroll}}</option>
+        <option value="pages"{{if eq .Data.ReadingMode "pages"}} selected{{end}}>{{.T.SettingsReadingPages}}</option>
+      </select>
+      <label class="check-row"><input type="checkbox" name="eink" value="1"{{if .Data.Eink}} checked{{end}}> {{.T.SettingsEinkLabel}}</label>
+      <p class="hint">{{.T.SettingsEinkHint}}</p>
 
       <label for="daily_new_limit">{{.T.SettingsDailyNewLabel}}</label>
       <select id="daily_new_limit" name="daily_new_limit">

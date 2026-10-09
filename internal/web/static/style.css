@@ -573,3 +573,42 @@ details[open] .word-row::after { content: '⌄'; }
 .deck-tabs { margin: -0.4rem 0 1.2rem; }
 .tab-count { display: inline-block; min-width: 1.3em; padding: 0 0.35em; border-radius: 999px; background: var(--border); color: var(--fg); font-size: 0.8em; text-align: center; }
 .lb-tabs a.active .tab-count { background: var(--accent-fg); color: var(--accent); }
+
+/* Translation as a panel along the bottom (or top) edge: on phones, and
+   when turning pages. */
+.popover.sheet {
+  left: 0; right: 0; bottom: 0; top: auto;
+  width: auto;
+  max-height: 45vh;
+  border-radius: 16px 16px 0 0;
+  border-width: 1px 0 0;
+  padding: 1rem 1.2rem calc(1rem + env(safe-area-inset-bottom));
+}
+.popover.sheet.sheet-top {
+  top: 0; bottom: auto;
+  border-radius: 0 0 16px 16px;
+  border-width: 0 0 1px;
+  padding: calc(1rem + env(safe-area-inset-top)) 1.2rem 1rem;
+}
+.tp-original { font-family: Georgia, serif; font-size: 1.05rem; line-height: 1.5; padding-right: 1.5rem; margin-bottom: 0.6rem; }
+.tp-original + .tp-sentence, .tp-original + .tp-loading { padding-top: 0.6rem; border-top: 1px solid var(--border); }
+
+/* Pages mode: the section laid out in one screen-sized column per page. */
+.paged body { overflow: hidden; }
+.paged .chapter {
+  padding: 0;
+  overflow: hidden;
+  column-fill: auto;
+}
+.paged .chapter .para { break-inside: auto; }
+.paged .chapter-nav { margin-top: 0.8rem; }
+
+/* E-ink: pure black on white, no motion, larger targets. */
+[data-eink] {
+  --fg: #000; --bg: #fff; --muted: #222; --card-bg: #fff; --border: #000;
+  --accent: #000; --accent-fg: #fff; --mark: #d0d0d0; --mark-sentence: #ececec; --danger: #000;
+}
+[data-eink] *, [data-eink] *::before, [data-eink] *::after { transition: none !important; animation: none !important; box-shadow: none !important; }
+[data-eink] .chapter { font-size: 1.3rem; line-height: 1.7; }
+[data-eink] .btn, [data-eink] .btn-icon { min-height: 48px; min-width: 48px; border-width: 2px; }
+[data-eink] .popover { border: 2px solid #000; }

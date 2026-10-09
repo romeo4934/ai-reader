@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="{{.T.LangCode}}"{{if .Theme}} data-theme="{{.Theme}}"{{end}}>
+<html lang="{{.T.LangCode}}"{{if .Theme}} data-theme="{{.Theme}}"{{end}}{{if .Eink}} data-eink{{end}}>
 <head>
   <title>{{.Title}}</title>
   {{template "head" .}}

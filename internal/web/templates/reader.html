@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="{{.T.LangCode}}"{{if .Theme}} data-theme="{{.Theme}}"{{end}}>
+<html lang="{{.T.LangCode}}"{{if .Theme}} data-theme="{{.Theme}}"{{end}}{{if .Eink}} data-eink{{end}}>
 <head>
   <title>{{.Title}}</title>
   {{template "head" .}}
@@ -14,7 +14,7 @@
       <span class="chapter-label">{{.Data.Chapter.Title}}</span>
     </header>
 
-    <article id="chapter" class="chapter"
+    <article id="chapter" class="chapter" data-reading="{{.Reading}}"
       data-book-id="{{.Data.Book.ID}}"
       data-chapter-id="{{.Data.Chapter.ID}}">
       {{range .Data.Paragraphs}}
@@ -27,15 +27,15 @@
         <a href="/books/{{.Data.Book.ID}}?ch={{sub .Data.ChapterIdx 1}}" class="btn btn-icon" aria-label="{{.T.ReaderPrevChapter}}">«</a>
       {{else}}<span></span>{{end}}
       {{if .Data.HasPrevSection}}
-        <a href="/books/{{.Data.Book.ID}}?ch={{.Data.ChapterIdx}}&sec={{sub .Data.SectionIdx 1}}" class="btn btn-icon" aria-label="{{.T.ReaderPrev}}">‹</a>
+        <a href="/books/{{.Data.Book.ID}}?ch={{.Data.ChapterIdx}}&sec={{sub .Data.SectionIdx 1}}" class="btn btn-icon" data-step="prev" aria-label="{{.T.ReaderPrev}}">‹</a>
       {{else if .Data.HasPrev}}
-        <a href="/books/{{.Data.Book.ID}}?ch={{sub .Data.ChapterIdx 1}}&enter=end" class="btn btn-icon" aria-label="{{.T.ReaderPrev}}">‹</a>
+        <a href="/books/{{.Data.Book.ID}}?ch={{sub .Data.ChapterIdx 1}}&enter=end" class="btn btn-icon" data-step="prev" aria-label="{{.T.ReaderPrev}}">‹</a>
       {{else}}<span></span>{{end}}
       <span class="page-indicator">{{add .Data.SectionIdx 1}} / {{.Data.SectionCount}}</span>
       {{if .Data.HasNextSection}}
-        <a href="/books/{{.Data.Book.ID}}?ch={{.Data.ChapterIdx}}&sec={{add .Data.SectionIdx 1}}" class="btn btn-icon" aria-label="{{.T.ReaderNext}}">›</a>
+        <a href="/books/{{.Data.Book.ID}}?ch={{.Data.ChapterIdx}}&sec={{add .Data.SectionIdx 1}}" class="btn btn-icon" data-step="next" aria-label="{{.T.ReaderNext}}">›</a>
       {{else if .Data.HasNext}}
-        <a href="/books/{{.Data.Book.ID}}?ch={{add .Data.ChapterIdx 1}}" class="btn btn-icon" aria-label="{{.T.ReaderNext}}">›</a>
+        <a href="/books/{{.Data.Book.ID}}?ch={{add .Data.ChapterIdx 1}}" class="btn btn-icon" data-step="next" aria-label="{{.T.ReaderNext}}">›</a>
       {{else}}<span></span>{{end}}
       {{if .Data.HasNext}}
         <a href="/books/{{.Data.Book.ID}}?ch={{add .Data.ChapterIdx 1}}" class="btn btn-icon" aria-label="{{.T.ReaderNextChapter}}">»</a>
@@ -46,6 +46,7 @@
   <div id="translate-popover" class="popover" hidden>
     <div id="tp-loading" class="tp-loading" hidden>{{.T.ReaderTranslating}}</div>
     <div id="tp-error" class="tp-error" hidden></div>
+    <div class="tp-original" id="tp-original" hidden></div>
     <div class="tp-sentence" id="tp-sentence" hidden></div>
     <button id="tp-close" type="button" class="tp-close" aria-label="{{.T.ReaderClose}}">×</button>
   </div>
