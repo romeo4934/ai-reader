@@ -3,6 +3,9 @@ package i18n
 // The evening reminder email and its setting.
 var reminderStrings = map[string]Dict{
 	"en": {
+		"ReviewLangDone":            "Done in %s for today 🎉",
+		"ReviewLangElsewhere":       "You still have %d cards in %s.",
+		"ReviewLangGo":              "Continue in %s →",
 		"SettingsThemeLabel":        "Appearance",
 		"SettingsThemeAuto":         "Automatic (like my device)",
 		"SettingsThemeLight":        "Light",
@@ -17,6 +20,9 @@ var reminderStrings = map[string]Dict{
 		"SettingsRemindersHint":     "An email around 7 pm if today's challenge isn't done yet.",
 	},
 	"fr": {
+		"ReviewLangDone":            "Fini en %s pour aujourd'hui 🎉",
+		"ReviewLangElsewhere":       "Il te reste %d cartes en %s.",
+		"ReviewLangGo":              "Continuer en %s →",
 		"SettingsThemeLabel":        "Apparence",
 		"SettingsThemeAuto":         "Automatique (comme mon appareil)",
 		"SettingsThemeLight":        "Clair",
@@ -31,6 +37,9 @@ var reminderStrings = map[string]Dict{
 		"SettingsRemindersHint":     "Un email vers 19 h si ton défi du jour n'est pas encore fait.",
 	},
 	"es": {
+		"ReviewLangDone":            "¡Terminado en %s por hoy! 🎉",
+		"ReviewLangElsewhere":       "Te quedan %d tarjetas en %s.",
+		"ReviewLangGo":              "Seguir en %s →",
 		"SettingsThemeLabel":        "Apariencia",
 		"SettingsThemeAuto":         "Automática (como mi dispositivo)",
 		"SettingsThemeLight":        "Clara",
@@ -45,6 +54,9 @@ var reminderStrings = map[string]Dict{
 		"SettingsRemindersHint":     "Un email hacia las 19 h si aún no has hecho el reto del día.",
 	},
 	"pt": {
+		"ReviewLangDone":            "Concluído em %s por hoje 🎉",
+		"ReviewLangElsewhere":       "Ainda faltam %d cartões em %s.",
+		"ReviewLangGo":              "Continuar em %s →",
 		"SettingsThemeLabel":        "Aparência",
 		"SettingsThemeAuto":         "Automática (como meu aparelho)",
 		"SettingsThemeLight":        "Clara",
@@ -59,6 +71,9 @@ var reminderStrings = map[string]Dict{
 		"SettingsRemindersHint":     "Um email por volta das 19 h se o desafio do dia ainda não estiver feito.",
 	},
 	"it": {
+		"ReviewLangDone":            "Finito in %s per oggi 🎉",
+		"ReviewLangElsewhere":       "Ti restano %d carte in %s.",
+		"ReviewLangGo":              "Continua in %s →",
 		"SettingsThemeLabel":        "Aspetto",
 		"SettingsThemeAuto":         "Automatico (come il mio dispositivo)",
 		"SettingsThemeLight":        "Chiaro",
@@ -73,6 +88,9 @@ var reminderStrings = map[string]Dict{
 		"SettingsRemindersHint":     "Un'email verso le 19 se la sfida del giorno non è ancora fatta.",
 	},
 	"de": {
+		"ReviewLangDone":            "%s für heute geschafft 🎉",
+		"ReviewLangElsewhere":       "Du hast noch %d Karten in %s.",
+		"ReviewLangGo":              "Weiter mit %s →",
 		"SettingsThemeLabel":        "Darstellung",
 		"SettingsThemeAuto":         "Automatisch (wie mein Gerät)",
 		"SettingsThemeLight":        "Hell",
@@ -87,6 +105,9 @@ var reminderStrings = map[string]Dict{
 		"SettingsRemindersHint":     "Eine E-Mail gegen 19 Uhr, wenn dein Tagesziel noch offen ist.",
 	},
 	"nl": {
+		"ReviewLangDone":            "Klaar met %s voor vandaag 🎉",
+		"ReviewLangElsewhere":       "Je hebt nog %d kaarten in %s.",
+		"ReviewLangGo":              "Verder met %s →",
 		"SettingsThemeLabel":        "Weergave",
 		"SettingsThemeAuto":         "Automatisch (zoals mijn apparaat)",
 		"SettingsThemeLight":        "Licht",

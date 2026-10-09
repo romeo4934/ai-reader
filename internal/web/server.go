@@ -299,11 +299,11 @@ func (s *Server) renderDict(w http.ResponseWriter, r *http.Request, T i18n.Dict,
 	if user := userFromContext(r); user != nil {
 		// The badge is what's left of today's challenge, not the raw due
 		// count: new cards beyond the daily limit aren't today's job.
-		daily, err := s.dailyState(user, time.Now().In(userLocation(r)))
+		daily, err := s.dailyState(user, time.Now().In(userLocation(r)), "")
 		if err != nil {
 			s.log.Error("daily state", "err", err)
 		}
-		pd.DueCount = daily.Remaining
+		pd.DueCount = daily.AllRemaining
 		pd.LoggedIn = true
 		pd.IsAdmin = s.isAdmin(user)
 		pd.Theme = user.Theme
@@ -475,9 +475,21 @@ func (s *Server) handleReader(w http.ResponseWriter, r *http.Request) {
 
 // --- review ---
 
+// deckTab is a language tab on /review and /words.
+type deckTab struct {
+	Lang, Name string
+	Active     bool
+	Left       int // cards left today (review tabs)
+}
+
 type reviewView struct {
-	Daily  dailyState
-	Streak int
+	Tabs     []deckTab
+	LangName string
+	// LangDone: nothing left in this language today, but Elsewhere has.
+	LangDone  bool
+	Elsewhere *deckTab
+	Daily     dailyState
+	Streak    int
 	// StreakText is empty while there's no streak to show.
 	StreakText string
 	// Finished: nothing left today in a non-empty deck — the challenge is done.
@@ -496,14 +508,34 @@ func (s *Server) handleReviewPage(w http.ResponseWriter, r *http.Request) {
 	user := userFromContext(r)
 	T := s.dictFor(r)
 	now := time.Now().In(userLocation(r))
-	daily, err := s.dailyState(user, now)
+	langs, err := s.store.VocabLangs(user.ID)
+	if err != nil {
+		s.fail(w, http.StatusInternalServerError, err)
+		return
+	}
+	lang := deckLang(w, r, langs)
+	daily, err := s.dailyState(user, now, lang)
 	if err != nil {
 		s.fail(w, http.StatusInternalServerError, err)
 		return
 	}
 	view := reviewView{Daily: daily}
+	if lang != "" {
+		for _, l := range langs {
+			tab := deckTab{Lang: l, Name: langName(l), Active: l == lang}
+			if st, err := s.dailyState(user, now, l); err == nil {
+				tab.Left = st.Remaining
+			}
+			view.Tabs = append(view.Tabs, tab)
+			if l != lang && tab.Left > 0 && view.Elsewhere == nil {
+				t := tab
+				view.Elsewhere = &t
+			}
+		}
+		view.LangName = langName(lang)
+	}
 	if daily.Remaining > 0 {
-		cards, err := s.store.NextDailyCards(user.ID, now.UTC(), dayStart(now), daily.NewLeft > 0, 1+recallPrefetch)
+		cards, err := s.store.NextDailyCards(user.ID, now.UTC(), dayStart(now), lang, daily.NewLeft > 0, 1+recallPrefetch)
 		if err != nil {
 			s.fail(w, http.StatusInternalServerError, err)
 			return
@@ -518,7 +550,11 @@ func (s *Server) handleReviewPage(w http.ResponseWriter, r *http.Request) {
 			view.Recall = s.recallCardFor(r.Context(), user, view.Card)
 		}
 	}
-	if view.Card == nil && daily.DeckSize > 0 {
+	if view.Card == nil && daily.DeckSize > 0 && daily.AllRemaining > 0 && view.Elsewhere != nil {
+		// This language is done, another still has cards: point there
+		// instead of celebrating a challenge that isn't finished.
+		view.LangDone = true
+	} else if view.Card == nil && daily.DeckSize > 0 {
 		// Also counts a day with nothing due: the reader showed up, and
 		// having nothing to do isn't a reason to lose the streak.
 		view.Finished = true
@@ -617,7 +653,13 @@ func (s *Server) handleReviewAnswer(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleWords(w http.ResponseWriter, r *http.Request) {
 	user := userFromContext(r)
-	words, err := s.store.ListVocab(user.ID)
+	langs, err := s.store.VocabLangs(user.ID)
+	if err != nil {
+		s.fail(w, http.StatusInternalServerError, err)
+		return
+	}
+	lang := deckLang(w, r, langs)
+	words, err := s.store.ListVocab(user.ID, lang)
 	if err != nil {
 		s.fail(w, http.StatusInternalServerError, err)
 		return
@@ -628,7 +670,12 @@ func (s *Server) handleWords(w http.ResponseWriter, r *http.Request) {
 		s.log.Error("total points", "err", err)
 	}
 	view := wordsView{Words: words, Groups: groupByFrequency(T, words)}
-	if waiting, learning, known, err := s.store.VocabProgress(user.ID); err != nil {
+	if lang != "" {
+		for _, l := range langs {
+			view.Tabs = append(view.Tabs, deckTab{Lang: l, Name: langName(l), Active: l == lang})
+		}
+	}
+	if waiting, learning, known, err := s.store.VocabProgress(user.ID, lang); err != nil {
 		s.log.Error("vocab progress", "err", err)
 	} else if n := waiting + learning + known; n > 0 {
 		view.Progress = &wordsProgress{
@@ -645,6 +692,7 @@ func (s *Server) handleWords(w http.ResponseWriter, r *http.Request) {
 }
 
 type wordsView struct {
+	Tabs     []deckTab
 	Words    []store.Vocab
 	Groups   []wordGroup
 	Points   string // empty until the first point is earned

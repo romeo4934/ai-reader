@@ -63,7 +63,7 @@ func (s *Server) maybeRemind(ctx context.Context, user *store.User, now time.Tim
 	if local.Hour() < reminderHour || user.LastReminderDay == today {
 		return
 	}
-	daily, err := s.dailyState(user, local)
+	daily, err := s.dailyState(user, local, "")
 	if err != nil {
 		s.log.Error("rappels : état du jour", "user", user.ID, "err", err)
 		return

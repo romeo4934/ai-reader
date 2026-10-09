@@ -3,6 +3,7 @@ package web
 import (
 	"fmt"
 	"net/http"
+	"slices"
 	"time"
 
 	"github.com/romeo4934/ai-reader/internal/i18n"
@@ -50,41 +51,56 @@ func dailyNewLimit(u *store.User) int {
 }
 
 type dailyState struct {
-	Day        string
-	Done       int // cards answered today
-	Remaining  int // due reviews + new cards still allowed today
-	Total      int // Done + Remaining
-	Percent    int
-	NewLeft    int // new cards still allowed today
-	NewWaiting int // new cards beyond today's allowance
-	DeckSize   int
-	Limit      int
-	MoreCount  int // what "add more new words" would pull in
-	Points     int // earned today
-	Fragile    int
+	Day       string
+	Done      int // cards answered today
+	Remaining int // due reviews + new cards still allowed today (in the scoped language)
+	// AllRemaining is Remaining across all languages: what's left of the
+	// day's challenge.
+	AllRemaining int
+	Total        int // Done + Remaining
+	Percent      int
+	NewLeft      int // new cards still allowed today
+	NewWaiting   int // new cards beyond today's allowance
+	DeckSize     int
+	Limit        int
+	MoreCount    int // what "add more new words" would pull in
+	Points       int // earned today
+	Fragile      int
 	// NewPaused: new words are waiting but held back by fragileCap.
 	NewPaused bool
 }
 
-func (s *Server) dailyState(user *store.User, now time.Time) (dailyState, error) {
+// dailyState is today's challenge. The challenge is one for all languages
+// (one streak); lang != "" scopes Remaining, NewLeft and NewWaiting to
+// that language's words, for its review tab, while Done, Total and Percent
+// stay the whole day's.
+func (s *Server) dailyState(user *store.User, now time.Time, lang string) (dailyState, error) {
 	st := dailyState{Day: dayKey(now), Limit: dailyNewLimit(user)}
 	act, err := s.store.GetDailyActivity(user.ID, st.Day)
 	if err != nil {
 		return st, err
 	}
-	deck, err := s.store.DeckCounts(user.ID, now.UTC())
+	deck, err := s.store.DeckCounts(user.ID, now.UTC(), "")
 	if err != nil {
 		return st, err
 	}
+	scoped := deck
+	if lang != "" {
+		if scoped, err = s.store.DeckCounts(user.ID, now.UTC(), lang); err != nil {
+			return st, err
+		}
+	}
 	allowed := max(0, st.Limit+act.ExtraNew-act.NewCards)
 	room := max(0, fragilePerNew*st.Limit-deck.Fragile)
-	st.NewLeft = min(allowed, deck.New, room)
-	st.NewWaiting = deck.New - st.NewLeft
+	allNewLeft := min(allowed, deck.New, room)
+	st.NewLeft = min(allowed, scoped.New, room)
+	st.NewWaiting = scoped.New - st.NewLeft
 	st.Fragile = deck.Fragile
 	st.Done = act.Reviews
 	st.Points = act.Points
-	st.Remaining = deck.DueReviews + st.NewLeft
-	st.Total = st.Done + st.Remaining
+	st.Remaining = scoped.DueReviews + st.NewLeft
+	st.AllRemaining = deck.DueReviews + allNewLeft
+	st.Total = st.Done + st.AllRemaining
 	st.DeckSize = deck.Total
 	st.MoreCount = min(st.Limit, st.NewWaiting, room-st.NewLeft)
 	st.NewPaused = st.NewWaiting > 0 && room-st.NewLeft <= 0
@@ -199,4 +215,25 @@ func nextReview(card store.Vocab, result srs.Result, now time.Time) (box int, ne
 		return 1, now.UTC().AddDate(0, 0, 1)
 	}
 	return box, next
+}
+
+// deckLangCookie remembers the language tab picked on /review and /words.
+const deckLangCookie = "deck_lang"
+
+// deckLang picks which language's words /review and /words show, when the
+// reader learns more than one: the one asked for (remembered), else the
+// remembered one, else the first in langs. "" when there's only one
+// language — no tabs, no filter.
+func deckLang(w http.ResponseWriter, r *http.Request, langs []string) string {
+	if len(langs) < 2 {
+		return ""
+	}
+	if q := r.URL.Query().Get("lang"); slices.Contains(langs, q) {
+		http.SetCookie(w, &http.Cookie{Name: deckLangCookie, Value: q, Path: "/", MaxAge: 365 * 24 * 3600, SameSite: http.SameSiteLaxMode})
+		return q
+	}
+	if c, err := r.Cookie(deckLangCookie); err == nil && slices.Contains(langs, c.Value) {
+		return c.Value
+	}
+	return langs[0]
 }

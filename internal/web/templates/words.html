@@ -9,6 +9,11 @@
 
   <main class="page">
     <h1>{{.T.WordsTitle}}</h1>
+    {{if .Data.Tabs}}
+    <nav class="lb-tabs deck-tabs">
+      {{range .Data.Tabs}}<a href="/words?lang={{.Lang}}"{{if .Active}} class="active" aria-current="page"{{end}}>{{.Name}}</a>{{end}}
+    </nav>
+    {{end}}
     {{with .Data.Progress}}
     <div class="words-progress">
       <div class="words-bar" aria-hidden="true">

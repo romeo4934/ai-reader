@@ -57,6 +57,10 @@ func Open(path string) (*Store, error) {
 		db.Close()
 		return nil, fmt.Errorf("migration books.source : %w", err)
 	}
+	if err := migrateBookLangKeys(db); err != nil {
+		db.Close()
+		return nil, err
+	}
 	if err := ensureColumn(db, "reading_progress", "section_idx", "INTEGER NOT NULL DEFAULT 0"); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("migration reading_progress.section_idx : %w", err)
@@ -254,14 +258,54 @@ func mergeDuplicateLemmas(db *sql.DB) error {
 	return nil
 }
 
-// LangKey normalizes a book's language tag ("en-US", "EN", "fr_FR") to the
-// primary subtag the leaderboard groups by; "" when unknown.
+// LangKey normalizes a book's language tag ("en-US", "EN", "fr_FR",
+// "eng") to the two-letter code words, reviews and the leaderboard are
+// grouped by; "" when unknown.
 func LangKey(tag string) string {
 	tag = strings.ToLower(strings.TrimSpace(tag))
 	if i := strings.IndexAny(tag, "-_"); i >= 0 {
 		tag = tag[:i]
 	}
+	if two, ok := iso639_2[tag]; ok {
+		return two
+	}
 	return tag
+}
+
+// Three-letter codes some epubs use, for the languages Lydi has readers in.
+var iso639_2 = map[string]string{
+	"eng": "en", "fra": "fr", "fre": "fr", "spa": "es", "deu": "de", "ger": "de",
+	"ita": "it", "por": "pt", "nld": "nl", "dut": "nl", "rus": "ru", "jpn": "ja",
+	"zho": "zh", "chi": "zh", "pol": "pl", "swe": "sv", "dan": "da", "nor": "no",
+}
+
+// migrateBookLangKeys adds books.lang_key (the normalized language) and
+// fills it for books imported before it existed.
+func migrateBookLangKeys(db *sql.DB) error {
+	if err := ensureColumn(db, "books", "lang_key", "TEXT NOT NULL DEFAULT ''"); err != nil {
+		return fmt.Errorf("migration books.lang_key : %w", err)
+	}
+	rows, err := db.Query(`SELECT id, language FROM books WHERE lang_key = '' AND language != ''`)
+	if err != nil {
+		return fmt.Errorf("migration books.lang_key : %w", err)
+	}
+	keys := map[int64]string{}
+	for rows.Next() {
+		var id int64
+		var lang string
+		if err := rows.Scan(&id, &lang); err != nil {
+			rows.Close()
+			return fmt.Errorf("migration books.lang_key : %w", err)
+		}
+		keys[id] = LangKey(lang)
+	}
+	rows.Close()
+	for id, key := range keys {
+		if _, err := db.Exec(`UPDATE books SET lang_key = ? WHERE id = ?`, key, id); err != nil {
+			return fmt.Errorf("migration books.lang_key : %w", err)
+		}
+	}
+	return nil
 }
 
 func hasColumn(db *sql.DB, table, column string) (bool, error) {
@@ -549,8 +593,8 @@ func (s *Store) InsertBook(userID int64, title, author, language, source string,
 	}
 	defer tx.Rollback()
 
-	res, err := tx.Exec(`INSERT INTO books (user_id, title, author, language, source, added_at) VALUES (?, ?, ?, ?, ?, ?)`,
-		userID, title, author, language, source, time.Now().UTC().Format(timeLayout))
+	res, err := tx.Exec(`INSERT INTO books (user_id, title, author, language, lang_key, source, added_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		userID, title, author, language, LangKey(language), source, time.Now().UTC().Format(timeLayout))
 	if err != nil {
 		return 0, err
 	}
@@ -751,13 +795,14 @@ func (s *Store) CountDueVocab(userID int64, now time.Time) (int, error) {
 // ListVocab returns the browsing deck — a card marked "je le connais" via
 // ArchiveVocab drops out of this list (and starts a 30-day box-5 cycle) but
 // keeps coming back in DueVocab and keeps its history in RecentlyReviewed.
-func (s *Store) ListVocab(userID int64) ([]Vocab, error) {
+// lang ("" for all) keeps only words from books in that language.
+func (s *Store) ListVocab(userID int64, lang string) ([]Vocab, error) {
 	rows, err := s.db.Query(`
 		SELECT v.id, v.user_id, v.book_id, b.title, v.chapter_id, v.phrase, v.lemma, v.context,
 		       v.translation, v.note, v.frequency, v.box, v.next_review_at, v.created_at, v.last_reviewed_at
 		FROM vocab v JOIN books b ON b.id = v.book_id
-		WHERE v.user_id = ? AND v.archived = 0
-		ORDER BY v.frequency ASC`, userID)
+		WHERE v.user_id = ? AND v.archived = 0 AND (? = '' OR b.lang_key = ?)
+		ORDER BY v.frequency ASC`, userID, lang, lang)
 	if err != nil {
 		return nil, err
 	}
@@ -976,25 +1021,48 @@ type DeckCounts struct {
 	Total      int
 }
 
-func (s *Store) DeckCounts(userID int64, now time.Time) (DeckCounts, error) {
+// DeckCounts counts the deck, or only one language's words (lang != "").
+func (s *Store) DeckCounts(userID int64, now time.Time, lang string) (DeckCounts, error) {
 	var c DeckCounts
 	err := s.db.QueryRow(`SELECT
-			COALESCE(SUM(last_reviewed_at IS NOT NULL AND next_review_at <= ?), 0),
-			COALESCE(SUM(last_reviewed_at IS NULL), 0),
-			COALESCE(SUM(last_reviewed_at IS NOT NULL AND box <= 2), 0),
+			COALESCE(SUM(v.last_reviewed_at IS NOT NULL AND v.next_review_at <= ?), 0),
+			COALESCE(SUM(v.last_reviewed_at IS NULL), 0),
+			COALESCE(SUM(v.last_reviewed_at IS NOT NULL AND v.box <= 2), 0),
 			COUNT(*)
-		FROM vocab WHERE user_id = ?`, now.Format(timeLayout), userID).Scan(&c.DueReviews, &c.New, &c.Fragile, &c.Total)
+		FROM vocab v JOIN books b ON b.id = v.book_id
+		WHERE v.user_id = ? AND (? = '' OR b.lang_key = ?)`, now.Format(timeLayout), userID, lang, lang).
+		Scan(&c.DueReviews, &c.New, &c.Fragile, &c.Total)
 	return c, err
+}
+
+// VocabLangs lists the languages of the user's words, most words first.
+func (s *Store) VocabLangs(userID int64) ([]string, error) {
+	rows, err := s.db.Query(`SELECT b.lang_key FROM vocab v JOIN books b ON b.id = v.book_id
+		WHERE v.user_id = ? GROUP BY b.lang_key ORDER BY COUNT(*) DESC, b.lang_key`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var l string
+		if err := rows.Scan(&l); err != nil {
+			return nil, err
+		}
+		out = append(out, l)
+	}
+	return out, rows.Err()
 }
 
 // VocabProgress splits the deck for the "my words" page: waiting (never
 // reviewed), learning (box 1-3) and known (box 4-5, or marked known).
-func (s *Store) VocabProgress(userID int64) (waiting, learning, known int, err error) {
+func (s *Store) VocabProgress(userID int64, lang string) (waiting, learning, known int, err error) {
 	err = s.db.QueryRow(`SELECT
-			COALESCE(SUM(last_reviewed_at IS NULL), 0),
-			COALESCE(SUM(last_reviewed_at IS NOT NULL AND box <= 3 AND archived = 0), 0),
-			COALESCE(SUM(last_reviewed_at IS NOT NULL AND (box >= 4 OR archived = 1)), 0)
-		FROM vocab WHERE user_id = ?`, userID).Scan(&waiting, &learning, &known)
+			COALESCE(SUM(v.last_reviewed_at IS NULL), 0),
+			COALESCE(SUM(v.last_reviewed_at IS NOT NULL AND v.box <= 3 AND v.archived = 0), 0),
+			COALESCE(SUM(v.last_reviewed_at IS NOT NULL AND (v.box >= 4 OR v.archived = 1)), 0)
+		FROM vocab v JOIN books b ON b.id = v.book_id
+		WHERE v.user_id = ? AND (? = '' OR b.lang_key = ?)`, userID, lang, lang).Scan(&waiting, &learning, &known)
 	return
 }
 
@@ -1003,16 +1071,16 @@ func (s *Store) VocabProgress(userID int64) (waiting, learning, known int, err e
 // cards missed earlier today (reviewed since dayStart and due again), most
 // frequent words first within each group. The first is the one to show; the
 // rest are what the review page prepares ahead of time.
-func (s *Store) NextDailyCards(userID int64, now, dayStart time.Time, allowNew bool, limit int) ([]Vocab, error) {
+func (s *Store) NextDailyCards(userID int64, now, dayStart time.Time, lang string, allowNew bool, limit int) ([]Vocab, error) {
 	rows, err := s.db.Query(`
 		SELECT v.id, v.user_id, v.book_id, b.title, v.chapter_id, v.phrase, v.lemma, v.context,
 		       v.translation, v.note, v.frequency, v.box, v.next_review_at, v.created_at, v.last_reviewed_at
 		FROM vocab v JOIN books b ON b.id = v.book_id
-		WHERE v.user_id = ? AND (
+		WHERE v.user_id = ? AND (? = '' OR b.lang_key = ?) AND (
 			(v.last_reviewed_at IS NOT NULL AND v.next_review_at <= ?) OR (? AND v.last_reviewed_at IS NULL))
 		ORDER BY CASE WHEN v.last_reviewed_at IS NULL THEN 1 WHEN v.last_reviewed_at >= ? THEN 2 ELSE 0 END,
 			v.frequency ASC, v.next_review_at ASC
-		LIMIT ?`, userID, now.Format(timeLayout), allowNew, dayStart.UTC().Format(timeLayout), limit)
+		LIMIT ?`, userID, lang, lang, now.Format(timeLayout), allowNew, dayStart.UTC().Format(timeLayout), limit)
 	if err != nil {
 		return nil, err
 	}

@@ -9,8 +9,20 @@
 
   <main class="page review-page">
     <h1>{{.T.ReviewTitle}}</h1>
+    {{if .Data.Tabs}}
+    <nav class="lb-tabs deck-tabs">
+      {{range .Data.Tabs}}<a href="/review?lang={{.Lang}}"{{if .Active}} class="active" aria-current="page"{{end}}>{{.Name}}{{if .Left}} <span class="tab-count">{{.Left}}</span>{{else}} ✓{{end}}</a>{{end}}
+    </nav>
+    {{end}}
 
-    {{if .Data.Finished}}
+    {{if .Data.LangDone}}
+      <div class="daily-done">
+        <div class="daily-done-mark" aria-hidden="true">✓</div>
+        <h2>{{printf .T.ReviewLangDone .Data.LangName}}</h2>
+        <p>{{printf .T.ReviewLangElsewhere .Data.Elsewhere.Left .Data.Elsewhere.Name}}</p>
+        <p><a href="/review?lang={{.Data.Elsewhere.Lang}}" class="btn btn-primary">{{printf .T.ReviewLangGo .Data.Elsewhere.Name}}</a></p>
+      </div>
+    {{else if .Data.Finished}}
       {{$d := .Data.Daily}}
       <div class="daily-done">
         <div class="daily-done-mark" aria-hidden="true">✓</div>
