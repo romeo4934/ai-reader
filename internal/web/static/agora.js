@@ -110,9 +110,47 @@
     a.sitting = false;
   }
 
+  // --- camera ---
+  // The map covers the whole canvas (scaled to fill it, cropping the longer
+  // side); the camera follows the reader's character, Zelda-style, and a
+  // drag pans it to look around until the next tap.
+  var cam = { x: 0, y: 0, scale: 1, follow: true };
+  function viewSize() { return { w: canvas.width / cam.scale, h: canvas.height / cam.scale }; }
+  function clampCam() {
+    var v = viewSize();
+    cam.x = Math.max(0, Math.min(W - v.w, cam.x));
+    cam.y = Math.max(0, Math.min(H - v.h, cam.y));
+  }
+  function updateCamera(snap) {
+    if (!cam.follow) return;
+    var v = viewSize(), focus = me ? me.pos : { x: W / 2, y: H / 2 };
+    var tx = focus.x - v.w / 2, ty = focus.y - v.h / 2;
+    cam.x = snap ? tx : cam.x + (tx - cam.x) * 0.08;
+    cam.y = snap ? ty : cam.y + (ty - cam.y) * 0.08;
+    clampCam();
+  }
+  function toWorld(e) {
+    var r = canvas.getBoundingClientRect(), k = canvas.width / r.width;
+    return { x: cam.x + (e.clientX - r.left) * k / cam.scale, y: cam.y + (e.clientY - r.top) * k / cam.scale };
+  }
+  var drag = null, dragged = false;
+  canvas.addEventListener('pointerdown', function (e) { drag = { x: e.clientX, y: e.clientY, cx: cam.x, cy: cam.y }; dragged = false; });
+  window.addEventListener('pointermove', function (e) {
+    if (!drag) return;
+    var dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+    if (!dragged && Math.hypot(dx, dy) < 8) return;
+    dragged = true; cam.follow = false;
+    var k = canvas.width / canvas.getBoundingClientRect().width / cam.scale;
+    cam.x = drag.cx - dx * k; cam.y = drag.cy - dy * k;
+    clampCam();
+    if (still) frame(performance.now());
+  });
+  window.addEventListener('pointerup', function () { drag = null; });
+
   canvas.addEventListener('click', function (e) {
-    var r = canvas.getBoundingClientRect();
-    var p = { x: (e.clientX - r.left) * W / r.width, y: (e.clientY - r.top) * H / r.height };
+    if (dragged) { dragged = false; return; }
+    cam.follow = true;
+    var p = toWorld(e);
     for (var i = 0; i < actors.length; i++) {
       var a = actors[i];
       if (a !== me && Math.hypot(a.pos.x - p.x, a.pos.y - 5 - p.y) < 12) {
@@ -331,8 +369,8 @@
 
   // --- names and bubbles, at full resolution ---
   function drawOverlay(t) {
-    var s = canvas.width / W;
-    view.setTransform(s, 0, 0, s, 0, 0);
+    var s = cam.scale;
+    view.setTransform(s, 0, 0, s, -cam.x * s, -cam.y * s);
     view.textAlign = 'center';
     view.lineJoin = 'round'; // no miter spikes on outlined text
     actors.forEach(function (a) {
@@ -362,9 +400,11 @@
 
   function frame(t) {
     drawWorld(t);
+    updateCamera(false);
+    var v = viewSize();
     view.setTransform(1, 0, 0, 1, 0, 0);
     view.imageSmoothingEnabled = false;
-    view.drawImage(art, 0, 0, canvas.width, canvas.height);
+    view.drawImage(art, cam.x / PX, cam.y / PX, v.w / PX, v.h / PX, 0, 0, canvas.width, canvas.height);
     drawOverlay(t);
   }
 
@@ -421,11 +461,14 @@
     if (!document.hidden) requestAnimationFrame(step);
   }
 
+  // The canvas takes its size from the page layout (the whole screen under
+  // the top bar); the map is scaled to cover it.
   function resize() {
-    var dpr = window.devicePixelRatio || 1, w = canvas.clientWidth;
-    canvas.width = Math.round(w * dpr);
-    canvas.height = Math.round(w * H / W * dpr);
-    canvas.style.height = (w * H / W) + 'px';
+    var dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.round(canvas.clientWidth * dpr);
+    canvas.height = Math.round(canvas.clientHeight * dpr);
+    cam.scale = Math.max(canvas.width / W, canvas.height / H);
+    updateCamera(true);
     frame(performance.now());
   }
 

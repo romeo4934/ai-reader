@@ -4,66 +4,99 @@
   <title>{{.Title}}</title>
   {{template "head" .}}
 </head>
-<body>
+<body class="agora-body">
   {{template "nav" .}}
   {{$t := .T}}{{$d := .Data}}
-  <main class="page agora-page">
-    <h1>🏛️ {{.T.AgoraTitle}}</h1>
-    <p class="agora-intro">{{.T.AgoraIntro}}</p>
-
-    {{if $d.Welcome}}<div class="agora-welcome">{{$d.Welcome}}</div>{{end}}
-
-    <div class="agora-status">
-      <svg class="agora-me" viewBox="-14 -14 28 28" aria-hidden="true">
-        <circle r="12.5" fill="{{$d.MyColor}}" stroke="#d9c38a" stroke-width="1.6"/>
-        <text text-anchor="middle" dominant-baseline="central" font-size="12" fill="#fff">{{if $d.MySymbol}}{{$d.MySymbol}}{{else}}{{$d.MyInitial}}{{end}}</text>
-      </svg>
-      <div>
-        {{if $d.Member}}
-          <strong>{{$d.Rank}}</strong> · {{printf $t.AgoraDays $d.Days}}
-          {{if $d.NextRank}}<p class="hint">{{printf $t.AgoraNextRank $d.NextRank $d.NextDays}}</p>{{end}}
-        {{else}}
-          <strong>{{printf $t.AgoraYouOut $d.Left}}</strong>
-          <div class="daily-bar agora-bar"><div class="daily-bar-fill" style="width: {{$d.Percent}}%"></div></div>
-          <p class="hint">{{printf $t.AgoraGauge $d.Days $d.Threshold}}</p>
-        {{end}}
-      </div>
-    </div>
-
+  <main class="agora-page">
     <figure class="agora-scene">
       <canvas id="agora-game" aria-label="{{.T.AgoraTitle}}"
         data-guard="{{.T.AgoraGuard}}" data-hello="χαῖρε !" data-guard-name="{{.T.AgoraGuardName}}"
         data-days="{{.T.AgoraDays}}" data-speech="{{.T.AgoraSpeech}}" data-threshold="{{$d.Threshold}}"></canvas>
-      <figcaption class="hint">{{.T.AgoraHowTo}}</figcaption>
+
+      <div class="agora-hud">
+        <button type="button" class="agora-pill" data-open="panel-registry">🏛️ {{if $d.Member}}{{$d.Rank}} · {{printf $t.AgoraDays $d.Days}}{{else}}Agora · {{$d.Days}} / {{$d.Threshold}}{{end}}</button>
+        <span class="agora-hud-gap"></span>
+        <button type="button" class="agora-round" data-open="panel-medal" aria-label="{{.T.AgoraAvatarTitle}}">🪙</button>
+        <button type="button" class="agora-round" data-open="panel-intro" aria-label="{{.T.AgoraTitle}}">?</button>
+      </div>
+      <p class="agora-hint" id="agora-hint">{{.T.AgoraHowTo}}</p>
+
+      <!-- the story, and where the reader stands -->
+      <div class="agora-panel" id="panel-intro" role="dialog" aria-labelledby="intro-title"{{if not $d.Welcome}} data-once="agora-intro-seen"{{end}} hidden>
+        <h1 id="intro-title">🏛️ {{.T.AgoraTitle}}</h1>
+        {{if $d.Welcome}}<p class="agora-welcome">{{$d.Welcome}}</p>{{end}}
+        <p>{{.T.AgoraIntro}}</p>
+        <div class="agora-status">
+          <span class="agora-chip agora-chip-big" style="background: {{$d.MyColor}}">{{if $d.MySymbol}}{{$d.MySymbol}}{{else}}{{$d.MyInitial}}{{end}}</span>
+          <div>
+            {{if $d.Member}}
+              <strong>{{$d.Rank}}</strong> · {{printf $t.AgoraDays $d.Days}}
+              {{if $d.NextRank}}<p class="hint">{{printf $t.AgoraNextRank $d.NextRank $d.NextDays}}</p>{{end}}
+            {{else}}
+              <strong>{{printf $t.AgoraYouOut $d.Left}}</strong>
+              <div class="daily-bar agora-bar"><div class="daily-bar-fill" style="width: {{$d.Percent}}%"></div></div>
+            {{end}}
+          </div>
+        </div>
+        <button type="button" class="btn btn-primary agora-enter" data-close>{{.T.AgoraEnter}}</button>
+      </div>
+
+      <!-- the registry: who's in, who's at the gates -->
+      <div class="agora-panel" id="panel-registry" role="dialog" aria-labelledby="registry-title" hidden>
+        <button type="button" class="agora-close" data-close aria-label="{{.T.ReaderClose}}">×</button>
+        <h2 id="registry-title">{{.T.AgoraMembers}}</h2>
+        {{if not $d.Members}}<p class="hint">{{.T.AgoraEmptyIn}}</p>{{else}}
+        <ul class="agora-list">
+          {{range $d.Members}}<li{{if .You}} class="agora-you"{{end}}><span class="agora-chip" style="background: {{.Medal.Color}}">{{.Medal.Symbol}}</span><span class="agora-name">{{.Name}}</span><span class="agora-rank">{{.Rank}}{{if .Medal.Laurel}} 🌿{{end}}</span><span class="hint">{{printf $t.AgoraDays .Days}}</span></li>{{end}}
+        </ul>{{end}}
+        <h2>{{.T.AgoraGates}}</h2>
+        {{if not $d.Gates}}<p class="hint">{{.T.AgoraEmptyOut}}</p>{{else}}
+        <ul class="agora-list">
+          {{range $d.Gates}}<li{{if .You}} class="agora-you"{{end}}><span class="agora-chip" style="background: {{.Medal.Color}}">{{.Medal.Symbol}}</span><span class="agora-name">{{.Name}}</span><span class="agora-gate"><span class="daily-bar"><span class="daily-bar-fill" style="width: {{.Percent}}%"></span></span></span><span class="hint">{{.Days}} / {{$d.Threshold}}</span></li>{{end}}
+        </ul>{{end}}
+      </div>
+
+      <!-- the medallion -->
+      <div class="agora-panel" id="panel-medal" role="dialog" aria-labelledby="medal-title" hidden>
+        <button type="button" class="agora-close" data-close aria-label="{{.T.ReaderClose}}">×</button>
+        <h2 id="medal-title">{{.T.AgoraAvatarTitle}}</h2>
+        <form action="/agora/avatar" method="post" class="agora-avatar">
+          <p class="hint">{{.T.AgoraAvatarSymbol}}</p>
+          <div class="agora-picks">
+            <label><input type="radio" name="symbol" value=""{{if not $d.MySymbol}} checked{{end}}><span>{{$d.MyInitial}}</span></label>
+            {{range $d.Symbols}}<label><input type="radio" name="symbol" value="{{.}}"{{if eq . $d.MySymbol}} checked{{end}}><span>{{.}}</span></label>{{end}}
+          </div>
+          <p class="hint">{{.T.AgoraAvatarColor}}</p>
+          <div class="agora-picks">
+            {{range $d.Colors}}<label><input type="radio" name="color" value="{{.Key}}"{{if eq .Key $d.MyColorKey}} checked{{end}}><span class="agora-swatch" style="background: {{.Hex}}"></span></label>{{end}}
+          </div>
+          <button type="submit" class="btn btn-primary">{{.T.AgoraAvatarSave}}</button>
+        </form>
+      </div>
     </figure>
     <script type="application/json" id="agora-people">{{$d.People}}</script>
-
-    <h2 class="settings-section">{{.T.AgoraMembers}}</h2>
-    {{if not $d.Members}}<p class="hint">{{.T.AgoraEmptyIn}}</p>{{else}}
-    <ul class="agora-list">
-      {{range $d.Members}}<li{{if .You}} class="agora-you"{{end}}><span class="agora-chip" style="background: {{.Medal.Color}}">{{.Medal.Symbol}}</span><span class="agora-name">{{.Name}}</span><span class="agora-rank">{{.Rank}}{{if .Medal.Laurel}} 🌿{{end}}</span><span class="hint">{{printf $t.AgoraDays .Days}}</span></li>{{end}}
-    </ul>{{end}}
-
-    <h2 class="settings-section">{{.T.AgoraGates}}</h2>
-    {{if not $d.Gates}}<p class="hint">{{.T.AgoraEmptyOut}}</p>{{else}}
-    <ul class="agora-list">
-      {{range $d.Gates}}<li{{if .You}} class="agora-you"{{end}}><span class="agora-chip" style="background: {{.Medal.Color}}">{{.Medal.Symbol}}</span><span class="agora-name">{{.Name}}</span><span class="agora-gate"><span class="daily-bar"><span class="daily-bar-fill" style="width: {{.Percent}}%"></span></span></span><span class="hint">{{.Days}} / {{$d.Threshold}}</span></li>{{end}}
-    </ul>{{end}}
-
-    <h2 class="settings-section">{{.T.AgoraAvatarTitle}}</h2>
-    <form action="/agora/avatar" method="post" class="agora-avatar">
-      <p class="hint">{{.T.AgoraAvatarSymbol}}</p>
-      <div class="agora-picks">
-        <label><input type="radio" name="symbol" value=""{{if not $d.MySymbol}} checked{{end}}><span>{{$d.MyInitial}}</span></label>
-        {{range $d.Symbols}}<label><input type="radio" name="symbol" value="{{.}}"{{if eq . $d.MySymbol}} checked{{end}}><span>{{.}}</span></label>{{end}}
-      </div>
-      <p class="hint">{{.T.AgoraAvatarColor}}</p>
-      <div class="agora-picks">
-        {{range $d.Colors}}<label><input type="radio" name="color" value="{{.Key}}"{{if eq .Key $d.MyColorKey}} checked{{end}}><span class="agora-swatch" style="background: {{.Hex}}"></span></label>{{end}}
-      </div>
-      <button type="submit" class="btn btn-primary">{{.T.AgoraAvatarSave}}</button>
-    </form>
   </main>
+  <script>
+    // Parchment panels over the game: one open at a time. The story opens
+    // by itself on a first visit (and on the day of entering the Agora).
+    (function () {
+      var panels = document.querySelectorAll('.agora-panel');
+      function close() { panels.forEach(function (p) { p.hidden = true; }); }
+      function open(id) { close(); document.getElementById(id).hidden = false; }
+      document.querySelectorAll('[data-open]').forEach(function (b) {
+        b.addEventListener('click', function () { open(b.dataset.open); });
+      });
+      document.querySelectorAll('[data-close]').forEach(function (b) { b.addEventListener('click', close); });
+      document.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
+      var intro = document.getElementById('panel-intro'), seen = false;
+      try { seen = intro.dataset.once && localStorage.getItem(intro.dataset.once); } catch (e) {}
+      if (!seen) {
+        open('panel-intro');
+        try { if (intro.dataset.once) localStorage.setItem(intro.dataset.once, '1'); } catch (e) {}
+      }
+      setTimeout(function () { var h = document.getElementById('agora-hint'); if (h) h.classList.add('agora-hint-gone'); }, 6000);
+    })();
+  </script>
   <script src="/static/agora.js"></script>
 </body>
 </html>

@@ -3,6 +3,8 @@ package i18n
 // The Lydi Agora.
 var agoraStrings = map[string]Dict{
 	"en": {
+		"AgoraEnter": "Enter",
+		"AgoraMore":         "More about the Agora",
 		"AgoraSpeech":       "Read every day, citizens!",
 		"AgoraGuardName":    "The guard",
 		"AgoraGuard":        "%d more challenges, citizen!",
@@ -30,6 +32,8 @@ var agoraStrings = map[string]Dict{
 		"AgoraRank4":        "Sage of Sardis",
 	},
 	"fr": {
+		"AgoraEnter": "Entrer",
+		"AgoraMore":         "En savoir plus sur l'Agora",
 		"AgoraSpeech":       "Lisez chaque jour, citoyens !",
 		"AgoraGuardName":    "Le garde",
 		"AgoraGuard":        "Encore %d défis, citoyen !",
@@ -57,6 +61,8 @@ var agoraStrings = map[string]Dict{
 		"AgoraRank4":        "Sage de Sardes",
 	},
 	"es": {
+		"AgoraEnter": "Entrar",
+		"AgoraMore":         "Más sobre el Ágora",
 		"AgoraSpeech":       "¡Leed cada día, ciudadanos!",
 		"AgoraGuardName":    "El guardia",
 		"AgoraGuard":        "¡Te faltan %d retos, ciudadano!",
@@ -84,6 +90,8 @@ var agoraStrings = map[string]Dict{
 		"AgoraRank4":        "Sabio de Sardes",
 	},
 	"pt": {
+		"AgoraEnter": "Entrar",
+		"AgoraMore":         "Mais sobre a Ágora",
 		"AgoraSpeech":       "Leiam todos os dias, cidadãos!",
 		"AgoraGuardName":    "O guarda",
 		"AgoraGuard":        "Faltam %d desafios, cidadão!",
@@ -111,6 +119,8 @@ var agoraStrings = map[string]Dict{
 		"AgoraRank4":        "Sábio de Sardes",
 	},
 	"it": {
+		"AgoraEnter": "Entra",
+		"AgoraMore":         "Di più sull'Agorà",
 		"AgoraSpeech":       "Leggete ogni giorno, cittadini!",
 		"AgoraGuardName":    "La guardia",
 		"AgoraGuard":        "Ancora %d sfide, cittadino!",
@@ -138,6 +148,8 @@ var agoraStrings = map[string]Dict{
 		"AgoraRank4":        "Saggio di Sardi",
 	},
 	"de": {
+		"AgoraEnter": "Eintreten",
+		"AgoraMore":         "Mehr über die Agora",
 		"AgoraSpeech":       "Lest jeden Tag, Bürger!",
 		"AgoraGuardName":    "Die Wache",
 		"AgoraGuard":        "Noch %d Tagesziele, Bürger!",
@@ -165,6 +177,8 @@ var agoraStrings = map[string]Dict{
 		"AgoraRank4":        "Weiser von Sardes",
 	},
 	"nl": {
+		"AgoraEnter": "Binnengaan",
+		"AgoraMore":         "Meer over de agora",
 		"AgoraSpeech":       "Lees elke dag, burgers!",
 		"AgoraGuardName":    "De wacht",
 		"AgoraGuard":        "Nog %d dagdoelen, burger!",
