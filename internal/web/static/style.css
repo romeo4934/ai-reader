@@ -607,7 +607,9 @@ details[open] .word-row::after { content: '⌄'; }
 /* Docked reading (phones, pages): a fixed zone at the bottom holds the page
    nav, and the translation panel opens exactly over it. */
 .dock-hint { display: none; }
-.reader-docked { --dock: clamp(150px, 24vh, 220px); }
+/* svh, not vh: vh follows the mobile address bar as it hides and shows
+   while scrolling, which made the docked zone resize — and shake. */
+.reader-docked { --dock: clamp(150px, 24svh, 220px); }
 .reader-docked body { padding-bottom: var(--dock); }
 .reader-docked .chapter-nav {
   position: fixed; left: 0; right: 0; bottom: 0;
@@ -619,6 +621,7 @@ details[open] .word-row::after { content: '⌄'; }
   background: var(--bg);
   border-top: 1px solid var(--border);
   z-index: 900;
+  transform: translateZ(0); /* own layer: no repaint jitter while scrolling */
 }
 .reader-docked .dock-hint {
   display: block;
