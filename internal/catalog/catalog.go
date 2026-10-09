@@ -227,6 +227,9 @@ func StripBoilerplate(chapters []Chapter) []Chapter {
 				keep = append(keep, p)
 			}
 		}
+		for i, p := range keep {
+			keep[i] = unmarkHeading(p)
+		}
 		content := strings.TrimSpace(strings.Join(keep, "\n\n"))
 		if len(content) < 200 {
 			continue // cover, empty title page, or nothing left
@@ -255,4 +258,14 @@ func hasMarker(chapters []Chapter, marker *regexp.Regexp) bool {
 		}
 	}
 	return false
+}
+
+// Some plain-text-derived editions mark headings as "#INDICE#": keep the
+// words, drop the markup.
+func unmarkHeading(p string) string {
+	t := strings.TrimSpace(p)
+	if len(t) > 2 && strings.HasPrefix(t, "#") && strings.HasSuffix(t, "#") && !strings.Contains(t[1:len(t)-1], "#") {
+		return t[1 : len(t)-1]
+	}
+	return p
 }

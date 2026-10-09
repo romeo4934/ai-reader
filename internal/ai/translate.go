@@ -164,6 +164,13 @@ translation, so also give back the exact substring of your sentence
 translation that renders the selected phrase — copied verbatim so a plain
 substring search finds it.
 
+The reader only sees the sentence translation, with the selected phrase
+highlighted in it, so that highlighted part has to make its meaning clear:
+if the closest equivalent is a rare, regional or technical word — or the
+same foreign word left as is ("corso", "estancia") — use plain words a
+learner understands instead, adding the original in parentheses if useful
+("le défilé du carnaval (corso)").
+
 Every translation you give — the phrase, the sentence, the note — is in %s,
 never in the book's language, even when the book is old or archaic: don't
 modernize the original, translate it.

@@ -61,3 +61,17 @@ func contains(s, sub string) bool {
 	}
 	return false
 }
+
+func TestUnmarkHeading(t *testing.T) {
+	for in, want := range map[string]string{
+		"#INDICE#":       "INDICE",
+		"#Primavera#":    "Primavera",
+		"Plain text":     "Plain text",
+		"Issue #3 of #4": "Issue #3 of #4",
+		"#":              "#",
+	} {
+		if got := unmarkHeading(in); got != want {
+			t.Errorf("unmarkHeading(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
