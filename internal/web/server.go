@@ -592,7 +592,7 @@ func (s *Server) handleWords(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		s.log.Error("total points", "err", err)
 	}
-	view := wordsView{Words: words}
+	view := wordsView{Words: words, Groups: groupByFrequency(T, words)}
 	if waiting, learning, known, err := s.store.VocabProgress(user.ID); err != nil {
 		s.log.Error("vocab progress", "err", err)
 	} else if n := waiting + learning + known; n > 0 {
@@ -611,8 +611,46 @@ func (s *Server) handleWords(w http.ResponseWriter, r *http.Request) {
 
 type wordsView struct {
 	Words    []store.Vocab
+	Groups   []wordGroup
 	Points   string // empty until the first point is earned
 	Progress *wordsProgress
+}
+
+// frequencyLevels are the upper corpus ranks of the 10 levels the word list
+// is grouped in, most useful words first. The last level takes the rest.
+var frequencyLevels = []int{100, 300, 600, 1000, 2000, 3000, 5000, 8000, 15000}
+
+type wordGroup struct {
+	Level int
+	Label string
+	Count int
+	Words []store.Vocab
+}
+
+// groupByFrequency splits the list (already sorted by frequency rank) into
+// the 10 levels, skipping empty ones.
+func groupByFrequency(T i18n.Dict, words []store.Vocab) []wordGroup {
+	var groups []wordGroup
+	for _, w := range words {
+		level := len(frequencyLevels) + 1
+		for i, upTo := range frequencyLevels {
+			if w.Frequency <= upTo {
+				level = i + 1
+				break
+			}
+		}
+		if len(groups) == 0 || groups[len(groups)-1].Level != level {
+			label := T["WordsLevelRare"]
+			if level <= len(frequencyLevels) {
+				label = fmt.Sprintf(T["WordsLevelTop"], frequencyLevels[level-1])
+			}
+			groups = append(groups, wordGroup{Level: level, Label: label})
+		}
+		g := &groups[len(groups)-1]
+		g.Words = append(g.Words, w)
+		g.Count++
+	}
+	return groups
 }
 
 type wordsProgress struct {

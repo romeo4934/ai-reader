@@ -505,3 +505,8 @@ details[open] .word-row::after { content: '⌄'; }
 .lb-tabs { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: -0.6rem 0 1.2rem; font-family: sans-serif; }
 .lb-tabs a { padding: 0.35rem 0.8rem; border: 1px solid var(--border); border-radius: 999px; color: var(--fg); text-decoration: none; font-size: 0.9rem; }
 .lb-tabs a.active { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+
+/* Frequency levels on "my words" */
+.freq-level { display: flex; align-items: center; gap: 0.5rem; font-family: -apple-system, BlinkMacSystemFont, sans-serif; font-size: 1rem; margin: 1.6rem 0 0.3rem; color: var(--fg); }
+.freq-level-num { display: inline-flex; align-items: center; justify-content: center; width: 1.6rem; height: 1.6rem; border-radius: 50%; background: var(--accent); color: var(--accent-fg); font-size: 0.85rem; flex: none; }
+.freq-level-count { margin-left: auto; font-weight: 400; font-size: 0.85rem; color: var(--muted); }
