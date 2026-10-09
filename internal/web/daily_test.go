@@ -54,10 +54,13 @@ func TestAnswerPoints(t *testing.T) {
 		mode   string
 		want   int
 	}{
-		{srs.Good, answerTyped, 2},
-		{srs.Good, answerTypedClose, 1},
+		{srs.Good, answerTyped, 3},
+		{srs.Good, answerTypedClose, 2},
+		{srs.Good, answerOverride, 2},
 		{srs.Good, "", 1},
 		{srs.Good, "anything", 1},
+		{srs.Good, answerCopied, 1},
+		{srs.Again, answerCopied, 1},
 		{srs.Again, answerTyped, 0},
 		{srs.Again, "", 0},
 	} {

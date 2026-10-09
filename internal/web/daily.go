@@ -141,19 +141,29 @@ func (s *Server) handleReviewMore(w http.ResponseWriter, r *http.Request) {
 }
 
 // Points reward effort, not just success: typing the word out (production)
-// is worth more than recognising it. They're motivation only — the Leitner
-// schedule depends on good/again alone.
+// is worth more than recognising it, and even copying out a missed word
+// helps it stick. They're motivation only — the Leitner schedule depends on
+// good/again alone, so a copied word still comes back tomorrow.
 const (
 	answerTyped      = "typed"       // typed the exact word
 	answerTypedClose = "typed_close" // typed it with a slip (accent, typo, other form)
+	answerOverride   = "override"    // typed something marked wrong, then "I was right"
+	answerCopied     = "copied"      // missed it, then copied it out
 )
 
 func answerPoints(result srs.Result, mode string) int {
 	if result != srs.Good {
+		if mode == answerCopied {
+			return 1
+		}
 		return 0
 	}
-	if mode == answerTyped {
+	switch mode {
+	case answerTyped:
+		return 3
+	case answerTypedClose, answerOverride:
 		return 2
+	default:
+		return 1 // "I knew it" without typing
 	}
-	return 1 // typed_close, or "I knew it" without typing
 }

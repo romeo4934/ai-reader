@@ -483,3 +483,10 @@ details[open] .word-row::after { content: '⌄'; }
 .lb-points { font-weight: 700; white-space: nowrap; flex: none; min-width: 4rem; text-align: right; }
 .lb-note { margin-top: 0.6rem; font-family: sans-serif; }
 @media (max-width: 420px) { .lb-streak { display: none; } }
+.copy-box { display: flex; flex-direction: column; gap: 0.4rem; margin-top: 1.2rem; font-family: sans-serif; }
+.copy-box input {
+  padding: 0.6rem 0.8rem; font-size: 16px;
+  border-radius: 8px; border: 1px dashed var(--border);
+  background: var(--card-bg); color: var(--fg);
+}
+.copy-box input:disabled { opacity: 0.6; }

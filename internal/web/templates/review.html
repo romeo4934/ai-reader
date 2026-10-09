@@ -74,9 +74,17 @@
             </div>
             {{if $card.Note}}<div class="card-note">{{$card.Note}}</div>{{end}}
 
+            <div id="copy-box" class="copy-box" hidden>
+              <label for="copy" class="hint">{{$t.ReviewCopyLabel}}</label>
+              <input type="text" id="copy" placeholder="{{$t.ReviewCopyPlaceholder}}"
+                     autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="done">
+              <p id="copy-ok" class="type-feedback type-feedback-ok" hidden>{{$t.ReviewCopied}}</p>
+            </div>
+
             <div class="card-buttons" id="self-buttons">
               <form action="/review/{{$card.ID}}/answer" method="post">
                 <input type="hidden" name="result" value="again">
+                <input type="hidden" name="mode" class="copy-mode" value="">
                 <button type="submit" class="btn btn-again">{{$t.ReviewAgain}}</button>
               </form>
               <form action="/review/{{$card.ID}}/answer" method="post">
@@ -93,6 +101,7 @@
             </div>
             <form action="/review/{{$card.ID}}/answer" method="post" id="override" class="type-override" hidden>
               <input type="hidden" name="result" value="good">
+              <input type="hidden" name="mode" value="override">
               <button type="submit" class="btn-link">{{$t.ReviewOverride}}</button>
             </form>
           </div>
@@ -131,6 +140,7 @@
             answer.hidden = false;
             reveal.hidden = true;
             hide('type-form'); hide('type-hint');
+            if (typeForm) show('copy-box');
           });
           if (!typeForm) return;
 
@@ -172,8 +182,11 @@
             hide('self-buttons'); show('typed-buttons'); show('type-feedback');
             if (g === 'wrong') {
               document.getElementById('fb-typed').textContent = input.value.trim();
-              show('fb-wrong'); show('override');
+              show('fb-wrong'); show('override'); show('copy-box');
               document.getElementById('continue').className = 'btn';
+              document.getElementById('typed-mode').className = 'copy-mode';
+              document.getElementById('copy').focus();
+              return;
             } else {
               document.getElementById('typed-result').value = 'good';
               document.getElementById('typed-mode').value = g;
@@ -182,6 +195,18 @@
             }
             document.getElementById('continue').focus();
           });
+
+          // Copying out a missed word still helps it stick: once it's
+          // copied right, the "missed" answer is worth a point.
+          var copy = document.getElementById('copy');
+          copy.addEventListener('input', function () {
+            var g = grade(copy.value, typeForm.dataset.answer, '');
+            if (g !== 'typed' && g !== 'typed_close') return;
+            document.querySelectorAll('.copy-mode').forEach(function (el) { el.value = 'copied'; });
+            copy.disabled = true;
+            show('copy-ok');
+          });
+          copy.addEventListener('keydown', function (e) { if (e.key === 'Enter') e.preventDefault(); });
         })();
       </script>
       {{template "confirmDelete"}}
