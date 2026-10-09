@@ -28,6 +28,7 @@ const (
 type leaderboardEntry struct {
 	Rank   int
 	Name   string
+	Agora  bool // member of the Lydi Agora
 	Points int
 	Streak string
 	IsYou  bool
@@ -150,12 +151,19 @@ func (s *Server) handleLeaderboard(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, http.StatusInternalServerError, err)
 		return
 	}
+	agora := map[int64]bool{}
+	if citizens, err := s.store.AgoraCitizens(agoraThreshold); err == nil {
+		for _, c := range citizens {
+			agora[c.UserID] = c.Days >= agoraThreshold
+		}
+	}
 	for i, row := range rows {
 		e := leaderboardEntry{Rank: i + 1, Points: row.Points, IsYou: row.UserID == user.ID}
 		if i > 0 && row.Points == rows[i-1].Points {
 			e.Rank = view.Entries[i-1].Rank // ties share a rank
 		}
 		e.Name = publicName(row.UserID, row.Username, row.DisplayName)
+		e.Agora = agora[row.UserID]
 		if n := s.streak(row.UserID, now); n > 0 {
 			e.Streak = streakText(T, n)
 		}

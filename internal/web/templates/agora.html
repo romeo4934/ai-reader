@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="{{.T.LangCode}}"{{if .Theme}} data-theme="{{.Theme}}"{{end}}{{if .Eink}} data-eink{{end}}>
+<head>
+  <title>{{.Title}}</title>
+  {{template "head" .}}
+</head>
+<body>
+  {{template "nav" .}}
+  {{$t := .T}}{{$d := .Data}}
+  <main class="page agora-page">
+    <h1>🏛️ {{.T.AgoraTitle}}</h1>
+    <p class="agora-intro">{{.T.AgoraIntro}}</p>
+
+    {{if $d.Welcome}}<div class="agora-welcome">{{$d.Welcome}}</div>{{end}}
+
+    <div class="agora-status">
+      <svg class="agora-me" viewBox="-14 -14 28 28" aria-hidden="true">
+        <circle r="12.5" fill="{{$d.MyColor}}" stroke="#d9c38a" stroke-width="1.6"/>
+        <text text-anchor="middle" dominant-baseline="central" font-size="12" fill="#fff">{{if $d.MySymbol}}{{$d.MySymbol}}{{else}}{{$d.MyInitial}}{{end}}</text>
+      </svg>
+      <div>
+        {{if $d.Member}}
+          <strong>{{$d.Rank}}</strong> · {{printf $t.AgoraDays $d.Days}}
+          {{if $d.NextRank}}<p class="hint">{{printf $t.AgoraNextRank $d.NextRank $d.NextDays}}</p>{{end}}
+        {{else}}
+          <strong>{{printf $t.AgoraYouOut $d.Left}}</strong>
+          <div class="daily-bar agora-bar"><div class="daily-bar-fill" style="width: {{$d.Percent}}%"></div></div>
+          <p class="hint">{{printf $t.AgoraGauge $d.Days $d.Threshold}}</p>
+        {{end}}
+      </div>
+    </div>
+
+    <figure class="agora-scene">
+      <svg viewBox="0 0 400 330" role="img" aria-label="{{.T.AgoraTitle}}">
+        <defs>
+          <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f6e7c8"/><stop offset="1" stop-color="#fbf4e4"/></linearGradient>
+        </defs>
+        <rect width="400" height="330" fill="url(#sky)"/>
+        <circle cx="338" cy="44" r="18" fill="#f3c86b" opacity="0.8"/>
+        <path d="M0 120 Q60 95 120 118 T240 112 T400 118 V240 H0 Z" fill="#e7d6ae" opacity="0.6"/>
+        <!-- square -->
+        <rect y="232" width="400" height="98" fill="#e9dcc0"/>
+        <path d="M0 232 H400" stroke="#d2c19c" stroke-width="2"/>
+        <!-- temple -->
+        <polygon points="60,74 200,30 340,74" fill="#f2ead8" stroke="#c9b88f" stroke-width="2"/>
+        <polygon points="92,68 200,40 308,68" fill="none" stroke="#d8c9a3" stroke-width="1.2"/>
+        <rect x="56" y="74" width="288" height="18" fill="#efe5cf" stroke="#c9b88f" stroke-width="2"/>
+        <rect x="56" y="92" width="288" height="6" fill="#e3d6b8"/>
+        {{range $i, $x := (list 72 117 162 207 252 297)}}<rect x="{{$x}}" y="98" width="20" height="104" rx="2" fill="#f5eedf" stroke="#cdbd96" stroke-width="1.5"/><path d="M{{add $x 6}} 102 V198 M{{add $x 10}} 102 V198 M{{add $x 14}} 102 V198" stroke="#e2d6bb" stroke-width="1"/>{{end}}
+        <rect x="46" y="202" width="308" height="9" fill="#e8dcc0" stroke="#c9b88f" stroke-width="1.5"/>
+        <rect x="36" y="211" width="328" height="9" fill="#e3d5b5" stroke="#c9b88f" stroke-width="1.5"/>
+        <rect x="26" y="220" width="348" height="12" fill="#ddcca8" stroke="#c9b88f" stroke-width="1.5"/>
+        <text x="200" y="67" text-anchor="middle" font-family="Georgia, serif" font-size="11" letter-spacing="3" fill="#8a7650">ΛΥΔΙ</text>
+        {{range $d.Inside}}{{template "medal" .}}{{end}}
+        {{range $d.Outside}}{{template "medal" .}}{{end}}
+      </svg>
+    </figure>
+
+    <h2 class="settings-section">{{.T.AgoraMembers}}</h2>
+    {{if not $d.Members}}<p class="hint">{{.T.AgoraEmptyIn}}</p>{{else}}
+    <ul class="agora-list">
+      {{range $d.Members}}<li{{if .You}} class="agora-you"{{end}}><span class="agora-chip" style="background: {{.Medal.Color}}">{{.Medal.Symbol}}</span><span class="agora-name">{{.Name}}</span><span class="agora-rank">{{.Rank}}{{if .Medal.Laurel}} 🌿{{end}}</span><span class="hint">{{printf $t.AgoraDays .Days}}</span></li>{{end}}
+    </ul>{{end}}
+
+    <h2 class="settings-section">{{.T.AgoraGates}}</h2>
+    {{if not $d.Gates}}<p class="hint">{{.T.AgoraEmptyOut}}</p>{{else}}
+    <ul class="agora-list">
+      {{range $d.Gates}}<li{{if .You}} class="agora-you"{{end}}><span class="agora-chip" style="background: {{.Medal.Color}}">{{.Medal.Symbol}}</span><span class="agora-name">{{.Name}}</span><span class="agora-gate"><span class="daily-bar"><span class="daily-bar-fill" style="width: {{.Percent}}%"></span></span></span><span class="hint">{{.Days}} / {{$d.Threshold}}</span></li>{{end}}
+    </ul>{{end}}
+
+    <h2 class="settings-section">{{.T.AgoraAvatarTitle}}</h2>
+    <form action="/agora/avatar" method="post" class="agora-avatar">
+      <p class="hint">{{.T.AgoraAvatarSymbol}}</p>
+      <div class="agora-picks">
+        <label><input type="radio" name="symbol" value=""{{if not $d.MySymbol}} checked{{end}}><span>{{$d.MyInitial}}</span></label>
+        {{range $d.Symbols}}<label><input type="radio" name="symbol" value="{{.}}"{{if eq . $d.MySymbol}} checked{{end}}><span>{{.}}</span></label>{{end}}
+      </div>
+      <p class="hint">{{.T.AgoraAvatarColor}}</p>
+      <div class="agora-picks">
+        {{range $d.Colors}}<label><input type="radio" name="color" value="{{.Key}}"{{if eq .Key $d.MyColorKey}} checked{{end}}><span class="agora-swatch" style="background: {{.Hex}}"></span></label>{{end}}
+      </div>
+      <button type="submit" class="btn btn-primary">{{.T.AgoraAvatarSave}}</button>
+    </form>
+  </main>
+</body>
+</html>
+
+{{define "medal"}}<g transform="translate({{.X}} {{.Y}})">{{if .More}}<circle r="{{.R}}" fill="#d8c9a3"/><text text-anchor="middle" dominant-baseline="central" font-size="8" fill="#5b4a2a" font-family="sans-serif">+{{.More}}</text>{{else}}<title>{{.Title}}</title>{{if .Dash}}<circle r="12.5" fill="none" stroke="#d2c19c" stroke-width="2.5"/><circle r="12.5" fill="none" stroke="#2f6f4f" stroke-width="2.5" stroke-dasharray="{{.Dash}}" transform="rotate(-90)"/>{{end}}<circle r="{{.R}}" fill="{{.Color}}" stroke="{{if .Laurel}}#c9a227{{else}}#d9c38a{{end}}" stroke-width="{{if .Laurel}}2.4{{else}}1.4{{end}}"/>{{if .You}}<circle r="{{add .R 4}}" fill="none" stroke="#2f6f4f" stroke-width="1.2" stroke-dasharray="2 2"/>{{end}}<text text-anchor="middle" dominant-baseline="central" font-size="{{if gt .R 10}}11{{else}}10{{end}}" fill="#fff" font-family="Georgia, serif">{{.Symbol}}</text><text y="{{add .R 8}}" text-anchor="middle" font-size="6.5" fill="#5b4a2a" font-family="sans-serif">{{.Label}}</text>{{end}}</g>{{end}}

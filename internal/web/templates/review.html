@@ -31,6 +31,7 @@
         {{if .Data.PointsDone}}<p class="daily-points">{{.Data.PointsDone}}</p>{{end}}
         {{if .Data.StreakText}}<p class="daily-streak">{{.Data.StreakText}}</p>{{end}}
         <p class="hint">{{.T.DailyStreakHint}}</p>
+        {{if .Data.AgoraEntered}}<p class="agora-entered"><a href="/agora">{{.T.AgoraEntered}}</a></p>{{else if .Data.AgoraGauge}}<p class="hint"><a href="/agora">{{.Data.AgoraGauge}}</a></p>{{end}}
         {{if $d.NewPaused}}
           <p class="hint daily-waiting">{{printf .T.DailyNewPaused $d.Fragile}}</p>
         {{else if gt $d.NewWaiting 0}}

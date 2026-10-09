@@ -182,6 +182,9 @@ func migrateUsersForEmail(db *sql.DB) error {
 		{"theme", "TEXT NOT NULL DEFAULT ''"},
 		{"reading_mode", "TEXT NOT NULL DEFAULT ''"},
 		{"eink", "INTEGER NOT NULL DEFAULT 0"},
+		{"avatar_symbol", "TEXT NOT NULL DEFAULT ''"},
+		{"avatar_color", "TEXT NOT NULL DEFAULT ''"},
+		{"agora_welcomed", "INTEGER NOT NULL DEFAULT 0"},
 	} {
 		if err := ensureColumn(db, "users", c.name, c.decl); err != nil {
 			return fmt.Errorf("migration users.%s : %w", c.name, err)
@@ -413,6 +416,9 @@ type User struct {
 	// Eink: e-reader display mode (pure black on white, no animation,
 	// pages).
 	Eink bool
+	// Agora medallion: a symbol (or "" for the initial) and a color.
+	AvatarSymbol, AvatarColor string
+	AgoraWelcomed             bool
 }
 
 // Plans: "free" is bounded by the monthly translation quota; "unlimited"
@@ -422,12 +428,12 @@ const (
 	PlanUnlimited = "unlimited"
 )
 
-const userColumns = `id, username, password_hash, native_lang, created_at, COALESCE(email, ''), email_verified_at != '', plan, pending_email, daily_new_limit, display_name, bonus_quota, timezone, reminders, last_reminder_day, theme, reading_mode, eink`
+const userColumns = `id, username, password_hash, native_lang, created_at, COALESCE(email, ''), email_verified_at != '', plan, pending_email, daily_new_limit, display_name, bonus_quota, timezone, reminders, last_reminder_day, theme, reading_mode, eink, avatar_symbol, avatar_color, agora_welcomed`
 
 func scanUser(row interface{ Scan(...any) error }) (User, error) {
 	var u User
 	var createdAt string
-	if err := row.Scan(&u.ID, &u.Username, &u.PasswordHash, &u.NativeLang, &createdAt, &u.Email, &u.EmailVerified, &u.Plan, &u.PendingEmail, &u.DailyNewLimit, &u.DisplayName, &u.BonusQuota, &u.Timezone, &u.Reminders, &u.LastReminderDay, &u.Theme, &u.ReadingMode, &u.Eink); err != nil {
+	if err := row.Scan(&u.ID, &u.Username, &u.PasswordHash, &u.NativeLang, &createdAt, &u.Email, &u.EmailVerified, &u.Plan, &u.PendingEmail, &u.DailyNewLimit, &u.DisplayName, &u.BonusQuota, &u.Timezone, &u.Reminders, &u.LastReminderDay, &u.Theme, &u.ReadingMode, &u.Eink, &u.AvatarSymbol, &u.AvatarColor, &u.AgoraWelcomed); err != nil {
 		return User{}, err
 	}
 	u.CreatedAt, _ = time.Parse(timeLayout, createdAt)
@@ -528,6 +534,58 @@ func (s *Store) SetPasswordHash(userID int64, hash string) error {
 func (s *Store) SetUserNativeLang(userID int64, lang string) error {
 	_, err := s.db.Exec(`UPDATE users SET native_lang = ? WHERE id = ?`, lang, userID)
 	return err
+}
+
+func (s *Store) SetAvatar(userID int64, symbol, color string) error {
+	_, err := s.db.Exec(`UPDATE users SET avatar_symbol = ?, avatar_color = ? WHERE id = ?`, symbol, color, userID)
+	return err
+}
+
+func (s *Store) SetAgoraWelcomed(userID int64) error {
+	_, err := s.db.Exec(`UPDATE users SET agora_welcomed = 1 WHERE id = ?`, userID)
+	return err
+}
+
+// CompletedDayCount is how many daily challenges the user has completed.
+func (s *Store) CompletedDayCount(userID int64) (int, error) {
+	var n int
+	err := s.db.QueryRow(`SELECT COUNT(*) FROM daily_activity WHERE user_id = ? AND completed = 1`, userID).Scan(&n)
+	return n, err
+}
+
+type AgoraCitizen struct {
+	UserID                    int64
+	Username, DisplayName     string
+	AvatarSymbol, AvatarColor string
+	Days                      int    // completed daily challenges
+	EnteredOn                 string // day of the threshold-th one, "" if not reached
+}
+
+// AgoraCitizens lists everyone with at least one completed challenge, most
+// first, with the day they reached `threshold` completed challenges.
+func (s *Store) AgoraCitizens(threshold int) ([]AgoraCitizen, error) {
+	rows, err := s.db.Query(`
+		WITH ranked AS (
+			SELECT user_id, day, ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY day) AS n
+			FROM daily_activity WHERE completed = 1
+		)
+		SELECT u.id, u.username, u.display_name, u.avatar_symbol, u.avatar_color, MAX(r.n),
+			COALESCE(MAX(CASE WHEN r.n = ? THEN r.day END), '')
+		FROM ranked r JOIN users u ON u.id = r.user_id
+		GROUP BY u.id ORDER BY MAX(r.n) DESC, u.id`, threshold)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []AgoraCitizen
+	for rows.Next() {
+		var c AgoraCitizen
+		if err := rows.Scan(&c.UserID, &c.Username, &c.DisplayName, &c.AvatarSymbol, &c.AvatarColor, &c.Days, &c.EnteredOn); err != nil {
+			return nil, err
+		}
+		out = append(out, c)
+	}
+	return out, rows.Err()
 }
 
 func (s *Store) SetPlan(userID int64, plan string) error {

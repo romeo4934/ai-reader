@@ -77,6 +77,7 @@ type Config struct {
 func New(st *store.Store, aiClient *ai.Client, log *slog.Logger, secret []byte, mailer *mail.Sender, cfg Config) (*Server, error) {
 	tmpl, err := template.New("").Funcs(template.FuncMap{
 		"add":       func(a, b int) int { return a + b },
+		"list":      func(xs ...int) []int { return xs },
 		"sub":       func(a, b int) int { return a - b },
 		"highlight": highlightPhrase,
 		"freqLabel": frequency.Label,
@@ -118,6 +119,8 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("GET /leaderboard", s.requireAuth(s.handleLeaderboard))
 	mux.HandleFunc("GET /catalog", s.requireAuth(s.handleCatalog))
 	mux.HandleFunc("POST /catalog/{id}/add", s.requireAuth(s.handleCatalogAdd))
+	mux.HandleFunc("GET /agora", s.requireAuth(s.handleAgora))
+	mux.HandleFunc("POST /agora/avatar", s.requireAuth(s.handleAgoraAvatar))
 	mux.HandleFunc("GET /friends", s.requireAuth(s.handleFriends))
 	mux.HandleFunc("POST /friends/invite", s.requireAuth(s.handleFriendsInvite))
 	mux.HandleFunc("POST /friends/{id}/remove", s.requireAuth(s.handleFriendRemove))
@@ -549,9 +552,12 @@ type reviewView struct {
 	Finished bool
 	// PointsDone is the "done" screen's points line (today and total).
 	PointsDone string
-	Card       *store.Vocab
-	IsNew      bool
-	IsRetry    bool // missed earlier today, back for another go
+	// The Agora on the "done" screen: progress toward it, or entering it.
+	AgoraGauge   string
+	AgoraEntered bool
+	Card         *store.Vocab
+	IsNew        bool
+	IsRetry      bool // missed earlier today, back for another go
 	// Recall is nil when generation failed or no API key is set — the
 	// template falls back to the plain translation-reveal card.
 	Recall *ai.RecallCard
@@ -616,6 +622,7 @@ func (s *Server) handleReviewPage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if view.Finished {
+		view.AgoraGauge, view.AgoraEntered = s.agoraStatus(T, user)
 		if total, err := s.store.TotalPoints(user.ID); err != nil {
 			s.log.Error("total points", "err", err)
 		} else if total > 0 {

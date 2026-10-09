@@ -30,7 +30,7 @@
         {{range .Data.Entries}}
         <li class="lb-row{{if .IsYou}} lb-you{{end}}">
           <span class="lb-rank">{{if eq .Rank 1}}🥇{{else if eq .Rank 2}}🥈{{else if eq .Rank 3}}🥉{{else}}{{.Rank}}{{end}}</span>
-          <span class="lb-name">{{.Name}}{{if .IsYou}} <span class="lb-you-tag">{{$.T.LeaderboardYou}}</span>{{end}}</span>
+          <span class="lb-name">{{.Name}}{{if .Agora}} <span title="{{$.T.AgoraTitle}}">🏛️</span>{{end}}{{if .IsYou}} <span class="lb-you-tag">{{$.T.LeaderboardYou}}</span>{{end}}</span>
           {{if .Streak}}<span class="lb-streak">{{.Streak}}</span>{{end}}
           <span class="lb-points">{{printf $.T.DailyPoints .Points}}</span>
         </li>
