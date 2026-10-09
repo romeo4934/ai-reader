@@ -905,12 +905,32 @@ func (s *Store) CountDueVocab(userID int64, now time.Time) (int, error) {
 // ArchiveVocab drops out of this list (and starts a 30-day box-5 cycle) but
 // keeps coming back in DueVocab and keeps its history in RecentlyReviewed.
 // lang ("" for all) keeps only words from books in that language.
-func (s *Store) ListVocab(userID int64, lang string) ([]Vocab, error) {
+// Where a word stands, as the words page splits them (the same split as
+// VocabProgress).
+const (
+	VocabLearning = "learning" // in review, not mastered yet
+	VocabNew      = "new"      // never reviewed
+	VocabKnown    = "known"    // mastered, or marked as known
+)
+
+var vocabStatusWhere = map[string]string{
+	VocabLearning: "v.last_reviewed_at IS NOT NULL AND v.box <= 3 AND v.archived = 0",
+	VocabNew:      "v.last_reviewed_at IS NULL AND v.archived = 0",
+	VocabKnown:    "v.last_reviewed_at IS NOT NULL AND (v.box >= 4 OR v.archived = 1)",
+}
+
+// ListVocab lists the user's words with the given status, most frequent
+// first.
+func (s *Store) ListVocab(userID int64, lang, status string) ([]Vocab, error) {
+	where, ok := vocabStatusWhere[status]
+	if !ok {
+		return nil, fmt.Errorf("unknown vocab status %q", status)
+	}
 	rows, err := s.db.Query(`
 		SELECT v.id, v.user_id, v.book_id, b.title, v.chapter_id, v.phrase, v.lemma, v.context,
 		       v.translation, v.note, v.frequency, v.box, v.next_review_at, v.created_at, v.last_reviewed_at
 		FROM vocab v JOIN books b ON b.id = v.book_id
-		WHERE v.user_id = ? AND v.archived = 0 AND (? = '' OR b.lang_key = ?)
+		WHERE v.user_id = ? AND (? = '' OR b.lang_key = ?) AND `+where+`
 		ORDER BY v.frequency ASC`, userID, lang, lang)
 	if err != nil {
 		return nil, err
@@ -999,6 +1019,14 @@ func (s *Store) DeleteVocab(id, userID int64) error {
 // browsing list, but still comes back in /review on its box-5, 30-day cycle
 // — "known" declutters the list, it doesn't opt a word out of ever being
 // checked again.
+// RelearnVocab puts a known word back in review, due now, from the first
+// box.
+func (s *Store) RelearnVocab(id, userID int64, now time.Time) error {
+	_, err := s.db.Exec(`UPDATE vocab SET archived = 0, box = 1, next_review_at = ? WHERE id = ? AND user_id = ? AND last_reviewed_at IS NOT NULL`,
+		now.Format(timeLayout), id, userID)
+	return err
+}
+
 func (s *Store) ArchiveVocab(id, userID int64, box int, nextReview, now time.Time) error {
 	_, err := s.db.Exec(`UPDATE vocab SET archived = 1, box = ?, next_review_at = ?, last_reviewed_at = ? WHERE id = ? AND user_id = ?`,
 		box, nextReview.Format(timeLayout), now.Format(timeLayout), id, userID)

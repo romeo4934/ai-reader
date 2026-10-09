@@ -139,6 +139,7 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("GET /words", s.requireAuth(s.handleWords))
 	mux.HandleFunc("GET /reviewed", s.requireAuth(s.handleReviewed))
 	mux.HandleFunc("POST /words/{id}/archive", s.requireAuth(s.handleArchiveWord))
+	mux.HandleFunc("POST /words/{id}/relearn", s.requireAuth(s.handleRelearnWord))
 	mux.HandleFunc("POST /words/{id}/delete", s.requireAuth(s.handleDeleteWord))
 
 	mux.HandleFunc("GET /settings", s.requireAuth(s.handleSettingsGet))
@@ -725,27 +726,56 @@ func (s *Server) handleWords(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	lang := deckLang(w, r, langs)
-	words, err := s.store.ListVocab(user.ID, lang)
-	if err != nil {
-		s.fail(w, http.StatusInternalServerError, err)
-		return
-	}
 	T := s.dictFor(r)
 	total, err := s.store.TotalPoints(user.ID)
 	if err != nil {
 		s.log.Error("total points", "err", err)
 	}
-	view := wordsView{Words: words, Groups: groupByFrequency(T, words)}
+	waiting, learning, known, err := s.store.VocabProgress(user.ID, lang)
+	if err != nil {
+		s.fail(w, http.StatusInternalServerError, err)
+		return
+	}
+	// The words in review first; the tab asked for, else the first one
+	// that isn't empty.
+	status := r.URL.Query().Get("tab")
+	if status != store.VocabLearning && status != store.VocabNew && status != store.VocabKnown {
+		switch {
+		case learning > 0 || waiting+known == 0:
+			status = store.VocabLearning
+		case waiting > 0:
+			status = store.VocabNew
+		default:
+			status = store.VocabKnown
+		}
+	}
+	words, err := s.store.ListVocab(user.ID, lang, status)
+	if err != nil {
+		s.fail(w, http.StatusInternalServerError, err)
+		return
+	}
+	now := time.Now().In(userLocation(r))
+	view := wordsView{Status: status, Groups: groupByFrequency(T, words), Any: waiting+learning+known > 0}
+	for _, g := range view.Groups {
+		for i := range g.Words {
+			if status == store.VocabLearning {
+				g.Words[i].Due = dueLabel(T, g.Words[i].NextReviewAt, now)
+			}
+		}
+	}
+	view.StatusTabs = []wordsTab{
+		{Status: store.VocabLearning, Label: T["WordsTabLearning"], Count: learning, Active: status == store.VocabLearning},
+		{Status: store.VocabNew, Label: T["WordsTabNew"], Count: waiting, Active: status == store.VocabNew},
+		{Status: store.VocabKnown, Label: T["WordsTabKnown"], Count: known, Active: status == store.VocabKnown},
+	}
+	view.Empty = T["WordsEmpty_"+status]
 	if lang != "" {
 		for _, l := range langs {
 			view.Tabs = append(view.Tabs, deckTab{Lang: l, Name: langName(l), Active: l == lang})
 		}
 	}
-	if waiting, learning, known, err := s.store.VocabProgress(user.ID, lang); err != nil {
-		s.log.Error("vocab progress", "err", err)
-	} else if n := waiting + learning + known; n > 0 {
+	if n := waiting + learning + known; n > 0 {
 		view.Progress = &wordsProgress{
-			Line:       fmt.Sprintf(T["WordsProgressLine"], learning, known, waiting),
 			LearnPct:   learning * 100 / n,
 			KnownPct:   known * 100 / n,
 			WaitingPct: 100 - learning*100/n - known*100/n,
@@ -758,22 +788,50 @@ func (s *Server) handleWords(w http.ResponseWriter, r *http.Request) {
 }
 
 type wordsView struct {
-	Tabs     []deckTab
-	Words    []store.Vocab
-	Groups   []wordGroup
-	Points   string // empty until the first point is earned
-	Progress *wordsProgress
+	Tabs       []deckTab
+	StatusTabs []wordsTab
+	Status     string // the tab shown: store.VocabLearning, VocabNew or VocabKnown
+	Any        bool   // some words saved, in any tab
+	Empty      string // what to say when this tab is empty
+	Groups     []wordGroup
+	Points     string // empty until the first point is earned
+	Progress   *wordsProgress
 }
 
 // frequencyLevels are the upper corpus ranks of the 10 levels the word list
 // is grouped in, most useful words first. The last level takes the rest.
 var frequencyLevels = []int{100, 300, 600, 1000, 2000, 3000, 5000, 8000, 15000}
 
+type wordsTab struct {
+	Status, Label string
+	Count         int
+	Active        bool
+}
+
+// wordRow is a word of the list; Due says when a word in review comes back.
+type wordRow struct {
+	store.Vocab
+	Due string
+}
+
 type wordGroup struct {
 	Level int
 	Label string
 	Count int
-	Words []store.Vocab
+	Words []wordRow
+}
+
+// dueLabel: when a word in review comes back, in days from today in the
+// reader's time zone ("today" when already due).
+func dueLabel(T i18n.Dict, next, now time.Time) string {
+	days := int(dayStart(next.In(now.Location())).Sub(dayStart(now)).Hours()/24 + 0.5)
+	switch {
+	case days <= 0:
+		return T["WordsDueToday"]
+	case days == 1:
+		return T["WordsDueTomorrow"]
+	}
+	return fmt.Sprintf(T["WordsDueIn"], days)
 }
 
 // groupByFrequency splits the list (already sorted by frequency rank) into
@@ -796,14 +854,13 @@ func groupByFrequency(T i18n.Dict, words []store.Vocab) []wordGroup {
 			groups = append(groups, wordGroup{Level: level, Label: label})
 		}
 		g := &groups[len(groups)-1]
-		g.Words = append(g.Words, w)
+		g.Words = append(g.Words, wordRow{Vocab: w})
 		g.Count++
 	}
 	return groups
 }
 
 type wordsProgress struct {
-	Line                           string
 	KnownPct, LearnPct, WaitingPct int
 }
 
@@ -820,7 +877,30 @@ func (s *Server) handleArchiveWord(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, http.StatusInternalServerError, err)
 		return
 	}
-	http.Redirect(w, r, "/words", http.StatusSeeOther)
+	http.Redirect(w, r, wordsBack(r), http.StatusSeeOther)
+}
+
+// wordsBack is the words page tab an action on a word was made from.
+func wordsBack(r *http.Request) string {
+	switch t := r.FormValue("tab"); t {
+	case store.VocabLearning, store.VocabNew, store.VocabKnown:
+		return "/words?tab=" + t
+	}
+	return "/words"
+}
+
+func (s *Server) handleRelearnWord(w http.ResponseWriter, r *http.Request) {
+	user := userFromContext(r)
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		s.fail(w, http.StatusBadRequest, err)
+		return
+	}
+	if err := s.store.RelearnVocab(id, user.ID, time.Now().UTC()); err != nil {
+		s.fail(w, http.StatusInternalServerError, err)
+		return
+	}
+	http.Redirect(w, r, wordsBack(r), http.StatusSeeOther)
 }
 
 func (s *Server) handleDeleteWord(w http.ResponseWriter, r *http.Request) {
@@ -836,7 +916,7 @@ func (s *Server) handleDeleteWord(w http.ResponseWriter, r *http.Request) {
 	}
 	// Deletable from both /words and a /review card; go back where the
 	// button was, but only to one of those two — never an arbitrary URL.
-	back := "/words"
+	back := wordsBack(r)
 	if r.FormValue("back") == "/review" {
 		back = "/review"
 	}

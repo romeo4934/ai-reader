@@ -19,15 +19,18 @@
       <div class="words-bar" aria-hidden="true">
         <span class="wb-known" style="width: {{.KnownPct}}%"></span><span class="wb-learn" style="width: {{.LearnPct}}%"></span><span class="wb-wait" style="width: {{.WaitingPct}}%"></span>
       </div>
-      <p class="hint">{{.Line}}</p>
     </div>
     {{end}}
     {{if .Data.Points}}<p class="hint words-points">{{.Data.Points}}</p>{{end}}
 
-    {{if not .Data.Words}}
+    {{if not .Data.Any}}
       <p class="empty">{{.T.WordsEmpty}}</p>
     {{else}}
-      {{$t := .T}}
+      {{$t := .T}}{{$tab := .Data.Status}}
+      <nav class="lb-tabs words-tabs" aria-label="{{.T.WordsTitle}}">
+        {{range .Data.StatusTabs}}<a href="/words?tab={{.Status}}"{{if .Active}} class="active" aria-current="page"{{end}}>{{.Label}} <span class="tab-count">{{.Count}}</span></a>{{end}}
+      </nav>
+      {{if not .Data.Groups}}<p class="empty">{{.Data.Empty}}</p>{{end}}
       {{range .Data.Groups}}
       <h2 class="freq-level"><span class="freq-level-num">{{.Level}}</span> {{.Label}} <span class="freq-level-count">{{.Count}}</span></h2>
       <ul class="word-list">
@@ -37,13 +40,23 @@
             <summary class="word-row">
               <span class="word-phrase">{{if .Lemma}}{{.Lemma}}{{else}}{{.Phrase}}{{end}}</span>
               <span class="word-translation">{{.Translation}}</span>
+              {{if .Due}}<span class="word-due">{{.Due}}</span>{{end}}
             </summary>
             <p class="word-context">{{highlight .Context .Phrase}}</p>
             <div class="word-actions">
+              {{if eq $tab "known"}}
+              <form action="/words/{{.ID}}/relearn" method="post">
+                <input type="hidden" name="tab" value="{{$tab}}">
+                <button type="submit" class="btn-link">{{$t.WordsRelearn}}</button>
+              </form>
+              {{else}}
               <form action="/words/{{.ID}}/archive" method="post">
+                <input type="hidden" name="tab" value="{{$tab}}">
                 <button type="submit" class="btn-link">{{$t.WordsKnowIt}}</button>
               </form>
+              {{end}}
               <form action="/words/{{.ID}}/delete" method="post" class="confirm-delete" data-confirm="{{$t.WordsDeleteConfirm}}">
+                <input type="hidden" name="tab" value="{{$tab}}">
                 <button type="submit" class="btn-link btn-link-danger">{{$t.WordsDelete}}</button>
               </form>
             </div>

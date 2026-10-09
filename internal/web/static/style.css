@@ -283,6 +283,9 @@ mark.word-highlight { background: var(--mark); border-radius: 3px; padding: 0 2p
 details[open] .word-row::after { content: '⌄'; }
 .word-phrase { font-weight: 600; }
 .word-translation { color: var(--muted); }
+.word-due { margin-left: auto; font-size: 0.8rem; color: var(--muted); white-space: nowrap; }
+.word-row:has(.word-due)::after { margin-left: 0; }
+.words-tabs { margin: 0.4rem 0 0.8rem; }
 .word-context {
   margin: 0 0.2rem 0.9rem;
   padding: 0.7rem 0.8rem;

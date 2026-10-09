@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/romeo4934/ai-reader/internal/i18n"
 	"github.com/romeo4934/ai-reader/internal/srs"
 	"github.com/romeo4934/ai-reader/internal/store"
 )
@@ -203,5 +204,22 @@ func TestComputeRetention(t *testing.T) {
 	}
 	if r.DaysActive[1] != 3 {
 		t.Errorf("days active: %v", r.DaysActive)
+	}
+}
+
+func TestDueLabel(t *testing.T) {
+	paris, _ := time.LoadLocation("Europe/Paris")
+	T := i18n.For("fr")
+	now := time.Date(2026, 10, 9, 23, 30, 0, 0, paris)
+	for next, want := range map[time.Time]string{
+		now.Add(-time.Hour):                            "aujourd'hui",
+		time.Date(2026, 10, 9, 21, 45, 0, 0, time.UTC): "aujourd'hui", // 23:45 in Paris
+		time.Date(2026, 10, 9, 22, 15, 0, 0, time.UTC): "demain",      // 00:15 in Paris
+		time.Date(2026, 10, 10, 8, 0, 0, 0, paris):     "demain",
+		time.Date(2026, 10, 13, 1, 0, 0, 0, paris):     "dans 4 jours",
+	} {
+		if got := dueLabel(T, next, now); got != want {
+			t.Errorf("dueLabel(%v) = %q, want %q", next, got, want)
+		}
 	}
 }
