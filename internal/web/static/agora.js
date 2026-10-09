@@ -1,10 +1,10 @@
-// The Lydi Agora as a little top-down 2D game, in a retro pixel-art style:
+// The Lydi Agora as a little top-down 2D game:
 // the walled agora with its temple, the speakers' platform and stone tiers
 // where members sit in order of prestige, and outside the market, the
 // meadow and the square where aspirants wait at the gate. The viewer walks
-// wherever they tap. Everything is drawn in code (no image assets) onto a
-// half-resolution canvas scaled up without smoothing; names and speech
-// bubbles are drawn on top at full resolution. Day, dusk and night follow
+// wherever they tap. Everything is drawn in code (no image assets), at the
+// screen's full resolution: the scenery once per size into an offscreen
+// canvas, the living things every frame. Day, dusk and night follow
 // the reader's clock. On e-ink (or with reduced motion) it's a still frame.
 (function () {
   'use strict';
@@ -12,15 +12,14 @@
   if (!canvas) return;
   var people = JSON.parse(document.getElementById('agora-people').textContent || '[]');
   var txt = canvas.dataset;
-  var W = 480, H = 400, PX = 2; // world size; world units per pixel of the art
+  var W = 480, H = 400; // world size
   var still = document.documentElement.hasAttribute('data-eink') ||
     (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 
   var view = canvas.getContext('2d');
-  var art = document.createElement('canvas'); art.width = W / PX; art.height = H / PX;
-  var g = art.getContext('2d');
-  var bg = document.createElement('canvas'); bg.width = W / PX; bg.height = H / PX;
-  [view, g, bg.getContext('2d')].forEach(function (c) {
+  var g = view;
+  var bg = document.createElement('canvas'); // the scenery, at screen resolution
+  [view, bg.getContext('2d')].forEach(function (c) {
     if (!c.roundRect) c.roundRect = function (x, y, w, h) { this.rect(x, y, w, h); }; // older browsers
   });
 
@@ -186,14 +185,22 @@
   // --- static art, drawn once ---
   function drawBackground() {
     var c = bg.getContext('2d');
-    c.save(); c.scale(1 / PX, 1 / PX);
+    c.save(); c.scale(bg.width / W, bg.height / H);
     function rect(x, y, w, h, col) { c.fillStyle = col; c.fillRect(x, y, w, h); }
     function circle(x, y, r, col) { c.fillStyle = col; c.beginPath(); c.arc(x, y, r, 0, Math.PI * 2); c.fill(); }
     var x, y, i, k;
     // grass in two tones, tufts and flowers
     rect(0, 0, W, H, '#7fb24f');
-    for (y = 0; y < H; y += 8) for (x = 0; x < W; x += 8) if ((x * 7 + y * 13) % 5 === 0) rect(x, y, 8, 8, '#76a849');
-    for (i = 0; i < 260; i++) rect((i * 97) % W, (i * 61 + (i % 7) * 13) % H, 2, 4, '#5f9a3a');
+    // soft patches of darker grass, then blades
+    for (i = 0; i < 70; i++) {
+      c.fillStyle = 'rgba(70,120,40,0.18)';
+      c.beginPath(); c.ellipse((i * 157) % W, (i * 89 + (i % 5) * 31) % H, 14 + (i % 4) * 5, 8 + (i % 3) * 3, 0, 0, Math.PI * 2); c.fill();
+    }
+    c.strokeStyle = '#5f9a3a'; c.lineWidth = 1;
+    for (i = 0; i < 320; i++) {
+      var bx = (i * 97) % W, by = (i * 61 + (i % 7) * 13) % H;
+      c.beginPath(); c.moveTo(bx, by + 4); c.lineTo(bx - 1, by); c.moveTo(bx + 1, by + 4); c.lineTo(bx + 2, by + 1); c.stroke();
+    }
     var flowers = ['#f4d35e', '#fff7e8', '#e85d75', '#b58cf0'];
     for (i = 0; i < 90; i++) {
       var fx = (i * 131) % W, fy = (i * 83) % H;
@@ -290,7 +297,7 @@
   function drawPerson(a, t) {
     var x = a.pos.x, y = a.pos.y, walking = a.path && a.path.length > 0 && !still;
     var swing = walking ? Math.sin(t / 90 + a.phase) : 0, sit = a.sitting ? 2 : 0;
-    circle(x, y + 7, 6, 'rgba(0,0,0,0.2)');
+    g.fillStyle = 'rgba(0,0,0,0.22)'; g.beginPath(); g.ellipse(x, y + 7, 5.5, 2, 0, 0, Math.PI * 2); g.fill();
     if (!a.sitting) {
       rect(x - 3, y + 2 + Math.max(0, swing) * 2, 2, 5, '#5a3d22');
       rect(x + 1, y + 2 + Math.max(0, -swing) * 2, 2, 5, '#5a3d22');
@@ -312,9 +319,6 @@
   }
 
   function drawWorld(t) {
-    g.setTransform(1, 0, 0, 1, 0, 0);
-    g.drawImage(bg, 0, 0);
-    g.setTransform(1 / PX, 0, 0, 1 / PX, 0, 0);
     // water: river glints, fountain jet
     for (var x = 0; x < W; x += 30) rect((x + t / 40) % W, 16 + Math.sin(x / 40) * 3, 6, 1.5, 'rgba(255,255,255,0.55)');
     var jet = 2 + (Math.sin(t / 200) + 1) * 3;
@@ -399,12 +403,12 @@
   }
 
   function frame(t) {
-    drawWorld(t);
     updateCamera(false);
-    var v = viewSize();
+    var s = cam.scale;
     view.setTransform(1, 0, 0, 1, 0, 0);
-    view.imageSmoothingEnabled = false;
-    view.drawImage(art, cam.x / PX, cam.y / PX, v.w / PX, v.h / PX, 0, 0, canvas.width, canvas.height);
+    view.drawImage(bg, cam.x * s, cam.y * s, canvas.width, canvas.height, 0, 0, canvas.width, canvas.height);
+    view.setTransform(s, 0, 0, s, -cam.x * s, -cam.y * s);
+    drawWorld(t);
     drawOverlay(t);
   }
 
@@ -468,11 +472,12 @@
     canvas.width = Math.round(canvas.clientWidth * dpr);
     canvas.height = Math.round(canvas.clientHeight * dpr);
     cam.scale = Math.max(canvas.width / W, canvas.height / H);
+    bg.width = Math.ceil(W * cam.scale); bg.height = Math.ceil(H * cam.scale);
+    drawBackground();
     updateCamera(true);
     frame(performance.now());
   }
 
-  drawBackground();
   window.addEventListener('resize', resize);
   resize();
   if (!still) {
