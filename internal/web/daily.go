@@ -23,6 +23,14 @@ var DailyNewLimits = []int{5, 10, 15, 20, 30}
 
 const defaultDailyNewLimit = 10
 
+// New words only enter while fewer than fragilePerNew × the daily new-word
+// limit are still fragile (reviewed, box 1-2): someone missing a lot gets a
+// pause on new words until their small list holds, instead of a pile that
+// never sticks. Scaled on the limit because every new word stays fragile
+// for at least the 3 days of box 2 — at 10 a day, ~30 fragile words is just
+// the normal pace, and the margin above it is what missed words can take.
+const fragilePerNew = 4
+
 func userLocation(r *http.Request) *time.Location {
 	if c, err := r.Cookie(tzCookie); err == nil && c.Value != "" && len(c.Value) < 64 {
 		if loc, err := time.LoadLocation(c.Value); err == nil {
@@ -53,6 +61,9 @@ type dailyState struct {
 	Limit      int
 	MoreCount  int // what "add more new words" would pull in
 	Points     int // earned today
+	Fragile    int
+	// NewPaused: new words are waiting but held back by fragileCap.
+	NewPaused bool
 }
 
 func (s *Server) dailyState(user *store.User, now time.Time) (dailyState, error) {
@@ -61,22 +72,22 @@ func (s *Server) dailyState(user *store.User, now time.Time) (dailyState, error)
 	if err != nil {
 		return st, err
 	}
-	due, newCards, total, err := s.store.DeckCounts(user.ID, now.UTC())
+	deck, err := s.store.DeckCounts(user.ID, now.UTC())
 	if err != nil {
 		return st, err
 	}
-	allowed := st.Limit + act.ExtraNew - act.NewCards
-	if allowed < 0 {
-		allowed = 0
-	}
-	st.NewLeft = min(allowed, newCards)
-	st.NewWaiting = newCards - st.NewLeft
+	allowed := max(0, st.Limit+act.ExtraNew-act.NewCards)
+	room := max(0, fragilePerNew*st.Limit-deck.Fragile)
+	st.NewLeft = min(allowed, deck.New, room)
+	st.NewWaiting = deck.New - st.NewLeft
+	st.Fragile = deck.Fragile
 	st.Done = act.Reviews
 	st.Points = act.Points
-	st.Remaining = due + st.NewLeft
+	st.Remaining = deck.DueReviews + st.NewLeft
 	st.Total = st.Done + st.Remaining
-	st.DeckSize = total
-	st.MoreCount = min(st.Limit, st.NewWaiting)
+	st.DeckSize = deck.Total
+	st.MoreCount = min(st.Limit, st.NewWaiting, room-st.NewLeft)
+	st.NewPaused = st.NewWaiting > 0 && room-st.NewLeft <= 0
 	if st.Total > 0 {
 		st.Percent = st.Done * 100 / st.Total
 	}
@@ -166,4 +177,26 @@ func answerPoints(result srs.Result, mode string) int {
 	default:
 		return 1 // "I knew it" without typing
 	}
+}
+
+// dayStart is midnight of now's day, in now's location.
+func dayStart(now time.Time) time.Time {
+	return time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+}
+
+// nextReview schedules a card after an answer. On top of the plain Leitner
+// step, a missed card comes back at the end of today's session instead of
+// only tomorrow (seeing it again right after missing it is what fixes it),
+// and getting it right then keeps it in box 1 — back tomorrow, since one
+// success minutes after a miss doesn't show it's learned.
+func nextReview(card store.Vocab, result srs.Result, now time.Time) (box int, next time.Time) {
+	box, next = srs.Next(card.Box, result, now)
+	missedToday := card.Box == 1 && card.LastReviewedAt != nil && !card.LastReviewedAt.Before(dayStart(now))
+	switch {
+	case result != srs.Good:
+		return 1, now.UTC()
+	case missedToday:
+		return 1, now.UTC().AddDate(0, 0, 1)
+	}
+	return box, next
 }

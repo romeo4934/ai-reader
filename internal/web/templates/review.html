@@ -19,7 +19,9 @@
         {{if .Data.PointsDone}}<p class="daily-points">{{.Data.PointsDone}}</p>{{end}}
         {{if .Data.StreakText}}<p class="daily-streak">{{.Data.StreakText}}</p>{{end}}
         <p class="hint">{{.T.DailyStreakHint}}</p>
-        {{if gt $d.NewWaiting 0}}
+        {{if $d.NewPaused}}
+          <p class="hint daily-waiting">{{printf .T.DailyNewPaused $d.Fragile}}</p>
+        {{else if gt $d.NewWaiting 0}}
           <p class="hint daily-waiting">{{printf .T.DailyWaiting $d.NewWaiting}}</p>
           <form action="/review/more" method="post">
             <button type="submit" class="btn">{{printf .T.DailyMoreBtn $d.MoreCount}}</button>
@@ -41,7 +43,7 @@
       {{$t := .T}}
       <div class="card">
         <div class="card-top">
-          <div class="card-source">{{if $.Data.IsNew}}<span class="card-new">{{$t.DailyNewBadge}}</span>{{end}}{{$card.BookTitle}}</div>
+          <div class="card-source">{{if $.Data.IsNew}}<span class="card-new">{{$t.DailyNewBadge}}</span>{{else if $.Data.IsRetry}}<span class="card-new card-retry">{{$t.DailyRetryBadge}}</span>{{end}}{{$card.BookTitle}}</div>
           <form action="/words/{{$card.ID}}/delete" method="post" class="confirm-delete" data-confirm="{{$t.WordsDeleteConfirm}}">
             <input type="hidden" name="back" value="/review">
             <button type="submit" class="btn-link btn-link-danger">{{$t.WordsDelete}}</button>

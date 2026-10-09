@@ -9,6 +9,14 @@
 
   <main class="page">
     <h1>{{.T.WordsTitle}}</h1>
+    {{with .Data.Progress}}
+    <div class="words-progress">
+      <div class="words-bar" aria-hidden="true">
+        <span class="wb-known" style="width: {{.KnownPct}}%"></span><span class="wb-learn" style="width: {{.LearnPct}}%"></span><span class="wb-wait" style="width: {{.WaitingPct}}%"></span>
+      </div>
+      <p class="hint">{{.Line}}</p>
+    </div>
+    {{end}}
     {{if .Data.Points}}<p class="hint words-points">{{.Data.Points}}</p>{{end}}
 
     {{if not .Data.Words}}

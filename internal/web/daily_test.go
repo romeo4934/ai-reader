@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/romeo4934/ai-reader/internal/srs"
+	"github.com/romeo4934/ai-reader/internal/store"
 )
 
 func TestStreakDays(t *testing.T) {
@@ -97,5 +98,34 @@ func TestPublicNameNeverShowsEmail(t *testing.T) {
 	}
 	if got := publicName(14, "someone@example.com", "Mimi"); got != "Mimi" {
 		t.Errorf("chosen pseudo shown as %q", got)
+	}
+}
+
+func TestNextReview(t *testing.T) {
+	paris, _ := time.LoadLocation("Europe/Paris")
+	now := time.Date(2026, 10, 9, 9, 0, 0, 0, paris)
+	at := func(d time.Time) *time.Time { return &d }
+	earlierToday := at(time.Date(2026, 10, 9, 8, 50, 0, 0, paris).UTC())
+	yesterday := at(time.Date(2026, 10, 8, 20, 0, 0, 0, paris).UTC())
+	for _, tc := range []struct {
+		name     string
+		card     store.Vocab
+		result   srs.Result
+		wantBox  int
+		wantDays int // 0 = due again right away
+	}{
+		{"new card, known", store.Vocab{Box: 1}, srs.Good, 2, 3},
+		{"new card, missed: back this session", store.Vocab{Box: 1}, srs.Again, 1, 0},
+		{"missed today, now right: back tomorrow", store.Vocab{Box: 1, LastReviewedAt: earlierToday}, srs.Good, 1, 1},
+		{"missed today, missed again", store.Vocab{Box: 1, LastReviewedAt: earlierToday}, srs.Again, 1, 0},
+		{"missed yesterday, right today: normal step", store.Vocab{Box: 1, LastReviewedAt: yesterday}, srs.Good, 2, 3},
+		{"box 3 known", store.Vocab{Box: 3, LastReviewedAt: yesterday}, srs.Good, 4, 14},
+		{"box 4 missed", store.Vocab{Box: 4, LastReviewedAt: yesterday}, srs.Again, 1, 0},
+	} {
+		box, next := nextReview(tc.card, tc.result, now)
+		want := now.UTC().AddDate(0, 0, tc.wantDays)
+		if box != tc.wantBox || !next.Equal(want) {
+			t.Errorf("%s: got box %d next %s, want box %d next %s", tc.name, box, next, tc.wantBox, want)
+		}
 	}
 }

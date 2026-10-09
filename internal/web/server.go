@@ -451,6 +451,7 @@ type reviewView struct {
 	PointsDone string
 	Card       *store.Vocab
 	IsNew      bool
+	IsRetry    bool // missed earlier today, back for another go
 	// Recall is nil when generation failed or no API key is set — the
 	// template falls back to the plain translation-reveal card.
 	Recall *ai.RecallCard
@@ -467,7 +468,7 @@ func (s *Server) handleReviewPage(w http.ResponseWriter, r *http.Request) {
 	}
 	view := reviewView{Daily: daily}
 	if daily.Remaining > 0 {
-		cards, err := s.store.NextDailyCards(user.ID, now.UTC(), daily.NewLeft > 0, 1+recallPrefetch)
+		cards, err := s.store.NextDailyCards(user.ID, now.UTC(), dayStart(now), daily.NewLeft > 0, 1+recallPrefetch)
 		if err != nil {
 			s.fail(w, http.StatusInternalServerError, err)
 			return
@@ -475,6 +476,7 @@ func (s *Server) handleReviewPage(w http.ResponseWriter, r *http.Request) {
 		if len(cards) > 0 {
 			view.Card = &cards[0]
 			view.IsNew = view.Card.LastReviewedAt == nil
+			view.IsRetry = !view.IsNew && !view.Card.LastReviewedAt.Before(dayStart(now))
 			// Start on the next cards' exercises before waiting on this
 			// one, so they're ready by the time this card is answered.
 			s.prefetchRecallCards(user, cards, daily.NewLeft)
@@ -562,13 +564,13 @@ func (s *Server) handleReviewAnswer(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, http.StatusNotFound, err)
 		return
 	}
-	now := time.Now().UTC()
-	nextBox, nextReview := srs.Next(card.Box, result, now)
-	if err := s.store.UpdateVocabReview(id, user.ID, nextBox, nextReview, now); err != nil {
+	now := time.Now().In(userLocation(r))
+	nextBox, next := nextReview(card, result, now)
+	if err := s.store.UpdateVocabReview(id, user.ID, nextBox, next, now.UTC()); err != nil {
 		s.fail(w, http.StatusInternalServerError, err)
 		return
 	}
-	if err := s.store.RecordReview(user.ID, dayKey(now.In(userLocation(r))), card.LastReviewedAt == nil, points); err != nil {
+	if err := s.store.RecordReview(user.ID, dayKey(now), card.LastReviewedAt == nil, points); err != nil {
 		s.log.Error("record review", "err", err)
 	}
 	http.Redirect(w, r, "/review", http.StatusSeeOther)
@@ -587,6 +589,16 @@ func (s *Server) handleWords(w http.ResponseWriter, r *http.Request) {
 		s.log.Error("total points", "err", err)
 	}
 	view := wordsView{Words: words}
+	if waiting, learning, known, err := s.store.VocabProgress(user.ID); err != nil {
+		s.log.Error("vocab progress", "err", err)
+	} else if n := waiting + learning + known; n > 0 {
+		view.Progress = &wordsProgress{
+			Line:       fmt.Sprintf(T["WordsProgressLine"], learning, known, waiting),
+			LearnPct:   learning * 100 / n,
+			KnownPct:   known * 100 / n,
+			WaitingPct: 100 - learning*100/n - known*100/n,
+		}
+	}
 	if total > 0 {
 		view.Points = fmt.Sprintf(T["WordsPointsTotal"], total)
 	}
@@ -594,8 +606,14 @@ func (s *Server) handleWords(w http.ResponseWriter, r *http.Request) {
 }
 
 type wordsView struct {
-	Words  []store.Vocab
-	Points string // empty until the first point is earned
+	Words    []store.Vocab
+	Points   string // empty until the first point is earned
+	Progress *wordsProgress
+}
+
+type wordsProgress struct {
+	Line                           string
+	KnownPct, LearnPct, WaitingPct int
 }
 
 func (s *Server) handleArchiveWord(w http.ResponseWriter, r *http.Request) {

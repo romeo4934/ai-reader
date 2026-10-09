@@ -743,30 +743,51 @@ func (s *Store) CompletedDays(userID int64, since string) (map[string]bool, erro
 	return out, rows.Err()
 }
 
-// DeckCounts is what the daily session is built from: due cards already
-// reviewed at least once, never-reviewed cards, and the whole deck.
-func (s *Store) DeckCounts(userID int64, now time.Time) (dueReviews, newCards, total int, err error) {
-	err = s.db.QueryRow(`SELECT
+// DeckCounts is what the daily session is built from.
+type DeckCounts struct {
+	DueReviews int // due cards already reviewed at least once
+	New        int // never-reviewed cards
+	Fragile    int // reviewed but still in box 1-2: the words being learned
+	Total      int
+}
+
+func (s *Store) DeckCounts(userID int64, now time.Time) (DeckCounts, error) {
+	var c DeckCounts
+	err := s.db.QueryRow(`SELECT
 			COALESCE(SUM(last_reviewed_at IS NOT NULL AND next_review_at <= ?), 0),
 			COALESCE(SUM(last_reviewed_at IS NULL), 0),
+			COALESCE(SUM(last_reviewed_at IS NOT NULL AND box <= 2), 0),
 			COUNT(*)
-		FROM vocab WHERE user_id = ?`, now.Format(timeLayout), userID).Scan(&dueReviews, &newCards, &total)
+		FROM vocab WHERE user_id = ?`, now.Format(timeLayout), userID).Scan(&c.DueReviews, &c.New, &c.Fragile, &c.Total)
+	return c, err
+}
+
+// VocabProgress splits the deck for the "my words" page: waiting (never
+// reviewed), learning (box 1-3) and known (box 4-5, or marked known).
+func (s *Store) VocabProgress(userID int64) (waiting, learning, known int, err error) {
+	err = s.db.QueryRow(`SELECT
+			COALESCE(SUM(last_reviewed_at IS NULL), 0),
+			COALESCE(SUM(last_reviewed_at IS NOT NULL AND box <= 3 AND archived = 0), 0),
+			COALESCE(SUM(last_reviewed_at IS NOT NULL AND (box >= 4 OR archived = 1)), 0)
+		FROM vocab WHERE user_id = ?`, userID).Scan(&waiting, &learning, &known)
 	return
 }
 
 // NextDailyCards returns up to `limit` upcoming cards of the daily session,
-// in order: due reviews first, then (if allowNew) never-reviewed cards, most
+// in order: due reviews first, then (if allowNew) never-reviewed cards, then
+// cards missed earlier today (reviewed since dayStart and due again), most
 // frequent words first within each group. The first is the one to show; the
 // rest are what the review page prepares ahead of time.
-func (s *Store) NextDailyCards(userID int64, now time.Time, allowNew bool, limit int) ([]Vocab, error) {
+func (s *Store) NextDailyCards(userID int64, now, dayStart time.Time, allowNew bool, limit int) ([]Vocab, error) {
 	rows, err := s.db.Query(`
 		SELECT v.id, v.user_id, v.book_id, b.title, v.chapter_id, v.phrase, v.lemma, v.context,
 		       v.translation, v.note, v.frequency, v.box, v.next_review_at, v.created_at, v.last_reviewed_at
 		FROM vocab v JOIN books b ON b.id = v.book_id
 		WHERE v.user_id = ? AND (
 			(v.last_reviewed_at IS NOT NULL AND v.next_review_at <= ?) OR (? AND v.last_reviewed_at IS NULL))
-		ORDER BY v.last_reviewed_at IS NULL, v.frequency ASC, v.next_review_at ASC
-		LIMIT ?`, userID, now.Format(timeLayout), allowNew, limit)
+		ORDER BY CASE WHEN v.last_reviewed_at IS NULL THEN 1 WHEN v.last_reviewed_at >= ? THEN 2 ELSE 0 END,
+			v.frequency ASC, v.next_review_at ASC
+		LIMIT ?`, userID, now.Format(timeLayout), allowNew, dayStart.UTC().Format(timeLayout), limit)
 	if err != nil {
 		return nil, err
 	}
