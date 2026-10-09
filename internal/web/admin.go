@@ -185,7 +185,7 @@ func (s *Server) handleAdmin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var allCalls int64
-	for _, k := range []string{"translate", "recall", "explain"} {
+	for _, k := range []string{"translate", "recall", "explain", "forms"} {
 		u := kinds[k]
 		allCalls += u.Calls
 		v.Kinds = append(v.Kinds, adminKindRow{Kind: k, Calls: u.Calls, Cost: usd(s.cost(u))})

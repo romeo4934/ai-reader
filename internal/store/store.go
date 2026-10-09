@@ -53,6 +53,11 @@ func Open(path string) (*Store, error) {
 		db.Close()
 		return nil, fmt.Errorf("migration vocab.archived : %w", err)
 	}
+	// vocab.forms: a verb's forms ("ride · rode · ridden"), NULL until asked
+	if err := ensureColumn(db, "vocab", "forms", "TEXT"); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("migration vocab.forms : %w", err)
+	}
 	if err := ensureColumn(db, "books", "source", "TEXT NOT NULL DEFAULT ''"); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("migration books.source : %w", err)
@@ -1019,6 +1024,37 @@ func (s *Store) DeleteVocab(id, userID int64) error {
 // browsing list, but still comes back in /review on its box-5, 30-day cycle
 // — "known" declutters the list, it doesn't opt a word out of ever being
 // checked again.
+// VocabForms gives, for the user's words whose dictionary form differs from
+// the form read, their forms ("" when there are none worth showing); ok is
+// false for those not worked out yet.
+type VocabFormsEntry struct {
+	Forms string
+	OK    bool
+}
+
+func (s *Store) VocabForms(userID int64) (map[int64]VocabFormsEntry, error) {
+	rows, err := s.db.Query(`SELECT id, forms FROM vocab WHERE user_id = ? AND lemma != '' AND lower(lemma) != lower(phrase)`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[int64]VocabFormsEntry{}
+	for rows.Next() {
+		var id int64
+		var f sql.NullString
+		if err := rows.Scan(&id, &f); err != nil {
+			return nil, err
+		}
+		out[id] = VocabFormsEntry{Forms: f.String, OK: f.Valid}
+	}
+	return out, rows.Err()
+}
+
+func (s *Store) SetVocabForms(id, userID int64, forms string) error {
+	_, err := s.db.Exec(`UPDATE vocab SET forms = ? WHERE id = ? AND user_id = ?`, forms, id, userID)
+	return err
+}
+
 // RelearnVocab puts a known word back in review, due now, from the first
 // box.
 func (s *Store) RelearnVocab(id, userID int64, now time.Time) error {
@@ -1611,11 +1647,12 @@ func (s *Store) AdminUsers(sevenDaysAgo, monthStart, month string) ([]AdminUser,
 }
 
 // ActivityDays gives, for each user, the days (YYYY-MM-DD) they used Lydi:
-// reviewed, looked up a word, or made an AI call (translation, exercise).
+// reviewed, looked up a word, or made an AI call (translation, exercise —
+// not the verb forms worked out in the background).
 func (s *Store) ActivityDays() (map[int64]map[string]bool, error) {
 	rows, err := s.db.Query(`SELECT user_id, day FROM daily_activity WHERE reviews > 0
 		UNION SELECT user_id, substr(created_at, 1, 10) FROM vocab
-		UNION SELECT user_id, day FROM ai_usage WHERE user_id > 0`)
+		UNION SELECT user_id, day FROM ai_usage WHERE user_id > 0 AND kind != 'forms'`)
 	if err != nil {
 		return nil, err
 	}

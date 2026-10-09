@@ -21,6 +21,17 @@ func highlightPhrase(context, phrase string) template.HTML {
 	return template.HTML(esc(context[from:idx]) + "<mark>" + esc(context[idx:idx+len(phrase)]) + "</mark>" + esc(context[idx+len(phrase):to]))
 }
 
+// wordSentence is the sentence of a context that holds the phrase (the
+// whole context when it isn't found).
+func wordSentence(context, phrase string) string {
+	idx := findWord(context, phrase)
+	if phrase == "" || idx < 0 {
+		return context
+	}
+	from, to := sentenceBounds(context, idx, idx+len(phrase))
+	return context[from:to]
+}
+
 func isWordRune(r rune) bool {
 	return unicode.IsLetter(r) || unicode.IsDigit(r) || unicode.IsMark(r)
 }

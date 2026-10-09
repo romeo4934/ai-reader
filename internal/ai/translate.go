@@ -31,7 +31,7 @@ type Client struct {
 	api     anthropic.Client
 	enabled bool
 	// OnUsage, when set, is told the token usage of every call — kind is
-	// "translate", "recall" or "explain" — for the cost dashboard.
+	// "translate", "recall", "explain" or "forms" — for the cost dashboard.
 	OnUsage func(ctx context.Context, kind string, u Usage)
 }
 

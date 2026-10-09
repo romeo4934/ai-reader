@@ -754,6 +754,11 @@ func (s *Server) handleWords(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, http.StatusInternalServerError, err)
 		return
 	}
+	forms, err := s.store.VocabForms(user.ID)
+	if err != nil {
+		s.log.Error("vocab forms", "err", err)
+	}
+	var missing []store.Vocab
 	now := time.Now().In(userLocation(r))
 	view := wordsView{Status: status, Groups: groupByFrequency(T, words), Any: waiting+learning+known > 0}
 	for _, g := range view.Groups {
@@ -763,11 +768,19 @@ func (s *Server) handleWords(w http.ResponseWriter, r *http.Request) {
 			if strings.EqualFold(wr.Lemma, strings.TrimSpace(wr.Phrase)) {
 				wr.Lemma = ""
 			}
+			if f, ok := forms[wr.ID]; ok {
+				if f.OK {
+					wr.Forms = f.Forms
+				} else {
+					missing = append(missing, wr.Vocab)
+				}
+			}
 			if status == store.VocabLearning {
 				g.Words[i].Due = dueLabel(T, g.Words[i].NextReviewAt, now)
 			}
 		}
 	}
+	s.fillForms(*user, missing)
 	view.StatusTabs = []wordsTab{
 		{Status: store.VocabLearning, Label: T["WordsTabLearning"], Count: learning, Active: status == store.VocabLearning},
 		{Status: store.VocabNew, Label: T["WordsTabNew"], Count: waiting, Active: status == store.VocabNew},
@@ -815,10 +828,12 @@ type wordsTab struct {
 
 // wordRow is a word of the list, shown as it was in the book (its
 // translation is of that form), with its dictionary form when different
-// (Lemma, empty otherwise); Due says when a word in review comes back.
+// (Lemma, empty otherwise) — for a verb, its forms when known ("ride ·
+// rode · ridden", "poder · passé simple"); Due says when a word in review
+// comes back.
 type wordRow struct {
 	store.Vocab
-	Lemma, Due string
+	Lemma, Forms, Due string
 }
 
 type wordGroup struct {
