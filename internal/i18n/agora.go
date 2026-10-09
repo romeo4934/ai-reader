@@ -3,7 +3,7 @@ package i18n
 // The Lydi Agora.
 var agoraStrings = map[string]Dict{
 	"en": {
-		"AgoraEnter": "Enter",
+		"AgoraEnter":        "Enter",
 		"AgoraMore":         "More about the Agora",
 		"AgoraSpeech":       "Read every day, citizens!",
 		"AgoraGuardName":    "The guard",
@@ -32,7 +32,7 @@ var agoraStrings = map[string]Dict{
 		"AgoraRank4":        "Sage of Sardis",
 	},
 	"fr": {
-		"AgoraEnter": "Entrer",
+		"AgoraEnter":        "Entrer",
 		"AgoraMore":         "En savoir plus sur l'Agora",
 		"AgoraSpeech":       "Lisez chaque jour, citoyens !",
 		"AgoraGuardName":    "Le garde",
@@ -61,7 +61,7 @@ var agoraStrings = map[string]Dict{
 		"AgoraRank4":        "Sage de Sardes",
 	},
 	"es": {
-		"AgoraEnter": "Entrar",
+		"AgoraEnter":        "Entrar",
 		"AgoraMore":         "Más sobre el Ágora",
 		"AgoraSpeech":       "¡Leed cada día, ciudadanos!",
 		"AgoraGuardName":    "El guardia",
@@ -90,7 +90,7 @@ var agoraStrings = map[string]Dict{
 		"AgoraRank4":        "Sabio de Sardes",
 	},
 	"pt": {
-		"AgoraEnter": "Entrar",
+		"AgoraEnter":        "Entrar",
 		"AgoraMore":         "Mais sobre a Ágora",
 		"AgoraSpeech":       "Leiam todos os dias, cidadãos!",
 		"AgoraGuardName":    "O guarda",
@@ -119,7 +119,7 @@ var agoraStrings = map[string]Dict{
 		"AgoraRank4":        "Sábio de Sardes",
 	},
 	"it": {
-		"AgoraEnter": "Entra",
+		"AgoraEnter":        "Entra",
 		"AgoraMore":         "Di più sull'Agorà",
 		"AgoraSpeech":       "Leggete ogni giorno, cittadini!",
 		"AgoraGuardName":    "La guardia",
@@ -148,7 +148,7 @@ var agoraStrings = map[string]Dict{
 		"AgoraRank4":        "Saggio di Sardi",
 	},
 	"de": {
-		"AgoraEnter": "Eintreten",
+		"AgoraEnter":        "Eintreten",
 		"AgoraMore":         "Mehr über die Agora",
 		"AgoraSpeech":       "Lest jeden Tag, Bürger!",
 		"AgoraGuardName":    "Die Wache",
@@ -177,7 +177,7 @@ var agoraStrings = map[string]Dict{
 		"AgoraRank4":        "Weiser von Sardes",
 	},
 	"nl": {
-		"AgoraEnter": "Binnengaan",
+		"AgoraEnter":        "Binnengaan",
 		"AgoraMore":         "Meer over de agora",
 		"AgoraSpeech":       "Lees elke dag, burgers!",
 		"AgoraGuardName":    "De wacht",
