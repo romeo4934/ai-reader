@@ -349,21 +349,30 @@ details[open] .word-row::after { content: '⌄'; }
 .tp-sentence {
   font-size: 1.1rem;
   line-height: 1.5;
-  padding-right: 1.5rem;
+  padding-right: 2.8rem;
 }
+/* a big round × that people find at first glance (the old one was small
+   and grey) */
 .tp-close {
   position: absolute;
-  top: 0.6rem;
-  right: 0.7rem;
-  background: none;
-  border: none;
-  font-size: 1.4rem;
+  top: 0.5rem;
+  right: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--fg) 8%, var(--card-bg));
+  color: var(--fg);
+  font-size: 1.9rem;
   line-height: 1;
-  color: var(--muted);
   cursor: pointer;
-  min-height: 32px;
-  min-width: 32px;
 }
+.tp-close:active { background: color-mix(in srgb, var(--fg) 16%, var(--card-bg)); }
+[data-eink] .tp-close { border: 2px solid #000; background: #fff; color: #000; }
 
 @media (min-width: 900px) {
   .chapter { font-size: 1.25rem; }
