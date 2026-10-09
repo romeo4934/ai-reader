@@ -29,12 +29,12 @@
   var TEMPLE = { x0: 168, y0: 50, x1: 312, y1: 100 };
   var BEMA = { x: 240, y: 122 };
   var TIERS = { cx: 240, cy: 118, r: [44, 64, 84, 104, 124, 144], from: 0.26, to: Math.PI - 0.26 };
-  var STATUE = { x: 100, y: 262 }, FOUNTAIN = { x: 380, y: 262, r: 16 };
+  var STATUE = { x: 100, y: 262 }, FOUNTAIN = { x: 378, y: 258, r: 20 };
   var BRAZIERS = [{ x: 198, y: 282 }, { x: 282, y: 282 }, { x: 150, y: 108 }, { x: 330, y: 108 }];
   var treesOut = [[22, 372], [458, 372], [30, 316], [450, 318]];
   var obstaclesOut = treesOut.map(function (t) { return { x: t[0], y: t[1], r: 15 }; })
     .concat([{ x: 290, y: 352, r: 8 }, { x: 128, y: 386, r: 8 }, { x: 362, y: 388, r: 8 }]);
-  var obstaclesIn = [{ x: STATUE.x, y: STATUE.y, r: 14 }, { x: FOUNTAIN.x, y: FOUNTAIN.y, r: 20 },
+  var obstaclesIn = [{ x: STATUE.x, y: STATUE.y, r: 14 }, { x: FOUNTAIN.x, y: FOUNTAIN.y, r: 25 },
     { x: BEMA.x, y: BEMA.y, r: 12 }].concat(BRAZIERS.map(function (b) { return { x: b.x, y: b.y, r: 8 }; }));
 
   function inside(p) { return p.x > WALL.x0 && p.x < WALL.x1 && p.y > WALL.y0 && p.y < WALL.y1; }
@@ -59,13 +59,17 @@
   // Philosophers, two rows of Orators, two of Citizens): seats show even
   // when empty, so everyone sees the places waiting for them.
   var TIER_RANK = [3, 2, 1, 1, 0, 0];
+  // Stairs cut the hemicycle into sections, like a Greek theatre.
+  var AISLES = [Math.PI / 2 - 0.62, Math.PI / 2 + 0.62];
+  function inAisle(a) { return AISLES.some(function (x) { return Math.abs(a - x) < 0.075; }); }
   function makeSeats() {
     var out = [];
     TIERS.r.forEach(function (r, tier) {
       var n = Math.floor((TIERS.to - TIERS.from) * r / 17), row = [];
       for (var k = 0; k < n; k++) {
         var a = TIERS.from + (TIERS.to - TIERS.from) * (k + 0.5) / n;
-        row.push({ x: TIERS.cx + Math.cos(a) * r, y: TIERS.cy + Math.sin(a) * r, tier: tier, rank: TIER_RANK[tier], mid: Math.abs(a - Math.PI / 2) });
+        if (inAisle(a)) continue;
+        row.push({ x: TIERS.cx + Math.cos(a) * r, y: TIERS.cy + Math.sin(a) * r, a: a, r: r, tier: tier, rank: TIER_RANK[tier], mid: Math.abs(a - Math.PI / 2) });
       }
       row.sort(function (a, b) { return a.mid - b.mid; });
       out = out.concat(row);
@@ -331,34 +335,97 @@
     }
     rect(232, TEMPLE.y1 - 4, 16, 6, '#5b3a22');
     // the hemicycle of stone tiers facing the temple
+    // (each step: a stone band, its lit front edge facing the stage, the
+    // shadow cast by the step behind)
+    var A0 = TIERS.from - 0.05, A1 = TIERS.to + 0.05;
+    function arcStroke(r, w, col) { c.strokeStyle = col; c.lineWidth = w; c.beginPath(); c.arc(TIERS.cx, TIERS.cy, r, A0, A1); c.stroke(); }
     for (var t = TIERS.r.length - 1; t >= 0; t--) {
-      c.strokeStyle = t % 2 ? '#cbb68b' : '#d8c59c'; c.lineWidth = 19;
-      c.beginPath(); c.arc(TIERS.cx, TIERS.cy, TIERS.r[t], TIERS.from - 0.05, TIERS.to + 0.05); c.stroke();
-      c.strokeStyle = 'rgba(120,95,55,0.35)'; c.lineWidth = 1.5;
-      c.beginPath(); c.arc(TIERS.cx, TIERS.cy, TIERS.r[t] + 9.5, TIERS.from - 0.05, TIERS.to + 0.05); c.stroke();
+      var R = TIERS.r[t];
+      arcStroke(R, 20, t % 2 ? '#d2bf95' : '#dccaa2');
+      arcStroke(R + 8.5, 3, 'rgba(110,85,50,0.28)');   // shadow under the next step up
+      arcStroke(R - 9, 1.6, 'rgba(255,248,230,0.85)');  // lit edge of the step
     }
+    // outer wall of the hemicycle, and its end caps
+    arcStroke(TIERS.r[TIERS.r.length - 1] + 12, 4, '#b89f72');
+    [A0, A1].forEach(function (a) {
+      var r0 = TIERS.r[0] - 10, r1 = TIERS.r[TIERS.r.length - 1] + 14;
+      c.strokeStyle = '#b89f72'; c.lineWidth = 4; c.beginPath();
+      c.moveTo(TIERS.cx + Math.cos(a) * r0, TIERS.cy + Math.sin(a) * r0); c.lineTo(TIERS.cx + Math.cos(a) * r1, TIERS.cy + Math.sin(a) * r1); c.stroke();
+    });
+    // stairs running up through the tiers
+    AISLES.forEach(function (a) {
+      var w = 0.06;
+      c.fillStyle = '#e9dcbb'; c.beginPath();
+      c.arc(TIERS.cx, TIERS.cy, TIERS.r[TIERS.r.length - 1] + 10, a - w, a + w);
+      c.arc(TIERS.cx, TIERS.cy, TIERS.r[0] - 10, a + w, a - w, true); c.fill();
+      c.strokeStyle = 'rgba(120,95,55,0.4)'; c.lineWidth = 1;
+      for (var rr = TIERS.r[0] - 10; rr <= TIERS.r[TIERS.r.length - 1] + 10; rr += 5) {
+        c.beginPath(); c.arc(TIERS.cx, TIERS.cy, rr, a - w, a + w); c.stroke();
+      }
+    });
+    // a red carpet from the speakers' platform to the thrones
+    c.fillStyle = '#a83232'; c.fillRect(BEMA.x - 5, BEMA.y + 6, 10, TIERS.r[0] - 18);
+    c.fillStyle = '#d4a531'; c.fillRect(BEMA.x - 5, BEMA.y + 6, 1.2, TIERS.r[0] - 18); c.fillRect(BEMA.x + 3.8, BEMA.y + 6, 1.2, TIERS.r[0] - 18);
     // the speakers' platform
     rect(BEMA.x - 18, BEMA.y - 7, 36, 14, '#bba57a'); rect(BEMA.x - 16, BEMA.y - 7, 32, 3, '#d7c49c');
     // statue of Croesus with his crown, a fountain, planters, amphorae
     rect(STATUE.x - 10, STATUE.y - 2, 20, 14, '#b9ab90'); rect(STATUE.x - 10, STATUE.y - 2, 20, 3, '#d3c7ae');
     circle(STATUE.x, STATUE.y - 8, 6, '#d9d2c3'); circle(STATUE.x, STATUE.y - 15, 4, '#e6dfd1'); rect(STATUE.x - 4, STATUE.y - 20, 8, 2, '#d9b84c');
-    circle(FOUNTAIN.x, FOUNTAIN.y, FOUNTAIN.r, '#c4b083'); circle(FOUNTAIN.x, FOUNTAIN.y, FOUNTAIN.r - 4, '#5aa8d6');
+    // the fountain: an octagonal stone basin, deep water, a pedestal
+    function octagon(r, col) {
+      c.fillStyle = col; c.beginPath();
+      for (var o = 0; o < 8; o++) { var oa = Math.PI / 8 + o * Math.PI / 4; c.lineTo(FOUNTAIN.x + Math.cos(oa) * r, FOUNTAIN.y + Math.sin(oa) * r); }
+      c.closePath(); c.fill();
+    }
+    octagon(FOUNTAIN.r + 3, 'rgba(0,0,0,0.15)');
+    octagon(FOUNTAIN.r + 2, '#cdb98f'); octagon(FOUNTAIN.r, '#e6d7b2'); octagon(FOUNTAIN.r - 3, '#3f8fc4');
+    var wg = c.createRadialGradient(FOUNTAIN.x - 4, FOUNTAIN.y - 4, 2, FOUNTAIN.x, FOUNTAIN.y, FOUNTAIN.r);
+    wg.addColorStop(0, '#7cc3ea'); wg.addColorStop(1, '#3a86bd');
+    c.fillStyle = wg; octagon(FOUNTAIN.r - 3.5, wg);
+    circle(FOUNTAIN.x, FOUNTAIN.y, 5, '#d8cba8'); circle(FOUNTAIN.x, FOUNTAIN.y, 3.4, '#efe6cf');
     [[82, 200], [398, 200]].forEach(function (p) {
       rect(p[0] - 8, p[1] - 6, 16, 12, '#9b6b3c');
       circle(p[0] - 3, p[1] - 4, 3, '#e85d75'); circle(p[0] + 3, p[1] - 5, 3, '#f4d35e'); circle(p[0], p[1] - 1, 3, '#5a9a3c');
     });
     // seats by rank: thrones, purple and blue cushions, stone benches
-    seatList.forEach(function (st) {
-      if (st.rank === 3) {
-        rect(st.x - 6, st.y - 9, 12, 5, '#c9a227'); rect(st.x - 6, st.y - 9, 12, 1.5, '#f0d26a');
-        rect(st.x - 5, st.y - 4, 10, 7, '#7d3c98'); rect(st.x - 7, st.y - 6, 2, 9, '#c9a227'); rect(st.x + 5, st.y - 6, 2, 9, '#c9a227');
-      } else if (st.rank === 2) {
-        c.fillStyle = '#7d4bb3'; c.beginPath(); c.roundRect(st.x - 5, st.y - 3, 10, 6, 2); c.fill();
-      } else if (st.rank === 1) {
-        c.fillStyle = '#3b7dd8'; c.beginPath(); c.roundRect(st.x - 5, st.y - 3, 10, 6, 2); c.fill();
-      } else {
-        rect(st.x - 5, st.y - 2, 10, 4, 'rgba(255,255,255,0.35)');
+    // Citizens' rows: one continuous stone bench per tier, with joints.
+    [4, 5].forEach(function (t) {
+      var R = TIERS.r[t];
+      arcStroke(R + 1, 7, '#efe5cf'); arcStroke(R + 4.5, 1.2, 'rgba(110,85,50,0.3)');
+      for (var a = TIERS.from; a < TIERS.to; a += 0.09) {
+        if (inAisle(a)) continue;
+        c.strokeStyle = 'rgba(110,85,50,0.25)'; c.lineWidth = 0.8; c.beginPath();
+        c.moveTo(TIERS.cx + Math.cos(a) * (R - 2.5), TIERS.cy + Math.sin(a) * (R - 2.5));
+        c.lineTo(TIERS.cx + Math.cos(a) * (R + 4.5), TIERS.cy + Math.sin(a) * (R + 4.5)); c.stroke();
       }
+    });
+    // Each seat drawn turned toward the stage: x along the row, y away from
+    // the centre (the back of the seat is at +y).
+    seatList.forEach(function (st) {
+      if (st.rank === 0) return;
+      c.save();
+      c.translate(st.x, st.y);
+      c.rotate(st.a - Math.PI / 2);
+      if (st.rank === 3) {
+        // throne: gold frame, high back, armrests, purple velvet, lion feet
+        c.fillStyle = 'rgba(0,0,0,0.18)'; c.beginPath(); c.roundRect(-6.5, -4, 14, 13, 2); c.fill();
+        c.fillStyle = '#b8901f'; c.beginPath(); c.roundRect(-7, -5, 14, 13, 2); c.fill();
+        c.fillStyle = '#e6c25a'; c.beginPath(); c.roundRect(-7, 3.5, 14, 4.5, 2); c.fill();      // back
+        c.fillStyle = '#f5dd8a'; c.fillRect(-5.5, 6.5, 11, 1);
+        c.fillStyle = '#6d2f8a'; c.beginPath(); c.roundRect(-4.5, -3.5, 9, 7, 1.5); c.fill();     // velvet
+        c.fillStyle = '#8e46b0'; c.fillRect(-4, -3, 8, 1.6);
+        c.fillStyle = '#d4a531'; c.fillRect(-7, -5, 2.2, 9); c.fillRect(4.8, -5, 2.2, 9);         // armrests
+        [-6, 6].forEach(function (fx) { c.beginPath(); c.arc(fx, -5.5, 1.2, 0, Math.PI * 2); c.fill(); });
+      } else {
+        // cushion with a sheen and a shadow; tassels for the philosophers
+        var base = st.rank === 2 ? '#6f3fa5' : '#2f6fc4', lite = st.rank === 2 ? '#9a6cd0' : '#6aa4ee';
+        c.fillStyle = 'rgba(0,0,0,0.16)'; c.beginPath(); c.roundRect(-4.5, -2.4, 10, 6.4, 2.4); c.fill();
+        c.fillStyle = base; c.beginPath(); c.roundRect(-5, -3, 10, 6.4, 2.4); c.fill();
+        c.fillStyle = lite; c.beginPath(); c.roundRect(-3.8, -2.2, 7.6, 2, 1); c.fill();
+        if (st.rank === 1) { c.strokeStyle = '#f4efe2'; c.lineWidth = 0.7; c.beginPath(); c.roundRect(-4.4, -2.4, 8.8, 5.2, 2); c.stroke(); }
+        else { c.fillStyle = '#e2b93b'; [[-5, -3], [5, -3], [-5, 3.4], [5, 3.4]].forEach(function (q) { c.beginPath(); c.arc(q[0], q[1], 0.9, 0, Math.PI * 2); c.fill(); }); }
+      }
+      c.restore();
     });
     // the library (scrolls on its shelves) and Croesus's treasury (gold)
     rect(78, 52, 56, 40, '#efe3c6'); rect(78, 52, 56, 14, '#5d7a99'); rect(78, 64, 56, 2, '#3f5a78');
@@ -426,8 +493,27 @@
   function drawWorld(t) {
     // water: river glints, fountain jet
     for (var x = 0; x < W; x += 30) rect((x + t / 40) % W, 16 + Math.sin(x / 40) * 3, 6, 1.5, 'rgba(255,255,255,0.55)');
-    var jet = 2 + (Math.sin(t / 200) + 1) * 3;
-    circle(FOUNTAIN.x, FOUNTAIN.y, jet + 3, 'rgba(255,255,255,0.35)'); circle(FOUNTAIN.x, FOUNTAIN.y, 2.5, '#eaf6fc');
+    // fountain: ripples spreading, four arcs of water with droplets running
+    // along them, little splashes where they land
+    var ft = still ? 0 : t;
+    for (var rp = 0; rp < 3; rp++) {
+      var life = ((ft / 2200) + rp / 3) % 1;
+      g.strokeStyle = 'rgba(255,255,255,' + (0.45 * (1 - life)) + ')'; g.lineWidth = 0.8;
+      g.beginPath(); g.ellipse(FOUNTAIN.x, FOUNTAIN.y, 6 + life * 10, 5 + life * 8, 0, 0, Math.PI * 2); g.stroke();
+    }
+    for (var j = 0; j < 4; j++) {
+      var ja = Math.PI / 4 + j * Math.PI / 2, ex = FOUNTAIN.x + Math.cos(ja) * 11, ey = FOUNTAIN.y + Math.sin(ja) * 11;
+      var mx = (FOUNTAIN.x + ex) / 2, my = (FOUNTAIN.y + ey) / 2 - 10;
+      g.strokeStyle = 'rgba(220,240,255,0.75)'; g.lineWidth = 1.4;
+      g.beginPath(); g.moveTo(FOUNTAIN.x, FOUNTAIN.y - 3); g.quadraticCurveTo(mx, my, ex, ey); g.stroke();
+      for (var dr = 0; dr < 3; dr++) {
+        var u = ((ft / 600) + dr / 3 + j * 0.13) % 1, iu = 1 - u;
+        var px = iu * iu * FOUNTAIN.x + 2 * iu * u * mx + u * u * ex, py = iu * iu * (FOUNTAIN.y - 3) + 2 * iu * u * my + u * u * ey;
+        circle(px, py, 0.9, '#ffffff');
+      }
+      circle(ex, ey, 1.2 + Math.abs(Math.sin(ft / 150 + j)) * 1.4, 'rgba(255,255,255,0.5)');
+    }
+    circle(FOUNTAIN.x, FOUNTAIN.y - 6 - (still ? 0 : Math.abs(Math.sin(ft / 180)) * 2), 1.6, 'rgba(235,248,255,0.9)');
     // braziers
     BRAZIERS.forEach(function (b, i) {
       rect(b.x - 4, b.y - 1, 8, 5, '#5b4a3a');
