@@ -561,18 +561,24 @@ type AgoraCitizen struct {
 	EnteredOn                 string // day of the threshold-th one, "" if not reached
 }
 
-// AgoraCitizens lists everyone with at least one completed challenge, most
-// first, with the day they reached `threshold` completed challenges.
+// AgoraCitizens lists every reader who has reviewed at least once — those
+// with no completed challenge yet too, at the gates — most completed
+// challenges first, with the day they reached `threshold` of them.
 func (s *Store) AgoraCitizens(threshold int) ([]AgoraCitizen, error) {
 	rows, err := s.db.Query(`
 		WITH ranked AS (
 			SELECT user_id, day, ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY day) AS n
 			FROM daily_activity WHERE completed = 1
+		), done AS (
+			SELECT user_id, MAX(n) AS n, COALESCE(MAX(CASE WHEN n = ? THEN day END), '') AS entered
+			FROM ranked GROUP BY user_id
 		)
-		SELECT u.id, u.username, u.display_name, u.avatar_symbol, u.avatar_color, MAX(r.n),
-			COALESCE(MAX(CASE WHEN r.n = ? THEN r.day END), '')
-		FROM ranked r JOIN users u ON u.id = r.user_id
-		GROUP BY u.id ORDER BY MAX(r.n) DESC, u.id`, threshold)
+		SELECT u.id, u.username, u.display_name, u.avatar_symbol, u.avatar_color,
+			COALESCE(done.n, 0), COALESCE(done.entered, '')
+		FROM users u
+		JOIN (SELECT DISTINCT user_id FROM daily_activity WHERE reviews > 0 OR completed = 1) active ON active.user_id = u.id
+		LEFT JOIN done ON done.user_id = u.id
+		ORDER BY COALESCE(done.n, 0) DESC, u.id`, threshold)
 	if err != nil {
 		return nil, err
 	}
