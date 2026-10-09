@@ -657,3 +657,13 @@ details[open] .word-row::after { content: '⌄'; }
   max-height: var(--dock);
   border-radius: 0;
 }
+
+/* Docked reading: give the text as much of the screen as possible. */
+.reader-docked { --dock: clamp(128px, 20svh, 190px); }
+.reader-docked .topnav { padding-top: 0.55rem; padding-bottom: 0.55rem; }
+.reader-docked .reader-page { padding: 0.6rem 16px 0; }
+.reader-docked .reader-head { flex-wrap: nowrap; margin-bottom: 0.5rem; font-size: 0.85rem; overflow: hidden; white-space: nowrap; }
+.reader-docked .reader-head h1 { font-size: 0.95rem; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.reader-docked .dock-hint { padding-top: 0.7rem; }
+.reader-docked .chapter-nav .btn-icon { padding: 0.55rem 0.85rem; }
+.reader-docked .popover.sheet { padding-left: 16px; padding-right: 16px; }
