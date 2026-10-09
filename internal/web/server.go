@@ -758,6 +758,11 @@ func (s *Server) handleWords(w http.ResponseWriter, r *http.Request) {
 	view := wordsView{Status: status, Groups: groupByFrequency(T, words), Any: waiting+learning+known > 0}
 	for _, g := range view.Groups {
 		for i := range g.Words {
+			wr := &g.Words[i]
+			wr.Lemma = strings.TrimSpace(wr.Vocab.Lemma)
+			if strings.EqualFold(wr.Lemma, strings.TrimSpace(wr.Phrase)) {
+				wr.Lemma = ""
+			}
 			if status == store.VocabLearning {
 				g.Words[i].Due = dueLabel(T, g.Words[i].NextReviewAt, now)
 			}
@@ -808,10 +813,12 @@ type wordsTab struct {
 	Active        bool
 }
 
-// wordRow is a word of the list; Due says when a word in review comes back.
+// wordRow is a word of the list, shown as it was in the book (its
+// translation is of that form), with its dictionary form when different
+// (Lemma, empty otherwise); Due says when a word in review comes back.
 type wordRow struct {
 	store.Vocab
-	Due string
+	Lemma, Due string
 }
 
 type wordGroup struct {
