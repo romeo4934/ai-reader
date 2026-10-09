@@ -667,3 +667,7 @@ details[open] .word-row::after { content: '⌄'; }
 .reader-docked .dock-hint { padding-top: 0.7rem; }
 .reader-docked .chapter-nav .btn-icon { padding: 0.55rem 0.85rem; }
 .reader-docked .popover.sheet { padding-left: 16px; padding-right: 16px; }
+/* No visible scrollbar on the text area: reading position is shown by the
+   section indicator, and the bar only took room and caught the eye. */
+.reader-docked .chapter { scrollbar-width: none; }
+.reader-docked .chapter::-webkit-scrollbar { display: none; }
