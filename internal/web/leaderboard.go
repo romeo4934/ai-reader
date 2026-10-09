@@ -43,12 +43,12 @@ type leaderboardView struct {
 	Friends    bool
 	HasFriends bool
 	Lang       string
-	Tabs     []leaderboardTab
-	LangName string
-	Entries  []leaderboardEntry
-	Ends     string // "ends tonight" / "ends in N days"
-	YourName string // how the viewer appears to others
-	Ranked   bool   // the viewer has points this week
+	Tabs       []leaderboardTab
+	LangName   string
+	Entries    []leaderboardEntry
+	Ends       string // "ends tonight" / "ends in N days"
+	YourName   string // how the viewer appears to others
+	Ranked     bool   // the viewer has points this week
 }
 
 func publicName(userID int64, username, displayName string) string {

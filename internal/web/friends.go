@@ -58,7 +58,7 @@ func clearInviteCookie(w http.ResponseWriter) {
 type friendsView struct {
 	Link        string
 	ShareText   string
-	NeedName    bool   // no pseudo yet: the invite email would name a "Panda 42"
+	NeedName    bool // no pseudo yet: the invite email would name a "Panda 42"
 	DisplayName string
 	Message     string
 	Error       string
