@@ -3,6 +3,7 @@ package i18n
 // The Lydi Agora.
 var agoraStrings = map[string]Dict{
 	"en": {
+		"AgoraSpeech":       "Read every day, citizens!",
 		"AgoraGuardName":    "The guard",
 		"AgoraGuard":        "%d more challenges, citizen!",
 		"AgoraHowTo":        "Tap the map to walk around, tap someone to see who they are.",
@@ -29,6 +30,7 @@ var agoraStrings = map[string]Dict{
 		"AgoraRank4":        "Sage of Sardis",
 	},
 	"fr": {
+		"AgoraSpeech":       "Lisez chaque jour, citoyens !",
 		"AgoraGuardName":    "Le garde",
 		"AgoraGuard":        "Encore %d défis, citoyen !",
 		"AgoraHowTo":        "Touche la carte pour te déplacer, touche quelqu'un pour savoir qui c'est.",
@@ -55,6 +57,7 @@ var agoraStrings = map[string]Dict{
 		"AgoraRank4":        "Sage de Sardes",
 	},
 	"es": {
+		"AgoraSpeech":       "¡Leed cada día, ciudadanos!",
 		"AgoraGuardName":    "El guardia",
 		"AgoraGuard":        "¡Te faltan %d retos, ciudadano!",
 		"AgoraHowTo":        "Toca el mapa para moverte y toca a alguien para saber quién es.",
@@ -81,6 +84,7 @@ var agoraStrings = map[string]Dict{
 		"AgoraRank4":        "Sabio de Sardes",
 	},
 	"pt": {
+		"AgoraSpeech":       "Leiam todos os dias, cidadãos!",
 		"AgoraGuardName":    "O guarda",
 		"AgoraGuard":        "Faltam %d desafios, cidadão!",
 		"AgoraHowTo":        "Toque no mapa para andar e toque em alguém para saber quem é.",
@@ -107,6 +111,7 @@ var agoraStrings = map[string]Dict{
 		"AgoraRank4":        "Sábio de Sardes",
 	},
 	"it": {
+		"AgoraSpeech":       "Leggete ogni giorno, cittadini!",
 		"AgoraGuardName":    "La guardia",
 		"AgoraGuard":        "Ancora %d sfide, cittadino!",
 		"AgoraHowTo":        "Tocca la mappa per muoverti, tocca qualcuno per sapere chi è.",
@@ -133,6 +138,7 @@ var agoraStrings = map[string]Dict{
 		"AgoraRank4":        "Saggio di Sardi",
 	},
 	"de": {
+		"AgoraSpeech":       "Lest jeden Tag, Bürger!",
 		"AgoraGuardName":    "Die Wache",
 		"AgoraGuard":        "Noch %d Tagesziele, Bürger!",
 		"AgoraHowTo":        "Tippe auf die Karte, um herumzulaufen, und auf jemanden, um zu sehen, wer es ist.",
@@ -159,6 +165,7 @@ var agoraStrings = map[string]Dict{
 		"AgoraRank4":        "Weiser von Sardes",
 	},
 	"nl": {
+		"AgoraSpeech":       "Lees elke dag, burgers!",
 		"AgoraGuardName":    "De wacht",
 		"AgoraGuard":        "Nog %d dagdoelen, burger!",
 		"AgoraHowTo":        "Tik op de kaart om rond te lopen, tik op iemand om te zien wie het is.",
