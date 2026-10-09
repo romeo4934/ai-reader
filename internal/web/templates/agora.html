@@ -14,20 +14,25 @@
         data-days="{{.T.AgoraDays}}" data-speech="{{.T.AgoraSpeech}}" data-ranks="{{.T.AgoraRank1}}|{{.T.AgoraRank2}}|{{.T.AgoraRank3}}|{{.T.AgoraRank4}}" data-threshold="{{$d.Threshold}}"></canvas>
 
       <div class="agora-hud">
-        <button type="button" class="agora-pill" data-open="panel-registry">🏛️ {{if $d.Member}}{{$d.Rank}} · {{printf $t.AgoraDays $d.Days}}{{else}}Agora · {{$d.Days}} / {{$d.Threshold}}{{end}}</button>
+        <button type="button" class="agora-pill" data-open="{{if $d.Visitor}}panel-intro{{else}}panel-registry{{end}}">🏛️ {{if $d.Visitor}}{{printf $t.AgoraVisitorCount $d.MemberCount}}{{else if $d.Member}}{{$d.Rank}} · {{printf $t.AgoraDays $d.Days}}{{else}}Agora · {{$d.Days}} / {{$d.Threshold}}{{end}}</button>
         <span class="agora-hud-gap"></span>
         <button type="button" class="agora-round" data-zoom="0.8" aria-label="−">−</button>
         <button type="button" class="agora-round" data-zoom="1.25" aria-label="+">+</button>
-        <button type="button" class="agora-round" data-open="panel-look" aria-label="{{.T.LookTitle}}">🎨</button>
+        {{if not $d.Visitor}}<button type="button" class="agora-round" data-open="panel-look" aria-label="{{.T.LookTitle}}">🎨</button>{{end}}
         <button type="button" class="agora-round" data-open="panel-intro" aria-label="{{.T.AgoraTitle}}">?</button>
       </div>
-      <p class="agora-hint" id="agora-hint">{{.T.AgoraHowTo}}</p>
+      <p class="agora-hint" id="agora-hint">{{if $d.Visitor}}{{.T.AgoraVisitorHint}}{{else}}{{.T.AgoraHowTo}}{{end}}</p>
 
       <!-- the story, and where the reader stands -->
       <div class="agora-panel" id="panel-intro" role="dialog" aria-labelledby="intro-title"{{if not $d.Welcome}} data-once="agora-intro-seen"{{end}} hidden>
         <h1 id="intro-title">🏛️ {{.T.AgoraTitle}}</h1>
         {{if $d.Welcome}}<p class="agora-welcome">{{$d.Welcome}}</p>{{end}}
         <p>{{.T.AgoraIntro}}</p>
+        {{if $d.Visitor}}
+        <p><strong>{{.T.AgoraVisitorPitch}}</strong></p>
+        <a href="/signup" class="btn btn-primary agora-enter">{{.T.AgoraVisitorJoin}}</a>
+        <p class="agora-visitor-login"><a href="/login">{{.T.NavLogin}}</a> · <button type="button" class="btn-link" data-close>{{.T.AgoraEnter}}</button></p>
+        {{else}}
         <div class="agora-status">
           <span class="agora-chip agora-chip-big" style="background: {{$d.MyColor}}">{{if $d.MySymbol}}{{$d.MySymbol}}{{else}}{{$d.MyInitial}}{{end}}</span>
           <div>
@@ -41,9 +46,11 @@
           </div>
         </div>
         <button type="button" class="btn btn-primary agora-enter" data-close>{{.T.AgoraEnter}}</button>
+        {{end}}
         <p class="hint agora-credits"><a href="/credits">{{.T.CreditsLink}}</a> · sprites LPC</p>
       </div>
 
+      {{if not $d.Visitor}}
       <!-- the registry: who's in, who's at the gates -->
       <div class="agora-panel" id="panel-registry" role="dialog" aria-labelledby="registry-title" hidden>
         <button type="button" class="agora-close" data-close aria-label="{{.T.ReaderClose}}">×</button>
@@ -96,6 +103,7 @@
         </form>
         <script type="application/json" id="look-palettes">{{$e.Palettes}}</script>
       </div>
+      {{end}}
     </figure>
     <script type="application/json" id="agora-people">{{$d.People}}</script>
   </main>

@@ -109,6 +109,8 @@ type agoraView struct {
 	Percent           int // progress toward the threshold
 	People            []person
 	Editor            lookEditor
+	Visitor           bool // not logged in: watching only
+	MemberCount       int
 }
 
 func medalFor(userID int64, username, displayName, symbol, color string) medal {
@@ -184,6 +186,51 @@ func (s *Server) handleAgora(w http.ResponseWriter, r *http.Request) {
 		v.Percent = v.Days * 100 / agoraThreshold
 	}
 	s.render(w, r, "agora.html", T["AgoraTitle"], v)
+}
+
+// handleAgoraPage shows the Agora to everyone: the reader's own view when
+// logged in, else the visitor's.
+func (s *Server) handleAgoraPage(w http.ResponseWriter, r *http.Request) {
+	if r2, ok := s.withSessionUser(r); ok {
+		s.handleAgora(w, r2)
+		return
+	}
+	s.handleAgoraVisitor(w, r)
+}
+
+// visitorName is how a reader appears to visitors: their chosen pseudo,
+// else their automatic one — never the login name, which may be their
+// real name.
+func visitorName(userID int64, displayName string) string {
+	if displayName != "" {
+		return displayName
+	}
+	return autoPseudo(userID)
+}
+
+// handleAgoraVisitor: the Agora as a showcase for visitors — the living
+// square to watch and explore (no character of their own), with an
+// invitation to join.
+func (s *Server) handleAgoraVisitor(w http.ResponseWriter, r *http.Request) {
+	T := s.visitorDict(w, r)
+	citizens, err := s.store.AgoraCitizens(agoraThreshold)
+	if err != nil {
+		s.fail(w, http.StatusInternalServerError, err)
+		return
+	}
+	v := agoraView{Visitor: true, Threshold: agoraThreshold}
+	for _, c := range citizens {
+		member := c.Days >= agoraThreshold
+		p := person{Name: visitorName(c.UserID, c.DisplayName), Member: member, Days: c.Days,
+			Look: parseLook(c.UserID, c.AvatarLook, agoraTier(c.Days)).json()}
+		if member {
+			v.MemberCount++
+			p.Rank, _, _ = agoraRank(T, c.Days)
+			p.Laurel = c.Days >= agoraRanks[len(agoraRanks)-1].Days
+		}
+		v.People = append(v.People, p)
+	}
+	s.renderDict(w, r, T, "agora.html", T["AgoraTitle"], v)
 }
 
 func (s *Server) handleAgoraAvatar(w http.ResponseWriter, r *http.Request) {

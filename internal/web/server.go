@@ -119,7 +119,7 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("GET /leaderboard", s.requireAuth(s.handleLeaderboard))
 	mux.HandleFunc("GET /catalog", s.requireAuth(s.handleCatalog))
 	mux.HandleFunc("POST /catalog/{id}/add", s.requireAuth(s.handleCatalogAdd))
-	mux.HandleFunc("GET /agora", s.requireAuth(s.handleAgora))
+	mux.HandleFunc("GET /agora", s.handleAgoraPage)
 	mux.HandleFunc("POST /agora/avatar", s.requireAuth(s.handleAgoraAvatar))
 	mux.HandleFunc("POST /agora/look", s.requireAuth(s.handleAgoraLook))
 	mux.HandleFunc("GET /friends", s.requireAuth(s.handleFriends))
