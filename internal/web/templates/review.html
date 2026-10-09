@@ -53,20 +53,26 @@
           <p class="card-context card-blank">{{$rc.SentenceBlank}}</p>
           <p class="card-hint">{{$rc.SentenceTranslation}}</p>
 
-          <form id="type-form" class="type-form" autocomplete="off" data-answer="{{$rc.Answer}}" data-lemma="{{$card.Lemma}}">
+          <form id="type-form" class="type-form" autocomplete="off" data-answer="{{$rc.Answer}}" data-lemma="{{$card.Lemma}}" data-card="{{$card.ID}}">
             <input type="text" id="typed" aria-label="{{$t.ReviewTypePlaceholder}}" placeholder="{{$t.ReviewTypePlaceholder}}"
                    autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="done">
             <button type="submit" class="btn btn-primary">{{$t.ReviewCheck}}</button>
           </form>
+          <ul id="alt-list" hidden>{{range $rc.Alternatives}}<li data-word="{{.Word}}">{{.Difference}}</li>{{end}}</ul>
+          <p class="type-feedback type-synonym" id="fb-synonym" hidden>{{$t.ReviewSynonym}} <span class="type-pattern" id="fb-pattern"></span></p>
+          <p class="type-diff" id="fb-diff" hidden></p>
           <p class="hint type-hint" id="type-hint">{{$t.ReviewTypeHint}}</p>
           <button id="reveal" type="button" class="btn">{{$t.ReviewRevealWord}}</button>
 
           <div id="answer" hidden>
             <p id="type-feedback" class="type-feedback" hidden>
               <span id="fb-correct" hidden>{{$t.ReviewCorrect}}</span>
+              <span id="fb-hinted" hidden>{{$t.ReviewCorrectHinted}}</span>
               <span id="fb-close" hidden>{{$t.ReviewClose}}</span>
               <span id="fb-wrong" hidden>{{$t.ReviewWrong}} <s id="fb-typed"></s></span>
             </p>
+            <button type="button" class="btn-link type-why" id="why" data-label="{{$t.ReviewWhyNot}}" data-loading="{{$t.ReviewExplaining}}" data-failed="{{$t.ReviewExplainFailed}}" hidden></button>
+            <p class="type-diff" id="fb-explain" hidden></p>
             <div class="card-translation">{{$rc.Answer}}</div>
             <div class="card-original">
               <span class="card-original-label">{{$t.ReviewOriginalLabel}}</span>
@@ -172,25 +178,86 @@
             return 'wrong';
           }
 
+          // The first letter of each word, the rest as blanks: "l _ _ _".
+          function pattern(answer) {
+            return answer.trim().split('').map(function (c, i, all) {
+              if (/[\s'’-]/.test(c)) return c === ' ' ? '\u00a0\u00a0' : c;
+              return (i === 0 || /[\s'’-]/.test(all[i - 1])) ? c : '_';
+            }).join(' ');
+          }
+          var alts = {};
+          document.querySelectorAll('#alt-list li').forEach(function (li) { alts[bare(norm(li.dataset.word))] = li.textContent; });
+          var hinted = false;
+
+          // After a wrong answer: ask the AI how the typed word differs
+          // from the expected one.
+          var why = document.getElementById('why');
+          var lastTyped = '';
+          why.addEventListener('click', function () {
+            var out = document.getElementById('fb-explain');
+            why.disabled = true;
+            out.hidden = false;
+            out.textContent = why.dataset.loading;
+            fetch('/api/explain', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                vocab_id: Number(typeForm.dataset.card),
+                sentence: document.querySelector('.card-blank').textContent.trim(),
+                answer: typeForm.dataset.answer,
+                typed: lastTyped
+              })
+            }).then(function (res) {
+              return res.json().then(function (data) {
+                if (!res.ok) throw new Error(data.error || why.dataset.failed);
+                return data;
+              });
+            }).then(function (data) {
+              out.textContent = data.explanation;
+              why.hidden = true;
+            }).catch(function (err) {
+              out.textContent = err.message || why.dataset.failed;
+              why.disabled = false;
+            });
+          });
+
           var input = document.getElementById('typed');
           typeForm.addEventListener('submit', function (e) {
             e.preventDefault();
             var g = grade(input.value, typeForm.dataset.answer, typeForm.dataset.lemma);
             if (!g) { input.focus(); return; }
+            // A valid synonym isn't wrong: hint toward the word being
+            // learned and give another try (once).
+            var alt = alts[bare(norm(input.value))];
+            if (g === 'wrong' && !hinted && alt !== undefined) {
+              hinted = true;
+              document.getElementById('fb-pattern').textContent = pattern(typeForm.dataset.answer);
+              var diff = document.getElementById('fb-diff');
+              diff.textContent = alt;
+              diff.hidden = !alt;
+              show('fb-synonym'); hide('type-hint');
+              input.value = ''; input.focus();
+              return;
+            }
+            hide('fb-synonym');
+            if (hinted && g === 'typed') g = 'hinted';
             hide('type-form'); hide('type-hint'); reveal.hidden = true;
             answer.hidden = false;
             hide('self-buttons'); show('typed-buttons'); show('type-feedback');
             if (g === 'wrong') {
-              document.getElementById('fb-typed').textContent = input.value.trim();
+              lastTyped = input.value.trim();
+              document.getElementById('fb-typed').textContent = lastTyped;
               show('fb-wrong'); show('override'); show('copy-box');
+              why.textContent = why.dataset.label.replace('%s', lastTyped);
+              why.hidden = false;
               document.getElementById('continue').className = 'btn';
               document.getElementById('typed-mode').className = 'copy-mode';
               document.getElementById('copy').focus();
               return;
             } else {
               document.getElementById('typed-result').value = 'good';
-              document.getElementById('typed-mode').value = g;
-              show(g === 'typed' ? 'fb-correct' : 'fb-close');
+              document.getElementById('typed-mode').value = g === 'hinted' ? 'typed_close' : g;
+              show(g === 'typed' ? 'fb-correct' : (g === 'hinted' ? 'fb-hinted' : 'fb-close'));
               document.getElementById('type-feedback').classList.add('type-feedback-ok');
             }
             document.getElementById('continue').focus();

@@ -2,6 +2,12 @@ package web
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -115,4 +121,63 @@ func (s *Server) recallCardFor(ctx context.Context, user *store.User, card *stor
 	case <-ctx.Done():
 		return nil
 	}
+}
+
+type explainRequest struct {
+	VocabID  int64  `json:"vocab_id"`
+	Sentence string `json:"sentence"`
+	Answer   string `json:"answer"`
+	Typed    string `json:"typed"`
+}
+
+// handleAPIExplain explains, after a wrong typed answer, how the reader's
+// word differs from the expected one. It's an AI call like a translation,
+// so it counts toward the free plan's monthly quota.
+func (s *Server) handleAPIExplain(w http.ResponseWriter, r *http.Request) {
+	user := userFromContext(r)
+	var req explainRequest
+	if err := json.NewDecoder(io.LimitReader(r.Body, 4096)).Decode(&req); err != nil {
+		s.failJSON(w, http.StatusBadRequest, err)
+		return
+	}
+	req.Typed, req.Answer = strings.TrimSpace(req.Typed), strings.TrimSpace(req.Answer)
+	if req.Typed == "" || req.Answer == "" || len(req.Typed) > 80 || len(req.Answer) > 80 || len(req.Sentence) > 500 {
+		s.failJSON(w, http.StatusBadRequest, errors.New("requête invalide"))
+		return
+	}
+	card, err := s.store.GetVocab(req.VocabID, user.ID)
+	if err != nil {
+		s.failJSON(w, http.StatusNotFound, err)
+		return
+	}
+	now := time.Now()
+	if over, err := s.overQuota(user, now); err != nil {
+		s.failJSON(w, http.StatusInternalServerError, err)
+		return
+	} else if over {
+		writeJSON(w, http.StatusTooManyRequests, map[string]string{"error": fmt.Sprintf(s.dictFor(r)["QuotaReached"], s.cfg.FreeQuota)})
+		return
+	}
+	bookLang := ""
+	if book, err := s.store.GetBook(card.BookID, user.ID); err == nil {
+		bookLang = book.Language
+	}
+	native := user.NativeLang
+	if native == "" {
+		native = defaultNativeLang
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 25*time.Second)
+	defer cancel()
+	text, err := s.ai.ExplainDifference(ctx, ai.ExplainOptions{
+		BookLanguage: bookLang, NativeLang: native,
+		Sentence: req.Sentence, Answer: req.Answer, Typed: req.Typed,
+	})
+	if err != nil {
+		s.failJSON(w, http.StatusBadGateway, err)
+		return
+	}
+	if err := s.store.CountTranslation(user.ID, now); err != nil {
+		s.log.Error("count translation", "err", err)
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"explanation": text})
 }

@@ -116,6 +116,7 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("POST /settings/email", s.requireAuth(s.handleSettingsEmail))
 
 	mux.HandleFunc("POST /api/translate", s.requireAuth(s.handleAPITranslate))
+	mux.HandleFunc("POST /api/explain", s.requireAuth(s.handleAPIExplain))
 
 	return mux
 }
@@ -725,6 +726,16 @@ type translateResponse struct {
 	Saved bool `json:"saved"` // false when this phrase was already in the deck
 }
 
+// overQuota reports whether a free-plan user has used up this month's AI
+// calls (translations and explanations).
+func (s *Server) overQuota(user *store.User, now time.Time) (bool, error) {
+	if user.Plan == store.PlanUnlimited {
+		return false, nil
+	}
+	used, err := s.store.TranslationsThisMonth(user.ID, now)
+	return used >= s.cfg.FreeQuota, err
+}
+
 // handleAPITranslate translates the selection and saves it as a review card
 // in the same call — a lookup while reading is treated as "I want to learn
 // this", so there's no separate save step for the reader to remember.
@@ -750,16 +761,12 @@ func (s *Server) handleAPITranslate(w http.ResponseWriter, r *http.Request) {
 		native = defaultNativeLang
 	}
 	now := time.Now()
-	if user.Plan != store.PlanUnlimited {
-		used, err := s.store.TranslationsThisMonth(user.ID, now)
-		if err != nil {
-			s.failJSON(w, http.StatusInternalServerError, err)
-			return
-		}
-		if used >= s.cfg.FreeQuota {
-			writeJSON(w, http.StatusTooManyRequests, map[string]string{"error": fmt.Sprintf(s.dictFor(r)["QuotaReached"], s.cfg.FreeQuota)})
-			return
-		}
+	if over, err := s.overQuota(user, now); err != nil {
+		s.failJSON(w, http.StatusInternalServerError, err)
+		return
+	} else if over {
+		writeJSON(w, http.StatusTooManyRequests, map[string]string{"error": fmt.Sprintf(s.dictFor(r)["QuotaReached"], s.cfg.FreeQuota)})
+		return
 	}
 
 	ctx, cancel := context.WithTimeout(r.Context(), 25*time.Second)

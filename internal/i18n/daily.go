@@ -4,6 +4,11 @@ package i18n
 // setting. Strings with %d are fmt verbs filled in by the caller.
 var daily = map[string]Dict{
 	"en": {
+		"ReviewWhyNot":           "Why not “%s”?",
+		"ReviewExplaining":       "Explaining…",
+		"ReviewExplainFailed":    "No explanation right now, try again later.",
+		"ReviewSynonym":          "Good synonym, but it's not the word you're learning. Try again. Hint:",
+		"ReviewCorrectHinted":    "Well done! +2 points (with the hint)",
 		"ReviewCopied":           "Copied! +1 point",
 		"ReviewCopyPlaceholder":  "Copy the word…",
 		"ReviewCopyLabel":        "Copy the word out to help it stick: +1 point",
@@ -42,6 +47,11 @@ var daily = map[string]Dict{
 		"SettingsDailyNewHint":  "Due reviews always come first. Beyond this limit, new words wait for the following days.",
 	},
 	"fr": {
+		"ReviewWhyNot":           "Pourquoi pas « %s » ?",
+		"ReviewExplaining":       "L'IA explique…",
+		"ReviewExplainFailed":    "Pas d'explication pour le moment, réessaie plus tard.",
+		"ReviewSynonym":          "Bon synonyme, mais ce n'est pas le mot appris. Essaie encore. Indice :",
+		"ReviewCorrectHinted":    "Bravo ! +2 points (avec l'indice)",
 		"ReviewCopied":           "Recopié ! +1 point",
 		"ReviewCopyPlaceholder":  "Recopie le mot…",
 		"ReviewCopyLabel":        "Recopie le mot pour mieux le retenir : +1 point",
@@ -80,6 +90,11 @@ var daily = map[string]Dict{
 		"SettingsDailyNewHint":  "Les révisions dues passent toujours en premier. Au-delà de cette limite, les nouveaux mots attendent les jours suivants.",
 	},
 	"es": {
+		"ReviewWhyNot":           "¿Por qué no «%s»?",
+		"ReviewExplaining":       "Explicando…",
+		"ReviewExplainFailed":    "No hay explicación por ahora, inténtalo más tarde.",
+		"ReviewSynonym":          "Buen sinónimo, pero no es la palabra que estás aprendiendo. Inténtalo otra vez. Pista:",
+		"ReviewCorrectHinted":    "¡Muy bien! +2 puntos (con la pista)",
 		"ReviewCopied":           "¡Copiada! +1 punto",
 		"ReviewCopyPlaceholder":  "Copia la palabra…",
 		"ReviewCopyLabel":        "Copia la palabra para recordarla mejor: +1 punto",
@@ -118,6 +133,11 @@ var daily = map[string]Dict{
 		"SettingsDailyNewHint":  "Los repasos pendientes siempre van primero. Más allá de este límite, las palabras nuevas esperan a los días siguientes.",
 	},
 	"pt": {
+		"ReviewWhyNot":           "Por que não “%s”?",
+		"ReviewExplaining":       "Explicando…",
+		"ReviewExplainFailed":    "Sem explicação no momento, tente mais tarde.",
+		"ReviewSynonym":          "Bom sinônimo, mas não é a palavra que você está aprendendo. Tente de novo. Dica:",
+		"ReviewCorrectHinted":    "Muito bem! +2 pontos (com a dica)",
 		"ReviewCopied":           "Copiada! +1 ponto",
 		"ReviewCopyPlaceholder":  "Copie a palavra…",
 		"ReviewCopyLabel":        "Copie a palavra para lembrar melhor: +1 ponto",
@@ -156,6 +176,11 @@ var daily = map[string]Dict{
 		"SettingsDailyNewHint":  "As revisões pendentes sempre vêm primeiro. Além desse limite, as palavras novas esperam os dias seguintes.",
 	},
 	"it": {
+		"ReviewWhyNot":           "Perché non «%s»?",
+		"ReviewExplaining":       "Sto spiegando…",
+		"ReviewExplainFailed":    "Nessuna spiegazione per ora, riprova più tardi.",
+		"ReviewSynonym":          "Buon sinonimo, ma non è la parola che stai imparando. Riprova. Indizio:",
+		"ReviewCorrectHinted":    "Bravo! +2 punti (con l'indizio)",
 		"ReviewCopied":           "Ricopiata! +1 punto",
 		"ReviewCopyPlaceholder":  "Ricopia la parola…",
 		"ReviewCopyLabel":        "Ricopia la parola per ricordarla meglio: +1 punto",
@@ -194,6 +219,11 @@ var daily = map[string]Dict{
 		"SettingsDailyNewHint":  "I ripassi in scadenza vengono sempre prima. Oltre questo limite, le parole nuove aspettano i giorni successivi.",
 	},
 	"de": {
+		"ReviewWhyNot":           "Warum nicht „%s“?",
+		"ReviewExplaining":       "Wird erklärt…",
+		"ReviewExplainFailed":    "Gerade keine Erklärung möglich, versuch es später noch einmal.",
+		"ReviewSynonym":          "Gutes Synonym, aber nicht das Wort, das du lernst. Versuch es noch einmal. Tipp:",
+		"ReviewCorrectHinted":    "Super! +2 Punkte (mit Tipp)",
 		"ReviewCopied":           "Abgeschrieben! +1 Punkt",
 		"ReviewCopyPlaceholder":  "Wort abschreiben…",
 		"ReviewCopyLabel":        "Schreib das Wort ab, damit es hängen bleibt: +1 Punkt",
@@ -232,6 +262,11 @@ var daily = map[string]Dict{
 		"SettingsDailyNewHint":  "Fällige Wiederholungen kommen immer zuerst. Über dieses Limit hinaus warten neue Wörter auf die nächsten Tage.",
 	},
 	"nl": {
+		"ReviewWhyNot":           "Waarom niet ‘%s’?",
+		"ReviewExplaining":       "Bezig met uitleggen…",
+		"ReviewExplainFailed":    "Nu geen uitleg beschikbaar, probeer het later opnieuw.",
+		"ReviewSynonym":          "Goed synoniem, maar niet het woord dat je leert. Probeer het nog eens. Hint:",
+		"ReviewCorrectHinted":    "Goed zo! +2 punten (met de hint)",
 		"ReviewCopied":           "Overgetypt! +1 punt",
 		"ReviewCopyPlaceholder":  "Typ het woord over…",
 		"ReviewCopyLabel":        "Typ het woord over om het beter te onthouden: +1 punt",
