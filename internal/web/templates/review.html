@@ -197,14 +197,15 @@
           });
 
           // Copying out a missed word still helps it stick: once it's
-          // copied right, the "missed" answer is worth a point.
+          // copied right, the "missed" answer is worth a point. Checked on
+          // every keystroke, so it has to be the whole word (only case and
+          // accents are forgiven): the typo tolerance of the check above
+          // would accept "men-at-arm" and cut the copy short.
           var copy = document.getElementById('copy');
           copy.addEventListener('input', function () {
-            var g = grade(copy.value, typeForm.dataset.answer, '');
-            if (g !== 'typed' && g !== 'typed_close') return;
-            document.querySelectorAll('.copy-mode').forEach(function (el) { el.value = 'copied'; });
-            copy.disabled = true;
-            show('copy-ok');
+            var ok = bare(norm(copy.value)) === bare(norm(typeForm.dataset.answer));
+            document.querySelectorAll('.copy-mode').forEach(function (el) { el.value = ok ? 'copied' : ''; });
+            document.getElementById('copy-ok').hidden = !ok;
           });
           copy.addEventListener('keydown', function (e) { if (e.key === 'Enter') e.preventDefault(); });
         })();

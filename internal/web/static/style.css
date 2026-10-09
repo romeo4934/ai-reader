@@ -489,4 +489,3 @@ details[open] .word-row::after { content: '⌄'; }
   border-radius: 8px; border: 1px dashed var(--border);
   background: var(--card-bg); color: var(--fg);
 }
-.copy-box input:disabled { opacity: 0.6; }
