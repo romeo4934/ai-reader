@@ -8,7 +8,6 @@
   var elLoading = document.getElementById('tp-loading');
   var elError = document.getElementById('tp-error');
   var elSentence = document.getElementById('tp-sentence');
-  var elOriginal = document.getElementById('tp-original');
   var elClose = document.getElementById('tp-close');
 
   var bookID = chapterEl.dataset.bookId;
@@ -24,7 +23,6 @@
     elLoading.hidden = true;
     elError.hidden = true;
     elSentence.hidden = true;
-    elOriginal.hidden = true;
   }
 
   // --- reading mode ---
@@ -267,8 +265,10 @@
     openPopoverFor(text, hit.context, rect, originalOf(hit.context, word, bounds));
   });
 
-  // The sentence as it is in the book, with the looked-up word in it — shown
-  // above its translation, so both read side by side.
+  // The sentence as it is in the book, with the looked-up word in it — sent
+  // with the request so the translation is of this sentence, not another
+  // one of the paragraph holding the same word. (Not shown: it's already
+  // highlighted in the page, which the panel never covers.)
   function originalOf(text, word, bounds) {
     return {
       sentence: text.slice(bounds.start, bounds.end).trim(),
@@ -283,10 +283,6 @@
     resetPopoverBody();
     popover.hidden = false;
     elLoading.hidden = false;
-    if (original && original.sentence) {
-      renderSentence(elOriginal, original.sentence, original.word);
-      elOriginal.hidden = false;
-    }
     positionPopover(rect);
 
     fetch('/api/translate', {

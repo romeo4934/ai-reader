@@ -590,8 +590,6 @@ details[open] .word-row::after { content: '⌄'; }
   border-width: 0 0 1px;
   padding: calc(1rem + env(safe-area-inset-top)) 1.2rem 1rem;
 }
-.tp-original { font-family: Georgia, serif; font-size: 1.05rem; line-height: 1.5; padding-right: 1.5rem; margin-bottom: 0.6rem; }
-.tp-original + .tp-sentence, .tp-original + .tp-loading { padding-top: 0.6rem; border-top: 1px solid var(--border); }
 
 /* Pages mode: the section laid out in one screen-sized column per page. */
 .paged body { overflow: hidden; }
