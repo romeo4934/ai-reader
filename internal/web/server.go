@@ -570,7 +570,11 @@ func (s *Server) handleReviewAnswer(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, http.StatusInternalServerError, err)
 		return
 	}
-	if err := s.store.RecordReview(user.ID, dayKey(now), card.LastReviewedAt == nil, points); err != nil {
+	lang := ""
+	if book, err := s.store.GetBook(card.BookID, user.ID); err == nil {
+		lang = book.Language
+	}
+	if err := s.store.RecordReview(user.ID, dayKey(now), card.LastReviewedAt == nil, points, lang); err != nil {
 		s.log.Error("record review", "err", err)
 	}
 	http.Redirect(w, r, "/review", http.StatusSeeOther)

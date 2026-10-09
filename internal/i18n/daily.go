@@ -4,7 +4,7 @@ package i18n
 // setting. Strings with %d are fmt verbs filled in by the caller.
 var daily = map[string]Dict{
 	"en": {
-		"DailyNewPaused": "New words on pause: %d of your words are still fragile (recent or missed). Get them solid first; new ones will come back as soon as your list holds.",
+		"DailyNewPaused":         "New words on pause: %d of your words are still fragile (recent or missed). Get them solid first; new ones will come back as soon as your list holds.",
 		"DailyRetryBadge":        "retry",
 		"WordsProgressLine":      "%d learning · %d known · %d waiting",
 		"ReviewWhyNot":           "Why not “%s”?",
@@ -50,7 +50,7 @@ var daily = map[string]Dict{
 		"SettingsDailyNewHint":  "Due reviews always come first. Beyond this limit, new words wait for the following days.",
 	},
 	"fr": {
-		"DailyNewPaused": "Nouveaux mots en pause : %d de tes mots sont encore fragiles (récents ou ratés). Consolide-les d'abord, les nouveaux reviendront dès que ta liste tient.",
+		"DailyNewPaused":         "Nouveaux mots en pause : %d de tes mots sont encore fragiles (récents ou ratés). Consolide-les d'abord, les nouveaux reviendront dès que ta liste tient.",
 		"DailyRetryBadge":        "à revoir",
 		"WordsProgressLine":      "%d en cours · %d acquis · %d en attente",
 		"ReviewWhyNot":           "Pourquoi pas « %s » ?",
@@ -96,7 +96,7 @@ var daily = map[string]Dict{
 		"SettingsDailyNewHint":  "Les révisions dues passent toujours en premier. Au-delà de cette limite, les nouveaux mots attendent les jours suivants.",
 	},
 	"es": {
-		"DailyNewPaused": "Palabras nuevas en pausa: %d de tus palabras aún son frágiles (recientes o falladas). Afiánzalas primero; las nuevas volverán en cuanto tu lista se mantenga.",
+		"DailyNewPaused":         "Palabras nuevas en pausa: %d de tus palabras aún son frágiles (recientes o falladas). Afiánzalas primero; las nuevas volverán en cuanto tu lista se mantenga.",
 		"DailyRetryBadge":        "repaso",
 		"WordsProgressLine":      "%d aprendiendo · %d sabidas · %d en espera",
 		"ReviewWhyNot":           "¿Por qué no «%s»?",
@@ -142,7 +142,7 @@ var daily = map[string]Dict{
 		"SettingsDailyNewHint":  "Los repasos pendientes siempre van primero. Más allá de este límite, las palabras nuevas esperan a los días siguientes.",
 	},
 	"pt": {
-		"DailyNewPaused": "Palavras novas em pausa: %d das suas palavras ainda estão frágeis (recentes ou erradas). Consolide-as primeiro; as novas voltam assim que sua lista se firmar.",
+		"DailyNewPaused":         "Palavras novas em pausa: %d das suas palavras ainda estão frágeis (recentes ou erradas). Consolide-as primeiro; as novas voltam assim que sua lista se firmar.",
 		"DailyRetryBadge":        "rever",
 		"WordsProgressLine":      "%d aprendendo · %d sabidas · %d na fila",
 		"ReviewWhyNot":           "Por que não “%s”?",
@@ -188,7 +188,7 @@ var daily = map[string]Dict{
 		"SettingsDailyNewHint":  "As revisões pendentes sempre vêm primeiro. Além desse limite, as palavras novas esperam os dias seguintes.",
 	},
 	"it": {
-		"DailyNewPaused": "Parole nuove in pausa: %d delle tue parole sono ancora fragili (recenti o sbagliate). Consolidale prima; le nuove torneranno appena la tua lista regge.",
+		"DailyNewPaused":         "Parole nuove in pausa: %d delle tue parole sono ancora fragili (recenti o sbagliate). Consolidale prima; le nuove torneranno appena la tua lista regge.",
 		"DailyRetryBadge":        "da rivedere",
 		"WordsProgressLine":      "%d in corso · %d imparate · %d in attesa",
 		"ReviewWhyNot":           "Perché non «%s»?",
@@ -234,7 +234,7 @@ var daily = map[string]Dict{
 		"SettingsDailyNewHint":  "I ripassi in scadenza vengono sempre prima. Oltre questo limite, le parole nuove aspettano i giorni successivi.",
 	},
 	"de": {
-		"DailyNewPaused": "Neue Wörter pausieren: %d deiner Wörter sitzen noch nicht (neu oder verpasst). Festige sie zuerst; neue kommen wieder, sobald deine Liste sitzt.",
+		"DailyNewPaused":         "Neue Wörter pausieren: %d deiner Wörter sitzen noch nicht (neu oder verpasst). Festige sie zuerst; neue kommen wieder, sobald deine Liste sitzt.",
 		"DailyRetryBadge":        "nochmal",
 		"WordsProgressLine":      "%d in Arbeit · %d gelernt · %d wartend",
 		"ReviewWhyNot":           "Warum nicht „%s“?",
@@ -280,7 +280,7 @@ var daily = map[string]Dict{
 		"SettingsDailyNewHint":  "Fällige Wiederholungen kommen immer zuerst. Über dieses Limit hinaus warten neue Wörter auf die nächsten Tage.",
 	},
 	"nl": {
-		"DailyNewPaused": "Nieuwe woorden gepauzeerd: %d van je woorden zijn nog wankel (nieuw of gemist). Zet die eerst vast; nieuwe komen terug zodra je lijst er staat.",
+		"DailyNewPaused":         "Nieuwe woorden gepauzeerd: %d van je woorden zijn nog wankel (nieuw of gemist). Zet die eerst vast; nieuwe komen terug zodra je lijst er staat.",
 		"DailyRetryBadge":        "opnieuw",
 		"WordsProgressLine":      "%d bezig · %d gekend · %d wachtend",
 		"ReviewWhyNot":           "Waarom niet ‘%s’?",

@@ -7,6 +7,7 @@ import (
 	_ "embed"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	_ "modernc.org/sqlite"
@@ -85,6 +86,10 @@ func Open(path string) (*Store, error) {
 		db.Close()
 		return nil, fmt.Errorf("migration daily_activity.points : %w", err)
 	}
+	if err := migratePointsByLang(db); err != nil {
+		db.Close()
+		return nil, err
+	}
 	// These index the user_id columns just added above — created here rather
 	// than in schema.sql so they never run before ensureColumn has had a
 	// chance to add the column on an upgraded database.
@@ -130,6 +135,67 @@ func migrateUsersForEmail(db *sql.DB) error {
 		return fmt.Errorf("index idx_users_email : %w", err)
 	}
 	return nil
+}
+
+// migratePointsByLang adds the per-language split of review points that the
+// leaderboard ranks on. Points earned before it existed are credited to the
+// language of the user's first book (everyone had books in a single
+// language when this shipped).
+func migratePointsByLang(db *sql.DB) error {
+	var exists int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'points_lang'`).Scan(&exists); err != nil {
+		return fmt.Errorf("table points_lang : %w", err)
+	}
+	if exists == 1 {
+		return nil
+	}
+	if _, err := db.Exec(`CREATE TABLE points_lang (
+		user_id INTEGER NOT NULL REFERENCES users(id),
+		day     TEXT NOT NULL,
+		lang    TEXT NOT NULL,
+		points  INTEGER NOT NULL DEFAULT 0,
+		PRIMARY KEY (user_id, day, lang)
+	)`); err != nil {
+		return fmt.Errorf("table points_lang : %w", err)
+	}
+	rows, err := db.Query(`SELECT d.user_id, d.day, d.points,
+			COALESCE((SELECT b.language FROM books b WHERE b.user_id = d.user_id ORDER BY b.id LIMIT 1), '')
+		FROM daily_activity d WHERE d.points > 0`)
+	if err != nil {
+		return fmt.Errorf("migration points_lang : %w", err)
+	}
+	type row struct {
+		userID    int64
+		day, lang string
+		points    int
+	}
+	var all []row
+	for rows.Next() {
+		var r row
+		if err := rows.Scan(&r.userID, &r.day, &r.points, &r.lang); err != nil {
+			rows.Close()
+			return fmt.Errorf("migration points_lang : %w", err)
+		}
+		all = append(all, r)
+	}
+	rows.Close()
+	for _, r := range all {
+		if _, err := db.Exec(`INSERT INTO points_lang (user_id, day, lang, points) VALUES (?, ?, ?, ?)`,
+			r.userID, r.day, LangKey(r.lang), r.points); err != nil {
+			return fmt.Errorf("migration points_lang : %w", err)
+		}
+	}
+	return nil
+}
+
+// LangKey normalizes a book's language tag ("en-US", "EN", "fr_FR") to the
+// primary subtag the leaderboard groups by; "" when unknown.
+func LangKey(tag string) string {
+	tag = strings.ToLower(strings.TrimSpace(tag))
+	if i := strings.IndexAny(tag, "-_"); i >= 0 {
+		tag = tag[:i]
+	}
+	return tag
 }
 
 func hasColumn(db *sql.DB, table, column string) (bool, error) {
@@ -689,18 +755,33 @@ func (s *Store) GetDailyActivity(userID int64, day string) (DailyActivity, error
 }
 
 // RecordReview counts one answered card for the day, and the points it
-// earned; wasNew when it was the card's first review, which is what the
-// daily new-card limit counts.
-func (s *Store) RecordReview(userID int64, day string, wasNew bool, points int) error {
+// earned — also credited to the language being learned (the card's book's),
+// for the per-language leaderboard. wasNew when it was the card's first
+// review, which is what the daily new-card limit counts.
+func (s *Store) RecordReview(userID int64, day string, wasNew bool, points int, lang string) error {
 	n := 0
 	if wasNew {
 		n = 1
 	}
-	_, err := s.db.Exec(`INSERT INTO daily_activity (user_id, day, reviews, new_cards, points) VALUES (?, ?, 1, ?, ?)
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.Exec(`INSERT INTO daily_activity (user_id, day, reviews, new_cards, points) VALUES (?, ?, 1, ?, ?)
 		ON CONFLICT (user_id, day) DO UPDATE SET reviews = reviews + 1, new_cards = new_cards + excluded.new_cards,
 			points = points + excluded.points`,
-		userID, day, n, points)
-	return err
+		userID, day, n, points); err != nil {
+		return err
+	}
+	if points > 0 {
+		if _, err := tx.Exec(`INSERT INTO points_lang (user_id, day, lang, points) VALUES (?, ?, ?, ?)
+			ON CONFLICT (user_id, day, lang) DO UPDATE SET points = points + excluded.points`,
+			userID, day, LangKey(lang), points); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
 }
 
 func (s *Store) TotalPoints(userID int64) (int, error) {
@@ -802,16 +883,16 @@ type LeaderboardRow struct {
 	Points      int
 }
 
-// Leaderboard ranks everyone who earned points between two days (inclusive),
-// best first.
-func (s *Store) Leaderboard(fromDay, toDay string, limit int) ([]LeaderboardRow, error) {
+// Leaderboard ranks everyone who earned points in one language between two
+// days (inclusive), best first.
+func (s *Store) Leaderboard(fromDay, toDay, lang string, limit int) ([]LeaderboardRow, error) {
 	rows, err := s.db.Query(`
-		SELECT u.id, u.username, u.display_name, SUM(d.points) AS p
-		FROM daily_activity d JOIN users u ON u.id = d.user_id
-		WHERE d.day >= ? AND d.day <= ?
-		GROUP BY u.id HAVING p > 0
-		ORDER BY p DESC, u.id ASC
-		LIMIT ?`, fromDay, toDay, limit)
+		SELECT u.id, u.username, u.display_name, SUM(p.points) AS total
+		FROM points_lang p JOIN users u ON u.id = p.user_id
+		WHERE p.day >= ? AND p.day <= ? AND p.lang = ?
+		GROUP BY u.id HAVING total > 0
+		ORDER BY total DESC, u.id ASC
+		LIMIT ?`, fromDay, toDay, lang, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -825,4 +906,42 @@ func (s *Store) Leaderboard(fromDay, toDay string, limit int) ([]LeaderboardRow,
 		out = append(out, r)
 	}
 	return out, rows.Err()
+}
+
+type LeaderboardLang struct {
+	Lang    string
+	Players int
+}
+
+// LeaderboardLangs lists the languages someone earned points in between two
+// days, most players first.
+func (s *Store) LeaderboardLangs(fromDay, toDay string) ([]LeaderboardLang, error) {
+	rows, err := s.db.Query(`
+		SELECT lang, COUNT(DISTINCT user_id) AS players FROM points_lang
+		WHERE day >= ? AND day <= ? AND points > 0
+		GROUP BY lang ORDER BY players DESC, lang ASC`, fromDay, toDay)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []LeaderboardLang
+	for rows.Next() {
+		var l LeaderboardLang
+		if err := rows.Scan(&l.Lang, &l.Players); err != nil {
+			return nil, err
+		}
+		out = append(out, l)
+	}
+	return out, rows.Err()
+}
+
+// UserBookLang is the language of the user's most recently added book, the
+// default leaderboard tab for them; "" without books.
+func (s *Store) UserBookLang(userID int64) (string, error) {
+	var lang string
+	err := s.db.QueryRow(`SELECT language FROM books WHERE user_id = ? ORDER BY id DESC LIMIT 1`, userID).Scan(&lang)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", nil
+	}
+	return LangKey(lang), err
 }

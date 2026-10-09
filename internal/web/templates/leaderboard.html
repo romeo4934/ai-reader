@@ -8,8 +8,13 @@
   {{template "nav" .}}
 
   <main class="page">
-    <h1>{{.T.LeaderboardTitle}}</h1>
+    <h1>{{.T.LeaderboardTitle}}{{if .Data.LangName}} · {{.Data.LangName}}{{end}}</h1>
     <p class="hint leaderboard-sub">{{.T.LeaderboardThisWeek}} · {{.Data.Ends}}</p>
+    {{if gt (len .Data.Tabs) 1}}
+    <nav class="lb-tabs">
+      {{range .Data.Tabs}}<a href="/leaderboard?lang={{.Lang}}"{{if .Active}} class="active" aria-current="page"{{end}}>{{.Name}}</a>{{end}}
+    </nav>
+    {{end}}
 
     {{if not .Data.Entries}}
       <p class="empty">{{.T.LeaderboardEmpty}}</p>

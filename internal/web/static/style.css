@@ -502,3 +502,6 @@ details[open] .word-row::after { content: '⌄'; }
 .wb-learn { background: color-mix(in srgb, var(--accent) 45%, var(--card-bg)); }
 .wb-wait { background: var(--border); }
 .words-points { margin: 0 0 1.2rem; }
+.lb-tabs { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: -0.6rem 0 1.2rem; font-family: sans-serif; }
+.lb-tabs a { padding: 0.35rem 0.8rem; border: 1px solid var(--border); border-radius: 999px; color: var(--fg); text-decoration: none; font-size: 0.9rem; }
+.lb-tabs a.active { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
