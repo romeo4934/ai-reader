@@ -168,3 +168,37 @@ func TestParseLook(t *testing.T) {
 		t.Errorf("json: %+v", j)
 	}
 }
+
+func TestComputeRetention(t *testing.T) {
+	now := time.Date(2026, 10, 20, 15, 0, 0, 0, time.UTC)
+	at := func(s string) time.Time { d, _ := time.Parse("2006-01-02", s); return d.Add(9 * time.Hour) }
+	users := []store.AdminUser{
+		{ID: 1, CreatedAt: at("2026-10-01"), Books: 1, Words: 3, Reviews: 5}, // back next day and in week 2
+		{ID: 2, CreatedAt: at("2026-10-01"), Books: 1},                       // never back
+		{ID: 3, CreatedAt: at("2026-10-18"), Words: 1},                       // too recent for week 2
+		{ID: 4, CreatedAt: at("2026-10-19")},                                 // next day is today: not counted yet
+	}
+	act := map[int64]map[string]bool{
+		1: {"2026-10-01": true, "2026-10-02": true, "2026-10-09": true},
+		2: {"2026-10-01": true},
+		3: {"2026-10-18": true, "2026-10-19": true},
+	}
+	r := computeRetention(users, act, now)
+	if r.OtherDay != (retentionStat{Back: 2, Eligible: 4, Percent: 50}) {
+		t.Errorf("other day: %+v", r.OtherDay)
+	}
+	if r.NextDay != (retentionStat{Back: 2, Eligible: 3, Percent: 66}) {
+		t.Errorf("next day: %+v", r.NextDay)
+	}
+	if r.Week2 != (retentionStat{Back: 1, Eligible: 2, Percent: 50}) {
+		t.Errorf("week 2: %+v", r.Week2)
+	}
+	// weeks start on Monday (the 19th is one), most recent first
+	if len(r.Cohorts) != 3 || r.Cohorts[0].Week != "2026-10-19" || r.Cohorts[1].Week != "2026-10-12" || r.Cohorts[2].Week != "2026-09-28" ||
+		r.Cohorts[2].Signups != 2 || r.Cohorts[2].Book != 100 || r.Cohorts[2].Review != 50 || r.Cohorts[2].Week2 != (retentionStat{1, 2, 50}) {
+		t.Errorf("cohorts: %+v", r.Cohorts)
+	}
+	if r.DaysActive[1] != 3 {
+		t.Errorf("days active: %v", r.DaysActive)
+	}
+}

@@ -228,8 +228,8 @@ type lookChoice struct {
 type lookEditor struct {
 	Look                                          Look
 	Bodies, Skins, HairColors, HairStyles, Beards []lookChoice
-	Tunics, Capes, Heads                  []lookChoice
-	Palettes                              map[string]any
+	Tunics, Capes, Heads                          []lookChoice
+	Palettes                                      map[string]any
 }
 
 func newLookEditor(T map[string]string, look Look, tier int) lookEditor {

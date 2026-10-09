@@ -1582,6 +1582,31 @@ func (s *Store) AdminUsers(sevenDaysAgo, monthStart, month string) ([]AdminUser,
 	return out, rows.Err()
 }
 
+// ActivityDays gives, for each user, the days (YYYY-MM-DD) they used Lydi:
+// reviewed, looked up a word, or made an AI call (translation, exercise).
+func (s *Store) ActivityDays() (map[int64]map[string]bool, error) {
+	rows, err := s.db.Query(`SELECT user_id, day FROM daily_activity WHERE reviews > 0
+		UNION SELECT user_id, substr(created_at, 1, 10) FROM vocab
+		UNION SELECT user_id, day FROM ai_usage WHERE user_id > 0`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[int64]map[string]bool{}
+	for rows.Next() {
+		var id int64
+		var day string
+		if err := rows.Scan(&id, &day); err != nil {
+			return nil, err
+		}
+		if out[id] == nil {
+			out[id] = map[string]bool{}
+		}
+		out[id][day] = true
+	}
+	return out, rows.Err()
+}
+
 type DayStat struct {
 	Day                      string
 	Signups, Active, Reviews int

@@ -38,9 +38,11 @@ func (s *Server) recordAIUsage(ctx context.Context, kind string, u ai.Usage) {
 	}
 }
 
-func (s *Server) isAdmin(u *store.User) bool {
+func (s *Server) isAdmin(u *store.User) bool { return s.isAdminLogin(u.Username, u.Email) }
+
+func (s *Server) isAdminLogin(username, email string) bool {
 	for _, a := range s.cfg.Admins {
-		if a != "" && (strings.EqualFold(a, u.Username) || strings.EqualFold(a, u.Email)) {
+		if a != "" && (strings.EqualFold(a, username) || strings.EqualFold(a, email)) {
 			return true
 		}
 	}
@@ -62,8 +64,9 @@ type funnelStep struct {
 
 type adminUserRow struct {
 	store.AdminUser
-	Name string
-	Cost string
+	Name       string
+	Cost       string
+	DaysActive int
 }
 
 type adminKindRow struct {
@@ -82,6 +85,7 @@ type adminView struct {
 	TranslationsMonth              int
 	Rows                           []adminUserRow
 	Month                          string
+	Retention                      retention
 }
 
 func (s *Server) handleAdmin(w http.ResponseWriter, r *http.Request) {
@@ -99,6 +103,20 @@ func (s *Server) handleAdmin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	v := adminView{Users: len(users), Month: monthStart.Format("01/2006")}
+	activity, err := s.store.ActivityDays()
+	if err != nil {
+		s.fail(w, http.StatusInternalServerError, err)
+		return
+	}
+	// Retention leaves the admins out: their own testing isn't readers
+	// coming back.
+	var readers []store.AdminUser
+	for _, u := range users {
+		if !s.isAdminLogin(u.Username, u.Email) {
+			readers = append(readers, u)
+		}
+	}
+	v.Retention = computeRetention(readers, activity, now)
 	var withBook, withWords, reviewed int
 	var total store.TokenUsage
 	for _, u := range users {
@@ -131,7 +149,7 @@ func (s *Server) handleAdmin(w http.ResponseWriter, r *http.Request) {
 		total.CacheWrite += u.AI.CacheWrite
 		total.CacheRead += u.AI.CacheRead
 		total.Output += u.AI.Output
-		v.Rows = append(v.Rows, adminUserRow{AdminUser: u, Name: publicName(u.ID, u.Username, u.DisplayName), Cost: usd(s.cost(u.AI))})
+		v.Rows = append(v.Rows, adminUserRow{AdminUser: u, Name: publicName(u.ID, u.Username, u.DisplayName), Cost: usd(s.cost(u.AI)), DaysActive: len(activity[u.ID])})
 	}
 	sort.SliceStable(v.Rows, func(i, j int) bool { return v.Rows[i].LastActive > v.Rows[j].LastActive })
 	for _, st := range []struct {
