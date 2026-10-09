@@ -63,11 +63,13 @@ var Books = []Book{
 	{14155, "fr", "Madame Bovary", "Gustave Flaubert", Hard},
 	{17489, "fr", "Les misérables, tome I : Fantine", "Victor Hugo", Hard},
 
+	{36558, "es", "Ratón Pérez", "Luis Coloma", Easy},
 	{36805, "es", "Spanish Tales for Beginners", "E. C. Hills, Louise Reinhardt", Easy},
-	{55514, "es", "Cuentos de amor", "Emilia Pardo Bazán", Medium},
+	{13507, "es", "Cuentos de amor, de locura y de muerte", "Horacio Quiroga", Medium},
+	{17340, "es", "Marianela", "Benito Pérez Galdós", Medium},
+	{29506, "es", "El sombrero de tres picos", "Pedro Antonio de Alarcón", Medium},
 	{49836, "es", "Niebla", "Miguel de Unamuno", Medium},
-	{60464, "es", "El árbol de la ciencia", "Pío Baroja", Medium},
-	{320, "es", "Lazarillo de Tormes", "Anónimo", Hard},
+	{55514, "es", "Cuentos de amor", "Emilia Pardo Bazán", Medium},
 	{2000, "es", "Don Quijote", "Miguel de Cervantes", Hard},
 
 	{77905, "de", "Deutsche Märchen", "Jacob und Wilhelm Grimm", Easy},
@@ -97,7 +99,8 @@ var Books = []Book{
 	{27309, "nl", "De Reis naar de Maan", "Jules Verne", Medium},
 	{26564, "nl", "Ivanhoe", "Walter Scott", Medium},
 	{25946, "nl", "Gevoel en verstand", "Jane Austen", Medium},
-	{28068, "nl", "Het ivoren aapje", "Herman Teirlinck", Hard},
+	{15975, "nl", "Camera Obscura", "Hildebrand", Medium},
+	{11024, "nl", "Max Havelaar", "Multatuli", Hard},
 }
 
 func ByID(id int) (Book, bool) {
