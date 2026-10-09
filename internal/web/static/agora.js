@@ -445,43 +445,87 @@
   var RANK_SASH = ['#f4efe2', '#3b7dd8', '#7d4bb3', '#e2b93b'];
   function rankTier(days) { return days >= 365 ? 3 : days >= 250 ? 2 : days >= 100 ? 1 : 0; }
 
+  // A character, front view: cape behind, legs and sandals, tunic, rank
+  // sash, head with hair and beard, headwear, and what their rank carries.
   function drawPerson(a, t) {
     var x = a.pos.x, y = a.pos.y, walking = a.path && a.path.length > 0 && !still;
     var swing = walking ? Math.sin(t / 90 + a.phase) : 0, sit = a.sitting ? 2 : 0;
+    var L = (a.p && a.p.look) || {};
+    var skin = L.skin || '#f0cfa8', hairC = L.hairColor || '#4a2f1c';
+    var tunic = a.guard ? '#8b6b3e' : (L.tunic || (a.p && a.p.color) || '#8e8a83');
+    var hy = y - 9 + sit; // head centre
     g.fillStyle = 'rgba(0,0,0,0.22)'; g.beginPath(); g.ellipse(x, y + 7, 5.5, 2, 0, 0, Math.PI * 2); g.fill();
-    if (!a.sitting) {
-      rect(x - 3, y + 2 + Math.max(0, swing) * 2, 2, 5, '#5a3d22');
-      rect(x + 1, y + 2 + Math.max(0, -swing) * 2, 2, 5, '#5a3d22');
+    if (L.cape) {
+      g.fillStyle = L.cape; g.beginPath();
+      g.moveTo(x - 5, y - 5 + sit); g.lineTo(x + 5, y - 5 + sit);
+      g.lineTo(x + 7 + swing * 0.6, y + (a.sitting ? 4 : 8)); g.lineTo(x - 7 + swing * 0.6, y + (a.sitting ? 4 : 8)); g.fill();
     }
-    g.fillStyle = a.guard ? '#8b6b3e' : a.p.color; g.beginPath(); g.roundRect(x - 5, y - 5 + sit, 10, 9, 3); g.fill();
+    if (!a.sitting) {
+      rect(x - 3, y + 2 + Math.max(0, swing) * 2, 2, 5, skin);
+      rect(x + 1, y + 2 + Math.max(0, -swing) * 2, 2, 5, skin);
+      rect(x - 3.4, y + 6 + Math.max(0, swing) * 2, 2.8, 1.4, '#6b4527');
+      rect(x + 0.6, y + 6 + Math.max(0, -swing) * 2, 2.8, 1.4, '#6b4527');
+    }
+    g.fillStyle = tunic; g.beginPath(); g.roundRect(x - 5, y - 5 + sit, 10, 9, 3); g.fill();
+    g.fillStyle = 'rgba(0,0,0,0.12)'; g.fillRect(x - 5, y + 1 + sit, 10, 1.2); // belt
+    if (L.cape) { circle(x - 4, y - 4 + sit, 1.2, '#d4a531'); circle(x + 4, y - 4 + sit, 1.2, '#d4a531'); } // clasps
     if (a.p && a.p.member) {
       g.strokeStyle = RANK_SASH[rankTier(a.p.days)]; g.lineWidth = 2;
       g.beginPath(); g.moveTo(x - 4, y - 4 + sit); g.lineTo(x + 4, y + 3 + sit); g.stroke();
     }
-    circle(x, y - 9 + sit, 4, '#f0cfa8');
-    circle(x, y - 11 + sit, 3, '#4a2f1c');
+    // long hair falls behind the head
+    if (L.hair === 1) { rect(x - 4.6, hy - 2, 9.2, 8, hairC); }
+    if (L.hair === 5) { circle(x + 4.5, hy + 2, 1.8, hairC); rect(x + 3.6, hy - 1, 1.8, 4, hairC); }
+    circle(x, hy, 4, skin);
+    // hair on top
+    g.fillStyle = hairC;
+    switch (L.hair) {
+      case 4: break; // bald
+      case 3: [[-3, -2.2], [-1.2, -3.4], [1.2, -3.4], [3, -2.2], [0, -3.9]].forEach(function (c) { circle(x + c[0], hy + c[1], 1.8, hairC); }); break;
+      case 2: g.beginPath(); g.arc(x, hy - 0.5, 4.1, Math.PI, 0); g.fill(); circle(x, hy - 5, 2, hairC); break;
+      default: g.beginPath(); g.arc(x, hy - 0.5, 4.1, Math.PI * 1.05, Math.PI * 1.95 + 0.1); g.fill(); rect(x - 4, hy - 2, 8, 1.4, hairC);
+    }
+    if (L.beard === 1) { g.fillStyle = hairC; g.beginPath(); g.arc(x, hy + 1, 3.4, 0.15 * Math.PI, 0.85 * Math.PI); g.fill(); }
+    if (L.beard === 2) { g.fillStyle = hairC; g.beginPath(); g.moveTo(x - 3.2, hy + 1); g.lineTo(x + 3.2, hy + 1); g.lineTo(x, hy + 7); g.fill(); }
+    // headwear
+    switch (L.head) {
+      case 'headband': rect(x - 4, hy - 2.4, 8, 1.3, '#f4efe2'); break;
+      case 'petasos':
+        g.fillStyle = '#9b7547'; g.beginPath(); g.ellipse(x, hy - 2.5, 7.5, 2.2, 0, 0, Math.PI * 2); g.fill();
+        g.fillStyle = '#7a5530'; g.beginPath(); g.arc(x, hy - 3, 3.4, Math.PI, 0); g.fill(); break;
+      case 'olive':
+        g.strokeStyle = '#6f9a3c'; g.lineWidth = 1.4; g.beginPath(); g.arc(x, hy, 4.6, Math.PI * 1.05, Math.PI * 1.95); g.stroke();
+        [-3.6, -1.2, 1.2, 3.6].forEach(function (dx) { circle(x + dx, hy - 3.4 + Math.abs(dx) * 0.3, 0.9, '#8dbb55'); }); break;
+      case 'hood':
+        g.fillStyle = tunic; g.beginPath(); g.arc(x, hy, 5.4, Math.PI * 0.9, Math.PI * 2.1); g.lineTo(x + 4.6, hy + 4); g.lineTo(x - 4.6, hy + 4); g.fill();
+        circle(x, hy + 0.6, 3.2, skin); g.fillStyle = 'rgba(0,0,0,0.15)'; g.beginPath(); g.arc(x, hy, 5.4, Math.PI, 0); g.fill(); break;
+      case 'laurel':
+        g.strokeStyle = '#d4a531'; g.lineWidth = 1.6; g.beginPath(); g.arc(x, hy, 4.7, Math.PI * 1.02, Math.PI * 1.98); g.stroke();
+        [-3.8, -1.4, 1.4, 3.8].forEach(function (dx) { circle(x + dx, hy - 3.3 + Math.abs(dx) * 0.3, 1, '#f2d36b'); }); break;
+    }
     // what each rank carries: citizens an olive branch, orators a scroll,
     // philosophers a lamp, sages a golden staff
     if (a.p && a.p.member) {
-      var hx = x + 6, hy = y + sit;
+      var hx = x + 6, hh = y + sit;
       switch (rankTier(a.p.days)) {
         case 0:
-          g.strokeStyle = '#5a8a3a'; g.lineWidth = 1; g.beginPath(); g.moveTo(hx, hy + 2); g.lineTo(hx + 2, hy - 6); g.stroke();
-          circle(hx + 0.5, hy - 2, 1.3, '#7bbf4a'); circle(hx + 1.8, hy - 4.5, 1.3, '#7bbf4a');
+          g.strokeStyle = '#5a8a3a'; g.lineWidth = 1; g.beginPath(); g.moveTo(hx, hh + 2); g.lineTo(hx + 2, hh - 6); g.stroke();
+          circle(hx + 0.5, hh - 2, 1.3, '#7bbf4a'); circle(hx + 1.8, hh - 4.5, 1.3, '#7bbf4a');
           break;
         case 1:
-          rect(hx - 1, hy - 4, 3, 7, '#f3ead2'); rect(hx - 1.5, hy - 4.5, 4, 1.5, '#c9b07a'); rect(hx - 1.5, hy + 2.5, 4, 1.5, '#c9b07a');
+          rect(hx - 1, hh - 4, 3, 7, '#f3ead2'); rect(hx - 1.5, hh - 4.5, 4, 1.5, '#c9b07a'); rect(hx - 1.5, hh + 2.5, 4, 1.5, '#c9b07a');
           break;
         case 2:
-          g.fillStyle = '#b5603a'; g.beginPath(); g.ellipse(hx + 1, hy, 3, 1.6, 0, 0, Math.PI * 2); g.fill();
-          circle(hx + 3.5, hy - 1.5 - (still ? 0 : Math.abs(Math.sin(t / 120)) * 0.6), 1.3, '#f7c948');
+          g.fillStyle = '#b5603a'; g.beginPath(); g.ellipse(hx + 1, hh, 3, 1.6, 0, 0, Math.PI * 2); g.fill();
+          circle(hx + 3.5, hh - 1.5 - (still ? 0 : Math.abs(Math.sin(t / 120)) * 0.6), 1.3, '#f7c948');
           break;
         case 3:
-          rect(hx, hy - 12, 1.6, 18, '#c9a227'); circle(hx + 0.8, hy - 13, 2.4, '#f2d36b');
+          rect(hx, hh - 12, 1.6, 18, '#c9a227'); circle(hx + 0.8, hh - 13, 2.4, '#f2d36b');
           break;
       }
     }
-    if (a.p && a.p.laurel) { g.strokeStyle = '#7bbf4a'; g.lineWidth = 1.6; g.beginPath(); g.arc(x, y - 9 + sit, 4.5, Math.PI * 1.05, Math.PI * 1.95); g.stroke(); }
+    // a Sage who chose no headwear still wears the laurel
+    if (a.p && a.p.laurel && (!L.head || L.head === 'none')) { g.strokeStyle = '#7bbf4a'; g.lineWidth = 1.6; g.beginPath(); g.arc(x, hy, 4.5, Math.PI * 1.05, Math.PI * 1.95); g.stroke(); }
     if (a.guard) {
       g.fillStyle = '#b08d3c'; g.beginPath(); g.arc(x, y - 10, 4.5, Math.PI, 0); g.fill();
       rect(x - 1, y - 18, 2, 5, '#c0392b');
@@ -489,6 +533,34 @@
       circle(x - 6, y + 1, 4.5, '#b08d3c'); circle(x - 6, y + 1, 2, '#8a6a2a');
     }
   }
+
+  // The character editor's live preview: the reader's character, big,
+  // drawn from the form's current choices.
+  var preview = document.getElementById('look-preview');
+  if (preview) {
+    var pal = JSON.parse(document.getElementById('look-palettes').textContent || '{}');
+    var form = document.getElementById('look-form');
+    var pctx = preview.getContext('2d');
+    if (!pctx.roundRect) pctx.roundRect = function (x, y, w, h) { this.rect(x, y, w, h); };
+    var drawPreview = function () {
+      var val = function (n) { var el = form.querySelector('input[name="' + n + '"]:checked'); return el ? el.value : ''; };
+      var meP = me ? me.p : { member: false, days: 0 };
+      var lookNow = {
+        skin: pal.skins[Number(val('skin'))], hair: Number(val('hair')), hairColor: pal.hairColors[Number(val('haircolor'))],
+        beard: Number(val('beard')), tunic: pal.tunics[val('tunic')], cape: pal.capes[val('cape')] || '', head: val('head'),
+      };
+      var dpr = window.devicePixelRatio || 1;
+      preview.width = preview.clientWidth * dpr; preview.height = preview.clientHeight * dpr;
+      var saved = g; g = pctx;
+      pctx.setTransform(preview.width / 30, 0, 0, preview.width / 30, 0, 0);
+      pctx.clearRect(0, 0, 30, 40);
+      drawPerson({ p: { member: meP.member, days: meP.days, laurel: meP.laurel, look: lookNow }, pos: { x: 14, y: 25 }, path: [], phase: 0 }, 0);
+      g = saved;
+    };
+    form.addEventListener('change', drawPreview);
+    document.querySelectorAll('[data-open="panel-look"]').forEach(function (b) { b.addEventListener('click', function () { setTimeout(drawPreview, 0); }); });
+  }
+
 
   function drawWorld(t) {
     // water: river glints, fountain jet

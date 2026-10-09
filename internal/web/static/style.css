@@ -696,7 +696,7 @@ details[open] .word-row::after { content: '⌄'; }
 /* The game takes the whole screen under the top bar; the rest of the page
    (story, lists, medallion) is below it. */
 .agora-scene { position: relative; margin: 0; height: calc(100svh - var(--topnav-h, 57px)); min-height: 320px; background: #7fb24f; overflow: hidden; }
-.agora-scene canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: pointer; }
+#agora-game { display: block; width: 100%; height: 100%; touch-action: none; cursor: pointer; }
 .agora-hud { position: absolute; top: 10px; left: 10px; right: 10px; display: flex; align-items: center; gap: 0.5rem; }
 .agora-hud-gap { flex: 1; }
 .agora-pill, .agora-round { border: 1.5px solid #b8955a; background: rgba(250,242,222,0.95); color: #3d2f12; font-family: sans-serif; font-weight: 600; box-shadow: 0 2px 6px rgba(0,0,0,0.18); cursor: pointer; }
@@ -745,3 +745,11 @@ details[open] .word-row::after { content: '⌄'; }
 .agora-picks input:focus-visible + span { outline: 2px solid var(--accent); }
 .agora-swatch { border-color: transparent !important; }
 .agora-entered { font-weight: 700; margin-top: 1rem; }
+.agora-panel-wide { width: min(94%, 520px); }
+.agora-panel h3 { font-family: Georgia, serif; font-size: 0.95rem; margin: 0.9rem 0 0.2rem; color: #5b3a22; border-top: 1px solid rgba(120,90,40,0.25); padding-top: 0.6rem; }
+.look-preview { display: block; width: 120px; height: 150px; margin: 0 auto 0.4rem; background: radial-gradient(circle at 50% 70%, #eadcb9, #f7ecd2 70%); border-radius: 50%; }
+.agora-picks-text span { width: auto; height: auto; min-height: 2rem; padding: 0.25rem 0.65rem; border-radius: 999px; font-size: 0.82rem; font-family: sans-serif; gap: 0.3rem; display: inline-flex; align-items: center; }
+.agora-picks .dot { display: inline-block; width: 0.7rem; height: 0.7rem; border-radius: 50%; font-style: normal; }
+.agora-picks label.locked { cursor: not-allowed; opacity: 0.55; }
+.agora-picks label.locked .agora-swatch { display: inline-grid; place-items: center; font-size: 0.8rem; }
+.look-unlock { font-style: italic; }

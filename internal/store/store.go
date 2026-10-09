@@ -185,6 +185,7 @@ func migrateUsersForEmail(db *sql.DB) error {
 		{"avatar_symbol", "TEXT NOT NULL DEFAULT ''"},
 		{"avatar_color", "TEXT NOT NULL DEFAULT ''"},
 		{"agora_welcomed", "INTEGER NOT NULL DEFAULT 0"},
+		{"avatar_look", "TEXT NOT NULL DEFAULT ''"},
 	} {
 		if err := ensureColumn(db, "users", c.name, c.decl); err != nil {
 			return fmt.Errorf("migration users.%s : %w", c.name, err)
@@ -419,6 +420,8 @@ type User struct {
 	// Agora medallion: a symbol (or "" for the initial) and a color.
 	AvatarSymbol, AvatarColor string
 	AgoraWelcomed             bool
+	// AvatarLook is the Agora character's appearance (see web.Look).
+	AvatarLook string
 }
 
 // Plans: "free" is bounded by the monthly translation quota; "unlimited"
@@ -428,12 +431,12 @@ const (
 	PlanUnlimited = "unlimited"
 )
 
-const userColumns = `id, username, password_hash, native_lang, created_at, COALESCE(email, ''), email_verified_at != '', plan, pending_email, daily_new_limit, display_name, bonus_quota, timezone, reminders, last_reminder_day, theme, reading_mode, eink, avatar_symbol, avatar_color, agora_welcomed`
+const userColumns = `id, username, password_hash, native_lang, created_at, COALESCE(email, ''), email_verified_at != '', plan, pending_email, daily_new_limit, display_name, bonus_quota, timezone, reminders, last_reminder_day, theme, reading_mode, eink, avatar_symbol, avatar_color, agora_welcomed, avatar_look`
 
 func scanUser(row interface{ Scan(...any) error }) (User, error) {
 	var u User
 	var createdAt string
-	if err := row.Scan(&u.ID, &u.Username, &u.PasswordHash, &u.NativeLang, &createdAt, &u.Email, &u.EmailVerified, &u.Plan, &u.PendingEmail, &u.DailyNewLimit, &u.DisplayName, &u.BonusQuota, &u.Timezone, &u.Reminders, &u.LastReminderDay, &u.Theme, &u.ReadingMode, &u.Eink, &u.AvatarSymbol, &u.AvatarColor, &u.AgoraWelcomed); err != nil {
+	if err := row.Scan(&u.ID, &u.Username, &u.PasswordHash, &u.NativeLang, &createdAt, &u.Email, &u.EmailVerified, &u.Plan, &u.PendingEmail, &u.DailyNewLimit, &u.DisplayName, &u.BonusQuota, &u.Timezone, &u.Reminders, &u.LastReminderDay, &u.Theme, &u.ReadingMode, &u.Eink, &u.AvatarSymbol, &u.AvatarColor, &u.AgoraWelcomed, &u.AvatarLook); err != nil {
 		return User{}, err
 	}
 	u.CreatedAt, _ = time.Parse(timeLayout, createdAt)
@@ -541,6 +544,11 @@ func (s *Store) SetAvatar(userID int64, symbol, color string) error {
 	return err
 }
 
+func (s *Store) SetAvatarLook(userID int64, look string) error {
+	_, err := s.db.Exec(`UPDATE users SET avatar_look = ? WHERE id = ?`, look, userID)
+	return err
+}
+
 func (s *Store) SetAgoraWelcomed(userID int64) error {
 	_, err := s.db.Exec(`UPDATE users SET agora_welcomed = 1 WHERE id = ?`, userID)
 	return err
@@ -557,6 +565,7 @@ type AgoraCitizen struct {
 	UserID                    int64
 	Username, DisplayName     string
 	AvatarSymbol, AvatarColor string
+	AvatarLook                string
 	Days                      int    // completed daily challenges
 	EnteredOn                 string // day of the threshold-th one, "" if not reached
 }
@@ -573,7 +582,7 @@ func (s *Store) AgoraCitizens(threshold int) ([]AgoraCitizen, error) {
 			SELECT user_id, MAX(n) AS n, COALESCE(MAX(CASE WHEN n = ? THEN day END), '') AS entered
 			FROM ranked GROUP BY user_id
 		)
-		SELECT u.id, u.username, u.display_name, u.avatar_symbol, u.avatar_color,
+		SELECT u.id, u.username, u.display_name, u.avatar_symbol, u.avatar_color, u.avatar_look,
 			COALESCE(done.n, 0), COALESCE(done.entered, '')
 		FROM users u
 		JOIN (SELECT DISTINCT user_id FROM daily_activity WHERE reviews > 0 OR completed = 1) active ON active.user_id = u.id
@@ -586,7 +595,7 @@ func (s *Store) AgoraCitizens(threshold int) ([]AgoraCitizen, error) {
 	var out []AgoraCitizen
 	for rows.Next() {
 		var c AgoraCitizen
-		if err := rows.Scan(&c.UserID, &c.Username, &c.DisplayName, &c.AvatarSymbol, &c.AvatarColor, &c.Days, &c.EnteredOn); err != nil {
+		if err := rows.Scan(&c.UserID, &c.Username, &c.DisplayName, &c.AvatarSymbol, &c.AvatarColor, &c.AvatarLook, &c.Days, &c.EnteredOn); err != nil {
 			return nil, err
 		}
 		out = append(out, c)

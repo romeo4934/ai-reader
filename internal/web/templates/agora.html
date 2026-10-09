@@ -18,7 +18,7 @@
         <span class="agora-hud-gap"></span>
         <button type="button" class="agora-round" data-zoom="0.8" aria-label="−">−</button>
         <button type="button" class="agora-round" data-zoom="1.25" aria-label="+">+</button>
-        <button type="button" class="agora-round" data-open="panel-medal" aria-label="{{.T.AgoraAvatarTitle}}">🪙</button>
+        <button type="button" class="agora-round" data-open="panel-look" aria-label="{{.T.LookTitle}}">🎨</button>
         <button type="button" class="agora-round" data-open="panel-intro" aria-label="{{.T.AgoraTitle}}">?</button>
       </div>
       <p class="agora-hint" id="agora-hint">{{.T.AgoraHowTo}}</p>
@@ -58,22 +58,40 @@
         </ul>{{end}}
       </div>
 
-      <!-- the medallion -->
-      <div class="agora-panel" id="panel-medal" role="dialog" aria-labelledby="medal-title" hidden>
+      <!-- the character: face, outfit (some of it unlocked by rank), medallion -->
+      <div class="agora-panel agora-panel-wide" id="panel-look" role="dialog" aria-labelledby="look-title" hidden>
         <button type="button" class="agora-close" data-close aria-label="{{.T.ReaderClose}}">×</button>
-        <h2 id="medal-title">{{.T.AgoraAvatarTitle}}</h2>
-        <form action="/agora/avatar" method="post" class="agora-avatar">
-          <p class="hint">{{.T.AgoraAvatarSymbol}}</p>
+        <h2 id="look-title">{{.T.LookTitle}}</h2>
+        {{$e := $d.Editor}}
+        <form action="/agora/look" method="post" class="agora-avatar" id="look-form">
+          <canvas id="look-preview" class="look-preview" width="160" height="200" aria-hidden="true"></canvas>
+          <h3>{{.T.LookFace}}</h3>
+          <p class="hint">{{.T.LookSkin}}</p>
+          <div class="agora-picks">{{range $e.Skins}}<label><input type="radio" name="skin" value="{{.Value}}"{{if eq .Value (printf "%d" $e.Look.Skin)}} checked{{end}}><span class="agora-swatch" style="background: {{.Hex}}"></span></label>{{end}}</div>
+          <p class="hint">{{.T.LookHair}}</p>
+          <div class="agora-picks agora-picks-text">{{range $e.HairStyles}}<label><input type="radio" name="hair" value="{{.Value}}"{{if eq .Value (printf "%d" $e.Look.Hair)}} checked{{end}}><span>{{.Label}}</span></label>{{end}}</div>
+          <p class="hint">{{.T.LookHairColor}}</p>
+          <div class="agora-picks">{{range $e.HairColors}}<label><input type="radio" name="haircolor" value="{{.Value}}"{{if eq .Value (printf "%d" $e.Look.HairColor)}} checked{{end}}><span class="agora-swatch" style="background: {{.Hex}}"></span></label>{{end}}</div>
+          <p class="hint">{{.T.LookBeard}}</p>
+          <div class="agora-picks agora-picks-text">{{range $e.Beards}}<label><input type="radio" name="beard" value="{{.Value}}"{{if eq .Value (printf "%d" $e.Look.Beard)}} checked{{end}}><span>{{.Label}}</span></label>{{end}}</div>
+
+          <h3>{{.T.LookOutfit}}</h3>
+          <p class="hint">{{.T.LookTunic}}</p>
+          <div class="agora-picks">{{range $e.Tunics}}<label{{if .Locked}} class="locked" title="{{printf $t.LookLocked .Need}}"{{end}}><input type="radio" name="tunic" value="{{.Value}}"{{if eq .Value $e.Look.Tunic}} checked{{end}}{{if .Locked}} disabled{{end}}><span class="agora-swatch" style="background: {{.Hex}}">{{if .Locked}}🔒{{end}}</span></label>{{end}}</div>
+          <p class="hint">{{.T.LookCape}}</p>
+          <div class="agora-picks agora-picks-text">{{range $e.Capes}}<label{{if .Locked}} class="locked" title="{{printf $t.LookLocked .Need}}"{{end}}><input type="radio" name="cape" value="{{.Value}}"{{if eq .Value $e.Look.Cape}} checked{{end}}{{if .Locked}} disabled{{end}}><span>{{if .Hex}}<i class="dot" style="background: {{.Hex}}"></i>{{end}}{{.Label}}{{if .Locked}} 🔒{{end}}</span></label>{{end}}</div>
+          <p class="hint">{{.T.LookHead}}</p>
+          <div class="agora-picks agora-picks-text">{{range $e.Heads}}<label{{if .Locked}} class="locked" title="{{printf $t.LookLocked .Need}}"{{end}}><input type="radio" name="head" value="{{.Value}}"{{if eq .Value $e.Look.Head}} checked{{end}}{{if .Locked}} disabled{{end}}><span>{{.Label}}{{if .Locked}} 🔒{{end}}</span></label>{{end}}</div>
+          <p class="hint look-unlock">{{.T.LookUnlockHint}}</p>
+
+          <h3>{{.T.AgoraAvatarTitle}}</h3>
           <div class="agora-picks">
             <label><input type="radio" name="symbol" value=""{{if not $d.MySymbol}} checked{{end}}><span>{{$d.MyInitial}}</span></label>
             {{range $d.Symbols}}<label><input type="radio" name="symbol" value="{{.}}"{{if eq . $d.MySymbol}} checked{{end}}><span>{{.}}</span></label>{{end}}
           </div>
-          <p class="hint">{{.T.AgoraAvatarColor}}</p>
-          <div class="agora-picks">
-            {{range $d.Colors}}<label><input type="radio" name="color" value="{{.Key}}"{{if eq .Key $d.MyColorKey}} checked{{end}}><span class="agora-swatch" style="background: {{.Hex}}"></span></label>{{end}}
-          </div>
           <button type="submit" class="btn btn-primary">{{.T.AgoraAvatarSave}}</button>
         </form>
+        <script type="application/json" id="look-palettes">{{$e.Palettes}}</script>
       </div>
     </figure>
     <script type="application/json" id="agora-people">{{$d.People}}</script>

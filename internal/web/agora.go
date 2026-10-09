@@ -75,14 +75,15 @@ type medal struct {
 
 // person is one reader on the game map.
 type person struct {
-	Name   string `json:"name"`
-	Symbol string `json:"symbol"`
-	Color  string `json:"color"`
-	Member bool   `json:"member"`
-	Rank   string `json:"rank"`
-	Days   int    `json:"days"`
-	Laurel bool   `json:"laurel"`
-	You    bool   `json:"you"`
+	Name   string   `json:"name"`
+	Symbol string   `json:"symbol"`
+	Color  string   `json:"color"`
+	Member bool     `json:"member"`
+	Rank   string   `json:"rank"`
+	Days   int      `json:"days"`
+	Laurel bool     `json:"laurel"`
+	You    bool     `json:"you"`
+	Look   lookJSON `json:"look"`
 }
 
 type agoraRow struct {
@@ -107,6 +108,7 @@ type agoraView struct {
 	Threshold         int
 	Percent           int // progress toward the threshold
 	People            []person
+	Editor            lookEditor
 }
 
 func medalFor(userID int64, username, displayName, symbol, color string) medal {
@@ -156,15 +158,19 @@ func (s *Server) handleAgora(w http.ResponseWriter, r *http.Request) {
 		v.People = append(v.People, person{
 			Name: m.Name, Symbol: m.Symbol, Color: m.Color, Member: c.Days >= agoraThreshold,
 			Rank: row.Rank, Days: c.Days, Laurel: m.Laurel, You: m.You,
+			Look: parseLook(c.UserID, c.AvatarLook, agoraTier(c.Days)).json(),
 		})
 	}
 	if v.Days == 0 {
 		// Not on the list yet (no challenge done): still on the map,
 		// outside, as the viewer.
 		me := medalFor(user.ID, user.Username, user.DisplayName, user.AvatarSymbol, user.AvatarColor)
-		v.People = append(v.People, person{Name: me.Name, Symbol: me.Symbol, Color: me.Color, You: true})
+		v.People = append(v.People, person{Name: me.Name, Symbol: me.Symbol, Color: me.Color, You: true,
+			Look: parseLook(user.ID, user.AvatarLook, -1).json()})
 	}
 	v.Member = v.Days >= agoraThreshold
+	tier := agoraTier(v.Days)
+	v.Editor = newLookEditor(T, parseLook(user.ID, user.AvatarLook, tier), tier)
 	if v.Member {
 		v.Rank, v.NextRank, v.NextDays = agoraRank(T, v.Days)
 		if !user.AgoraWelcomed {
@@ -183,9 +189,7 @@ func (s *Server) handleAgora(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleAgoraAvatar(w http.ResponseWriter, r *http.Request) {
 	user := userFromContext(r)
 	symbol := r.FormValue("symbol")
-	if symbol != "" && !slices.Contains(avatarSymbols, symbol) {
-		symbol = ""
-	}
+	symbol = validSymbol(symbol)
 	color := r.FormValue("color")
 	if !slices.ContainsFunc(avatarColors, func(c struct{ Key, Hex string }) bool { return c.Key == color }) {
 		color = ""
@@ -208,4 +212,11 @@ func (s *Server) agoraStatus(T i18n.Dict, user *store.User) (gauge string, enter
 		return "", !user.AgoraWelcomed
 	}
 	return fmt.Sprintf(T["AgoraGauge"], days, agoraThreshold), false
+}
+
+func validSymbol(s string) string {
+	if slices.Contains(avatarSymbols, s) {
+		return s
+	}
+	return ""
 }
