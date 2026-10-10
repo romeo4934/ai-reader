@@ -865,51 +865,6 @@ a.agora-enter { display: block; text-align: center; text-decoration: none; }
 .game-link-form { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; margin-top: 0.8rem; }
 .game-link-input { width: 100%; max-width: 28rem; padding: 0.6rem; border-radius: 8px; border: 1px solid var(--border); background: var(--card-bg); color: var(--fg); font: inherit; }
 
-/* the game's hero: an owl, a club, a bonk — on a 2.4s loop */
-.game-hero { display: flex; justify-content: center; margin: 0.5rem 0 -0.5rem; }
-.game-hero-art { width: 100%; max-width: 260px; height: auto; overflow: visible; }
 .game-title { text-align: center; margin-bottom: 0.2rem; }
 .game-slogan { text-align: center; font-weight: 800; font-size: 1.2rem; letter-spacing: 0.02em; margin: 0 0 0.6rem; }
 .game-page .game-rank { text-align: center; }
-.hero-feathers { fill: #6aa84f; }
-.hero-belly { fill: #d9ead3; }
-.hero-eye-white { fill: #fff; stroke: #2d4a22; stroke-width: 2; }
-.hero-pupil { fill: #1c1c1e; }
-.hero-x { stroke: #1c1c1e; stroke-width: 3; stroke-linecap: round; }
-.hero-beak { fill: #f1a33c; }
-.hero-feet { stroke: #f1a33c; stroke-width: 3; stroke-linecap: round; }
-.hero-shadow { fill: rgba(0, 0, 0, 0.12); }
-.hero-handle { fill: #8b5a2b; }
-.hero-club-head { fill: #a0522d; stroke: #6b3a1e; stroke-width: 2; }
-.hero-knot { fill: #6b3a1e; }
-.hero-bonk { font: 900 20px sans-serif; fill: #d93025; opacity: 0; }
-.hero-stars text { font-size: 16px; opacity: 0; }
-.hero-club { transform-box: view-box; transform-origin: 156px 132px; animation: hero-swing 2.4s ease-in infinite; }
-.hero-owl-body { transform-box: view-box; transform-origin: 80px 138px; animation: hero-squash 2.4s infinite; }
-.hero-eyes-ko { opacity: 0; animation: hero-ko 2.4s infinite; }
-.hero-eyes-open { animation: hero-open 2.4s infinite; }
-.hero-bonk { animation: hero-pop 2.4s infinite; }
-.hero-stars text { animation: hero-pop 2.4s infinite; }
-@keyframes hero-swing {
-  0%, 20% { transform: rotate(35deg); }
-  38% { transform: rotate(-40deg); }
-  46% { transform: rotate(-34deg); }
-  70%, 100% { transform: rotate(35deg); }
-}
-@keyframes hero-squash {
-  0%, 36% { transform: scale(1, 1); }
-  40% { transform: scale(1.18, 0.7); }
-  52% { transform: scale(0.95, 1.06); }
-  60%, 100% { transform: scale(1, 1); }
-}
-@keyframes hero-ko { 0%, 38% { opacity: 0; } 40%, 80% { opacity: 1; } 84%, 100% { opacity: 0; } }
-@keyframes hero-open { 0%, 38% { opacity: 1; } 40%, 80% { opacity: 0; } 84%, 100% { opacity: 1; } }
-@keyframes hero-pop { 0%, 38% { opacity: 0; } 42%, 70% { opacity: 1; } 80%, 100% { opacity: 0; } }
-@media (prefers-reduced-motion: reduce) {
-  .hero-club, .hero-owl-body, .hero-eyes-ko, .hero-eyes-open, .hero-bonk, .hero-stars text { animation: none; }
-  .hero-club { transform: rotate(-38deg); }
-  .hero-eyes-ko, .hero-bonk { opacity: 1; }
-  .hero-eyes-open { opacity: 0; }
-}
-[data-eink] .hero-club, [data-eink] .hero-owl-body, [data-eink] .hero-eyes-ko, [data-eink] .hero-eyes-open,
-[data-eink] .hero-bonk, [data-eink] .hero-stars text { animation: none; }
