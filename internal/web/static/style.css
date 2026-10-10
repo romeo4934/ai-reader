@@ -865,6 +865,44 @@ a.agora-enter { display: block; text-align: center; text-decoration: none; }
 .game-link-form { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; margin-top: 0.8rem; }
 .game-link-input { width: 100%; max-width: 28rem; padding: 0.6rem; border-radius: 8px; border: 1px solid var(--border); background: var(--card-bg); color: var(--fg); font: inherit; }
 
+/* the game's hero: a Lydi book drops on "LINGO" and scatters it, 3.2s loop */
+.game-hero { display: flex; justify-content: center; margin: 0.5rem 0 -0.4rem; }
+.game-hero-art { width: 100%; max-width: 300px; height: auto; overflow: visible; }
+.lg-ground { stroke: var(--border); stroke-width: 2; }
+.lg-face { fill: #58a644; }
+.lg-side { fill: #3f7d31; }
+.lg-letter { font: 900 30px sans-serif; fill: #fff; text-anchor: middle; }
+.lg-cover { fill: var(--accent); }
+.lg-pages { fill: var(--card-bg); }
+.lg-title { font: 700 13px sans-serif; fill: var(--accent-fg); text-anchor: middle; }
+.lg-pouf { font: 900 22px sans-serif; fill: #e8710a; text-anchor: middle; opacity: 0; }
+.lg-block, .lg-book, .lg-pouf { transform-box: fill-box; transform-origin: 50% 100%; animation: 3.2s infinite; }
+.lg-book { animation-name: lg-drop; animation-timing-function: ease-in; }
+.lg-pouf { animation-name: lg-pouf; }
+.lg-l { animation-name: lg-l; } .lg-i { animation-name: lg-i; } .lg-n { animation-name: lg-n; }
+.lg-g { animation-name: lg-g; } .lg-o { animation-name: lg-o; transform-origin: 50% 50%; }
+/* tipping blocks pivot on the corner they fall towards, so it stays on the ground */
+.lg-l, .lg-i { transform-origin: 0% 100%; } .lg-g { transform-origin: 100% 100%; }
+.lg-blocks { animation: lg-fade 3.2s infinite; }
+@keyframes lg-drop {
+  0%, 12% { transform: translateY(-120px); opacity: 0; }
+  14% { opacity: 1; }
+  30% { transform: translateY(0); }
+  33% { transform: translateY(0) scale(1.08, 0.88); }
+  44%, 78% { transform: translateY(29px) rotate(-4deg); opacity: 1; }
+  86%, 100% { transform: translateY(29px) rotate(-4deg); opacity: 0; }
+}
+@keyframes lg-pouf { 0%, 30% { opacity: 0; transform: scale(0.6); } 34%, 60% { opacity: 1; transform: scale(1.1); } 70%, 100% { opacity: 0; transform: scale(1); } }
+@keyframes lg-l { 0%, 30% { transform: none; } 46%, 100% { transform: rotate(-30deg); } }
+@keyframes lg-i { 0%, 30% { transform: none; } 46%, 100% { transform: translate(-8px, 0) rotate(-20deg); } }
+@keyframes lg-n { 0%, 30% { transform: none; } 44%, 100% { transform: scale(1.15, 0.3); } }
+@keyframes lg-g { 0%, 30% { transform: none; } 46%, 100% { transform: translate(8px, 0) rotate(25deg); } }
+@keyframes lg-o { 0%, 30% { transform: none; } 56%, 100% { transform: translate(18px, 0) rotate(150deg); } }
+@keyframes lg-fade { 0% { opacity: 0; } 8%, 80% { opacity: 1; } 90%, 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .lg-block, .lg-book, .lg-pouf, .lg-blocks { animation: none; }
+}
+[data-eink] .lg-block, [data-eink] .lg-book, [data-eink] .lg-pouf, [data-eink] .lg-blocks { animation: none; }
 .game-title { text-align: center; margin-bottom: 0.2rem; }
 .game-slogan { text-align: center; font-weight: 800; font-size: 1.2rem; letter-spacing: 0.02em; margin: 0 0 0.6rem; }
 .game-page .game-rank { text-align: center; }

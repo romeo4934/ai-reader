@@ -9,6 +9,24 @@
   {{$t := .T}}{{$d := .Data}}
 
   <main class="page game-page">
+    <div class="game-hero" aria-hidden="true">
+      <svg viewBox="0 0 260 150" class="game-hero-art">
+        <line x1="6" y1="136" x2="254" y2="136" class="lg-ground"/>
+        <g class="lg-blocks">
+          <g class="lg-block lg-l"><rect x="22" y="95" width="40" height="40" rx="6" class="lg-face"/><rect x="22" y="129" width="40" height="6" rx="3" class="lg-side"/><text x="42" y="125" class="lg-letter">L</text></g>
+          <g class="lg-block lg-i"><rect x="66" y="95" width="40" height="40" rx="6" class="lg-face"/><rect x="66" y="129" width="40" height="6" rx="3" class="lg-side"/><text x="86" y="125" class="lg-letter">I</text></g>
+          <g class="lg-block lg-n"><rect x="110" y="95" width="40" height="40" rx="6" class="lg-face"/><rect x="110" y="129" width="40" height="6" rx="3" class="lg-side"/><text x="130" y="125" class="lg-letter">N</text></g>
+          <g class="lg-block lg-g"><rect x="154" y="95" width="40" height="40" rx="6" class="lg-face"/><rect x="154" y="129" width="40" height="6" rx="3" class="lg-side"/><text x="174" y="125" class="lg-letter">G</text></g>
+          <g class="lg-block lg-o"><rect x="198" y="95" width="40" height="40" rx="6" class="lg-face"/><rect x="198" y="129" width="40" height="6" rx="3" class="lg-side"/><text x="218" y="125" class="lg-letter">O</text></g>
+        </g>
+        <g class="lg-book">
+          <rect x="95" y="70" width="70" height="25" rx="4" class="lg-cover"/>
+          <rect x="99" y="88" width="62" height="5" rx="1.5" class="lg-pages"/>
+          <text x="130" y="85" class="lg-title">Lydi</text>
+        </g>
+        <text x="130" y="40" class="lg-pouf">POUF !</text>
+      </svg>
+    </div>
     <h1 class="game-title">{{.T.GameTitle}} 💥</h1>
     <p class="game-slogan">I ❤️ destroying DLingo</p>
     <p class="game-rank">{{printf .T.GameRankLine $d.Rank.Name $d.Rank.Wins}}{{if $d.Rank.Next}} · {{printf .T.GameRankNext $d.Rank.Need $d.Rank.Next}}{{end}}</p>
