@@ -10,6 +10,7 @@
 
   <main class="page game-page">
     <h1>{{.T.GameTitle}} 💥</h1>
+    <p class="game-rank">{{printf .T.GameRankLine $d.Rank.Name $d.Rank.Wins}}{{if $d.Rank.Next}} · {{printf .T.GameRankNext $d.Rank.Need $d.Rank.Next}}{{end}}</p>
     {{if $d.Tabs}}
     <nav class="lb-tabs deck-tabs">
       {{range $d.Tabs}}<a href="/game?lang={{.Lang}}"{{if .Active}} class="active" aria-current="page"{{end}}>{{.Name}}</a>{{end}}
@@ -45,6 +46,42 @@
       </ul>
       {{else}}
       <p class="empty">{{.T.GameNoFriends}} <a href="/friends">{{.T.GameInvite}}</a></p>
+      {{end}}
+      {{if $d.Lang}}
+      <details class="game-custom">
+        <summary>{{.T.GameCustomize}}</summary>
+        <form action="/game/rounds" method="post" class="game-custom-form">
+          <input type="hidden" name="lang" value="{{$d.Lang}}">
+          <label>{{.T.GameOpponent}}
+            <select name="friend">
+              {{range $d.Friends}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
+              <option value="0">{{.T.GameSoloOption}}</option>
+            </select>
+          </label>
+          <fieldset><legend>{{.T.GameMode}}</legend>
+            <label><input type="radio" name="mode" value="classic" checked> {{.T.GameModeClassic}}</label>
+            <label><input type="radio" name="mode" value="reverse"> {{.T.GameModeReverse}}</label>
+            <label><input type="radio" name="mode" value="listen"> {{.T.GameModeListen}}</label>
+          </fieldset>
+          <label>{{.T.GameLevel}}
+            <select name="level">
+              <option value="0">{{.T.GameLevelAuto}}</option>
+              {{range $d.Levels}}<option value="{{.}}">{{index $t (printf "GameLevel%d" .)}}</option>{{end}}
+            </select>
+          </label>
+          <label>{{.T.GamePlaylist}}
+            <select name="source">
+              <option value="">{{.T.GamePlaylistAll}}</option>
+              {{if $d.Missed}}<option value="missed">{{printf $t.GamePlaylistMissed $d.Missed}}</option>{{end}}
+              {{range $d.Books}}<option value="book:{{.ID}}">📖 {{.Title}} ({{.Words}})</option>{{end}}
+            </select>
+          </label>
+          <div class="game-custom-actions">
+            <button type="submit" class="btn btn-primary">{{.T.GameGo}}</button>
+            <button type="submit" formaction="/game/pick" formmethod="get" class="btn">{{.T.GamePickWords}}</button>
+          </div>
+        </form>
+      </details>
       {{end}}
     </section>
     {{end}}

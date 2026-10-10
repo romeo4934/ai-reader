@@ -82,3 +82,11 @@ CREATE TABLE IF NOT EXISTS game_rounds (
 );
 CREATE INDEX IF NOT EXISTS idx_game_rounds_challenger ON game_rounds(challenger_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_game_rounds_opponent ON game_rounds(opponent_id, created_at);
+
+-- Words of a reader's own missed in the game, until answered right again.
+CREATE TABLE IF NOT EXISTS game_misses (
+    user_id   INTEGER NOT NULL REFERENCES users(id),
+    vocab_id  INTEGER NOT NULL REFERENCES vocab(id) ON DELETE CASCADE,
+    missed_at TEXT NOT NULL,
+    PRIMARY KEY (user_id, vocab_id)
+);

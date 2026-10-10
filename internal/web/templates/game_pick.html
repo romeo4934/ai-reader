@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="{{.T.LangCode}}"{{if .Theme}} data-theme="{{.Theme}}"{{end}}{{if .Eink}} data-eink{{end}}>
+<head>
+  <title>{{.Title}}</title>
+  {{template "head" .}}
+</head>
+<body>
+  {{template "nav" .}}
+  {{$d := .Data}}
+
+  <main class="page game-page">
+    <h1>{{.T.GamePickTitle}}</h1>
+    <p class="game-lead">{{printf .T.GamePickLead $d.Need}}</p>
+    <form action="/game/rounds" method="post" id="game-pick">
+      <input type="hidden" name="lang" value="{{$d.Lang}}">
+      <input type="hidden" name="mode" value="{{$d.Mode}}">
+      <input type="hidden" name="friend" value="{{$d.Friend}}">
+      <ul class="game-list game-pick-list">
+        {{range $d.Words}}
+        <li><label><input type="checkbox" name="word" value="{{.ID}}"> <strong>{{.Phrase}}</strong> <span class="game-lead">{{.Translation}}</span></label></li>
+        {{end}}
+      </ul>
+      <div class="game-pick-bar">
+        <span id="game-pick-count">0 / {{$d.Need}}</span>
+        <button type="submit" class="btn btn-primary" id="game-pick-go" disabled>{{.T.GameGo}}</button>
+      </div>
+    </form>
+    <script>
+    (function () {
+      var NEED = {{$d.Need}}, form = document.getElementById('game-pick');
+      var boxes = form.querySelectorAll('input[name=word]');
+      form.addEventListener('change', function () {
+        var n = form.querySelectorAll('input[name=word]:checked').length;
+        boxes.forEach(function (b) { b.disabled = !b.checked && n >= NEED; });
+        document.getElementById('game-pick-count').textContent = n + ' / ' + NEED;
+        document.getElementById('game-pick-go').disabled = n !== NEED;
+      });
+    })();
+    </script>
+  </main>
+</body>
+</html>

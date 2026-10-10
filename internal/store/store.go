@@ -71,6 +71,10 @@ func Open(path string) (*Store, error) {
 		db.Close()
 		return nil, err
 	}
+	if err := ensureColumn(db, "game_rounds", "mode", "TEXT NOT NULL DEFAULT 'classic'"); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("migration game_rounds.mode : %w", err)
+	}
 	if err := ensureColumn(db, "reading_progress", "section_idx", "INTEGER NOT NULL DEFAULT 0"); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("migration reading_progress.section_idx : %w", err)

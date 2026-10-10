@@ -122,6 +122,7 @@ func (s *Server) Routes() http.Handler {
 
 	mux.HandleFunc("GET /game", s.requireAuth(s.handleGame))
 	mux.HandleFunc("POST /game/rounds", s.requireAuth(s.handleGameNew))
+	mux.HandleFunc("GET /game/pick", s.requireAuth(s.handleGamePick))
 	mux.HandleFunc("GET /game/rounds/{id}", s.requireAuth(s.handleGameRound))
 	mux.HandleFunc("POST /game/rounds/{id}/score", s.requireAuth(s.handleGameScore))
 	mux.HandleFunc("GET /review", s.requireAuth(s.handleReviewPage))

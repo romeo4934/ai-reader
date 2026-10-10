@@ -19,23 +19,53 @@ type GameWord struct {
 // common word), so a round's words are about as hard as each other.
 type GameBand struct{ Min, Max int }
 
-// GameBandCount counts the user's words in a language within a band.
-func (s *Store) GameBandCount(userID int64, lang string, b GameBand) (int, error) {
+// GameFilter narrows the words a round is drawn from: a frequency band, and
+// optionally one book, the words missed in earlier rounds, or a hand-picked
+// list.
+type GameFilter struct {
+	Band   GameBand
+	BookID int64
+	Missed bool
+	IDs    []int64
+}
+
+func (f GameFilter) where(userID int64, lang string) (string, []any) {
+	// Short enough to read at a glance: a word or an expression, not a clause.
+	q := `v.user_id = ? AND b.lang_key = ? AND v.translation != '' AND v.frequency BETWEEN ? AND ?
+		AND LENGTH(v.phrase) <= 30 AND LENGTH(v.translation) <= 60`
+	args := []any{userID, lang, f.Band.Min, f.Band.Max}
+	if f.BookID != 0 {
+		q += ` AND v.book_id = ?`
+		args = append(args, f.BookID)
+	}
+	if f.Missed {
+		q += ` AND v.id IN (SELECT vocab_id FROM game_misses WHERE user_id = ?)`
+		args = append(args, userID)
+	}
+	if len(f.IDs) > 0 {
+		q += ` AND v.id IN (` + strings.TrimSuffix(strings.Repeat("?,", len(f.IDs)), ",") + `)`
+		for _, id := range f.IDs {
+			args = append(args, id)
+		}
+	}
+	return q, args
+}
+
+// GameCount counts the user's words in a language that pass the filter.
+func (s *Store) GameCount(userID int64, lang string, f GameFilter) (int, error) {
+	where, args := f.where(userID, lang)
 	var n int
-	err := s.db.QueryRow(`
-		SELECT COUNT(*) FROM vocab v JOIN books b ON b.id = v.book_id
-		WHERE v.user_id = ? AND b.lang_key = ? AND v.translation != '' AND v.frequency BETWEEN ? AND ?`,
-		userID, lang, b.Min, b.Max).Scan(&n)
+	err := s.db.QueryRow(`SELECT COUNT(*) FROM vocab v JOIN books b ON b.id = v.book_id WHERE `+where, args...).Scan(&n)
 	return n, err
 }
 
-// GameWords picks n random words from the user's list in one language and
-// frequency band.
-func (s *Store) GameWords(userID int64, lang string, b GameBand, n int) ([]GameWord, error) {
+// GameWords picks n random words from the user's list in one language that
+// pass the filter.
+func (s *Store) GameWords(userID int64, lang string, f GameFilter, n int) ([]GameWord, error) {
+	where, args := f.where(userID, lang)
 	rows, err := s.db.Query(`
 		SELECT v.id, v.phrase, v.translation, v.frequency FROM vocab v JOIN books b ON b.id = v.book_id
-		WHERE v.user_id = ? AND b.lang_key = ? AND v.translation != '' AND v.frequency BETWEEN ? AND ?
-		ORDER BY RANDOM() LIMIT ?`, userID, lang, b.Min, b.Max, n)
+		WHERE `+where+` ORDER BY RANDOM() LIMIT ?`, append(args, n)...)
 	if err != nil {
 		return nil, err
 	}
@@ -51,17 +81,73 @@ func (s *Store) GameWords(userID int64, lang string, b GameBand, n int) ([]GameW
 	return out, rows.Err()
 }
 
-// GameDecoys returns up to n wrong answers for a word: translations of
-// words about as common as it — the hardest to rule out — from the user's
-// list in that language, or other readers' with the same native language.
-// None equals the right answer.
-func (s *Store) GameDecoys(userID int64, lang, nativeLang string, w GameWord, n int) ([]string, error) {
+// GamePickable lists the user's words in a language, newest first, for
+// hand-picking a duel's words.
+func (s *Store) GamePickable(userID int64, lang string, limit int) ([]GameWord, error) {
 	rows, err := s.db.Query(`
-		SELECT translation FROM (
-			SELECT v.translation, v.frequency FROM vocab v
+		SELECT v.id, v.phrase, v.translation, v.frequency FROM vocab v JOIN books b ON b.id = v.book_id
+		WHERE v.user_id = ? AND b.lang_key = ? AND v.translation != ''
+		AND LENGTH(v.phrase) <= 30 AND LENGTH(v.translation) <= 60
+		ORDER BY v.id DESC LIMIT ?`, userID, lang, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []GameWord
+	for rows.Next() {
+		var w GameWord
+		if err := rows.Scan(&w.ID, &w.Phrase, &w.Translation, &w.Frequency); err != nil {
+			return nil, err
+		}
+		out = append(out, w)
+	}
+	return out, rows.Err()
+}
+
+// GameBook is a book with enough of the user's words for a playlist.
+type GameBook struct {
+	ID    int64
+	Title string
+	Words int
+}
+
+func (s *Store) GameBooks(userID int64, lang string, minWords int) ([]GameBook, error) {
+	rows, err := s.db.Query(`
+		SELECT b.id, b.title, COUNT(*) FROM vocab v JOIN books b ON b.id = v.book_id
+		WHERE v.user_id = ? AND b.lang_key = ? AND v.translation != ''
+		GROUP BY b.id HAVING COUNT(*) >= ? ORDER BY COUNT(*) DESC`, userID, lang, minWords)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []GameBook
+	for rows.Next() {
+		var b GameBook
+		if err := rows.Scan(&b.ID, &b.Title, &b.Words); err != nil {
+			return nil, err
+		}
+		out = append(out, b)
+	}
+	return out, rows.Err()
+}
+
+// GameDecoys returns up to n wrong answers for a word: words about as common
+// as it — the hardest to rule out — from the user's list in that language,
+// or other readers' with the same native language. They're translations,
+// or with reverse the words themselves (the answer then being the word).
+// None equals the right answer.
+func (s *Store) GameDecoys(userID int64, lang, nativeLang string, w GameWord, reverse bool, n int) ([]string, error) {
+	col, answer := "v.translation", w.Translation
+	if reverse {
+		col, answer = "v.phrase", w.Phrase
+	}
+	rows, err := s.db.Query(`
+		SELECT answer FROM (
+			SELECT `+col+` AS answer, v.frequency FROM vocab v
 			JOIN books b ON b.id = v.book_id JOIN users u ON u.id = v.user_id
 			WHERE b.lang_key = ? AND v.translation != '' AND v.id != ? AND (v.user_id = ? OR u.native_lang = ?)
-			GROUP BY LOWER(v.translation)
+			AND LENGTH(v.phrase) <= 30 AND LENGTH(v.translation) <= 60
+			GROUP BY LOWER(`+col+`)
 			ORDER BY ABS(v.frequency - ?), RANDOM() LIMIT ?)
 		ORDER BY RANDOM()`, lang, w.ID, userID, nativeLang, w.Frequency, n*5)
 	if err != nil {
@@ -74,12 +160,47 @@ func (s *Store) GameDecoys(userID int64, lang, nativeLang string, w GameWord, n 
 		if err := rows.Scan(&t); err != nil {
 			return nil, err
 		}
-		if strings.EqualFold(strings.TrimSpace(t), strings.TrimSpace(w.Translation)) || len(out) == n {
+		if strings.EqualFold(strings.TrimSpace(t), strings.TrimSpace(answer)) || len(out) == n {
 			continue
 		}
 		out = append(out, t)
 	}
 	return out, rows.Err()
+}
+
+// GameMissed records a word of the user's own missed in a round: it comes
+// back into review now (even one marked known) and into the "missed words"
+// playlist, until answered right in a round.
+func (s *Store) GameMissed(userID, vocabID int64, now time.Time) error {
+	ts := now.UTC().Format(timeLayout)
+	res, err := s.db.Exec(`UPDATE vocab SET archived = 0,
+		next_review_at = CASE WHEN next_review_at > ? THEN ? ELSE next_review_at END
+		WHERE id = ? AND user_id = ?`, ts, ts, vocabID, userID)
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return nil
+	}
+	_, err = s.db.Exec(`INSERT INTO game_misses (user_id, vocab_id, missed_at) VALUES (?, ?, ?)
+		ON CONFLICT(user_id, vocab_id) DO UPDATE SET missed_at = excluded.missed_at`, userID, vocabID, ts)
+	return err
+}
+
+// GameRight takes a word answered right off the user's missed words.
+func (s *Store) GameRight(userID, vocabID int64) error {
+	_, err := s.db.Exec(`DELETE FROM game_misses WHERE user_id = ? AND vocab_id = ?`, userID, vocabID)
+	return err
+}
+
+// GameWins counts the duels the user won.
+func (s *Store) GameWins(userID int64) (int, error) {
+	var n int
+	err := s.db.QueryRow(`SELECT COUNT(*) FROM game_rounds WHERE opponent_id != 0
+		AND challenger_score IS NOT NULL AND opponent_score IS NOT NULL
+		AND ((challenger_id = ? AND challenger_score > opponent_score) OR (opponent_id = ? AND opponent_score > challenger_score))`,
+		userID, userID).Scan(&n)
+	return n, err
 }
 
 // SaveGameScore records a finished round and returns the user's best score
@@ -112,6 +233,7 @@ type GameRound struct {
 	OpponentUser    string
 	OpponentDisp    string
 	Lang            string
+	Mode            string // "classic", "reverse" or "listen"
 	Questions       string // JSON, with the right answers
 	ChallengerScore *int
 	OpponentScore   *int
@@ -121,9 +243,9 @@ type GameRound struct {
 // ErrAlreadyPlayed: this player's score for the round is already in.
 var ErrAlreadyPlayed = errors.New("manche déjà jouée")
 
-func (s *Store) CreateGameRound(challengerID, opponentID int64, lang, questions string, now time.Time) (int64, error) {
-	res, err := s.db.Exec(`INSERT INTO game_rounds (challenger_id, opponent_id, lang_key, questions, created_at) VALUES (?, ?, ?, ?, ?)`,
-		challengerID, opponentID, lang, questions, now.UTC().Format(timeLayout))
+func (s *Store) CreateGameRound(challengerID, opponentID int64, lang, mode, questions string, now time.Time) (int64, error) {
+	res, err := s.db.Exec(`INSERT INTO game_rounds (challenger_id, opponent_id, lang_key, mode, questions, created_at) VALUES (?, ?, ?, ?, ?, ?)`,
+		challengerID, opponentID, lang, mode, questions, now.UTC().Format(timeLayout))
 	if err != nil {
 		return 0, err
 	}
@@ -131,7 +253,7 @@ func (s *Store) CreateGameRound(challengerID, opponentID int64, lang, questions 
 }
 
 const gameRoundColumns = `r.id, r.challenger_id, cu.username, cu.display_name, r.opponent_id,
-	COALESCE(ou.username, ''), COALESCE(ou.display_name, ''), r.lang_key, r.questions,
+	COALESCE(ou.username, ''), COALESCE(ou.display_name, ''), r.lang_key, r.mode, r.questions,
 	r.challenger_score, r.opponent_score, r.created_at
 	FROM game_rounds r JOIN users cu ON cu.id = r.challenger_id LEFT JOIN users ou ON ou.id = r.opponent_id`
 
@@ -140,7 +262,7 @@ func scanGameRound(sc interface{ Scan(...any) error }) (GameRound, error) {
 	var cs, os sql.NullInt64
 	var created string
 	if err := sc.Scan(&g.ID, &g.ChallengerID, &g.ChallengerUser, &g.ChallengerDisp, &g.OpponentID,
-		&g.OpponentUser, &g.OpponentDisp, &g.Lang, &g.Questions, &cs, &os, &created); err != nil {
+		&g.OpponentUser, &g.OpponentDisp, &g.Lang, &g.Mode, &g.Questions, &cs, &os, &created); err != nil {
 		return GameRound{}, err
 	}
 	if cs.Valid {

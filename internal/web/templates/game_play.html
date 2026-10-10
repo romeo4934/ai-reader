@@ -24,7 +24,8 @@
     </section>
     {{else}}
     <section id="game-intro" class="game-intro">
-      <p>{{printf .T.GameLead $d.SecLimit}}</p>
+      <p>{{if eq $d.Mode "reverse"}}{{printf .T.GameLeadReverse $d.SecLimit}}{{else if eq $d.Mode "listen"}}{{printf .T.GameLeadListen $d.SecLimit}}{{else}}{{printf .T.GameLead $d.SecLimit}}{{end}}</p>
+      <p class="game-lead">{{.T.GameComboHint}}</p>
       <button type="button" id="game-start" class="btn btn-primary">{{.T.GamePlay}}</button>
     </section>
 
@@ -35,12 +36,15 @@
       </div>
       <div class="game-timer"><div id="game-bar"></div></div>
       <p class="game-word"><span id="game-phrase"></span> <button type="button" id="game-say" class="btn-link" aria-label="{{.T.GameListen}}">🔊</button></p>
+      <p id="game-combo" class="game-combo" hidden>🔥 x2</p>
       <div id="game-choices" class="game-choices"></div>
     </section>
 
     <section id="game-end" class="game-end" hidden>
       <div class="game-final"><span id="game-final"></span> / {{$d.Max}}</div>
+      <p id="game-grid" class="game-grid"></p>
       <p id="game-msg" class="game-result"></p>
+      <p><button type="button" id="game-share" class="btn">{{.T.GameShare}}</button> <span id="game-copied" class="game-lead" hidden>{{.T.GameCopied}}</span></p>
       <a href="/game?lang={{$d.Lang}}" class="btn btn-primary">{{.T.GameBack}}</a>
     </section>
 
@@ -48,12 +52,14 @@
     <script>
     (function () {
       var Q = JSON.parse(document.getElementById('game-data').textContent);
-      var LANG = {{$d.Lang}}, LIMIT = {{$d.SecLimit}} * 1000, MAXP = 10, ROUND = {{$d.ID}};
+      var LANG = {{$d.Lang}}, MODE = {{$d.Mode}}, LIMIT = {{$d.SecLimit}} * 1000, MAXP = 10, ROUND = {{$d.ID}};
+      var TITLE = {{.T.GameTitle}}, SHARE_URL = 'https://getlydi.com/game';
+      var CAN_SPEAK = !!window.speechSynthesis;
       var DUEL = {{if $d.Duel}}{ other: {{$d.Duel.Other}}, theirs: {{if $d.Duel.Theirs}}{{$d.Duel.Theirs}}{{else}}null{{end}} }{{else}}null{{end}};
       var T = { won: {{.T.GameYouWon}}, lost: {{.T.GameYouLost}}, draw: {{.T.GameDraw}}, sent: {{.T.GameSent}},
                 record: {{.T.GameNewRecord}}, best: {{.T.GameBest}}, max: {{$d.Max}} };
       var $ = function (id) { return document.getElementById(id); };
-      var i = 0, score = 0, answers = [], t0 = 0, raf = 0, locked = false;
+      var i = 0, score = 0, streak = 0, answers = [], grid = '', t0 = 0, raf = 0, locked = false;
 
       function fmt(s) { var a = [].slice.call(arguments, 1); return s.replace(/%[sd]/g, function () { return a.shift(); }); }
       function say(text) {
@@ -67,6 +73,8 @@
         if (!right || ms >= LIMIT) return 0;
         return Math.max(1, MAXP - Math.floor(ms / 1000));
       }
+      // Listening only works with speech; without it, show the word.
+      var hidden = MODE === 'listen' && CAN_SPEAK;
       function tick() {
         var left = Math.max(0, 1 - (performance.now() - t0) / LIMIT);
         $('game-bar').style.width = (left * 100) + '%';
@@ -77,7 +85,7 @@
         var q = Q[i];
         locked = false;
         $('game-step').textContent = (i + 1) + ' / ' + Q.length;
-        $('game-phrase').textContent = q.phrase;
+        $('game-phrase').textContent = hidden ? '🎧 ?' : (q.prompt || q.phrase);
         var box = $('game-choices');
         box.innerHTML = '';
         q.choices.forEach(function (c, k) {
@@ -88,7 +96,7 @@
           b.onclick = function () { pick(k); };
           box.appendChild(b);
         });
-        say(q.phrase);
+        if (!q.prompt) say(q.phrase);
         t0 = performance.now();
         raf = requestAnimationFrame(tick);
       }
@@ -100,8 +108,13 @@
         var btns = $('game-choices').children;
         btns[q.answer].classList.add('right');
         if (k >= 0 && k !== q.answer) btns[k].classList.add('wrong');
-        score += points(k === q.answer, ms);
+        var p = points(k === q.answer, ms);
+        streak = p ? streak + 1 : 0;
+        score += p * (streak >= 3 ? 2 : 1);
+        grid += p ? '🟩' : '🟥';
+        $('game-combo').hidden = streak < 3;
         $('game-score').textContent = score;
+        if (hidden || q.prompt) { $('game-phrase').textContent = q.phrase; if (q.prompt) say(q.phrase); }
         answers.push({ choice: k, ms: ms });
         setTimeout(function () { i++; i < Q.length ? show() : end(); }, 900);
       }
@@ -116,6 +129,7 @@
         $('game-play').hidden = true;
         $('game-end').hidden = false;
         $('game-final').textContent = score;
+        $('game-grid').textContent = grid;
         fetch('/game/rounds/' + ROUND + '/score', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(answers)
@@ -125,6 +139,11 @@
         }).catch(function () {});
       }
       $('game-say').onclick = function () { say(Q[i].phrase); };
+      $('game-share').onclick = function () {
+        var text = TITLE + ' 💥 ' + score + '/' + T.max + '\n' + grid + '\n' + SHARE_URL;
+        if (navigator.share) { navigator.share({ text: text }).catch(function () {}); return; }
+        navigator.clipboard.writeText(text).then(function () { $('game-copied').hidden = false; });
+      };
       $('game-start').onclick = function () {
         $('game-intro').hidden = true;
         $('game-play').hidden = false;
