@@ -9,7 +9,32 @@
   {{$t := .T}}{{$d := .Data}}
 
   <main class="page game-page">
-    <h1>{{.T.GameTitle}} 💥</h1>
+    <div class="game-hero" aria-hidden="true">
+      <svg viewBox="0 0 220 150" class="game-hero-art">
+        <g class="hero-owl">
+          <ellipse cx="80" cy="140" rx="34" ry="5" class="hero-shadow"/>
+          <g class="hero-owl-body">
+            <path d="M48 70 Q48 40 80 40 Q112 40 112 70 L112 112 Q112 136 80 136 Q48 136 48 112 Z" class="hero-feathers"/>
+            <path d="M56 46 L50 30 L66 42 Z M104 46 L110 30 L94 42 Z" class="hero-feathers"/>
+            <ellipse cx="80" cy="108" rx="22" ry="24" class="hero-belly"/>
+            <circle cx="67" cy="66" r="13" class="hero-eye-white"/><circle cx="93" cy="66" r="13" class="hero-eye-white"/>
+            <g class="hero-eyes-open"><circle cx="69" cy="67" r="6" class="hero-pupil"/><circle cx="91" cy="67" r="6" class="hero-pupil"/></g>
+            <g class="hero-eyes-ko"><path d="M61 60 L73 72 M73 60 L61 72 M87 60 L99 72 M99 60 L87 72" class="hero-x"/></g>
+            <path d="M74 78 L86 78 L80 90 Z" class="hero-beak"/>
+            <path d="M66 136 l-6 6 M72 136 v7 M88 136 v7 M94 136 l6 6" class="hero-feet"/>
+          </g>
+        </g>
+        <g class="hero-stars"><text x="40" y="38">⭐</text><text x="104" y="30">💫</text><text x="60" y="22">✨</text></g>
+        <g class="hero-club">
+          <rect x="150" y="70" width="12" height="62" rx="5" class="hero-handle"/>
+          <path d="M142 28 Q156 10 172 28 L166 76 Q156 82 146 76 Z" class="hero-club-head"/>
+          <circle cx="152" cy="40" r="2.5" class="hero-knot"/><circle cx="162" cy="55" r="2" class="hero-knot"/>
+        </g>
+        <text x="122" y="48" class="hero-bonk">BONK!</text>
+      </svg>
+    </div>
+    <h1 class="game-title">{{.T.GameTitle}} 💥</h1>
+    <p class="game-slogan">I ❤️ destroying DLingo</p>
     <p class="game-rank">{{printf .T.GameRankLine $d.Rank.Name $d.Rank.Wins}}{{if $d.Rank.Next}} · {{printf .T.GameRankNext $d.Rank.Need $d.Rank.Next}}{{end}}</p>
     {{if $d.Tabs}}
     <nav class="lb-tabs deck-tabs">
