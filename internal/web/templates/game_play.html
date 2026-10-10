@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="{{.T.LangCode}}"{{if .Theme}} data-theme="{{.Theme}}"{{end}}{{if .Eink}} data-eink{{end}}>
+<head>
+  <title>{{.Title}}</title>
+  {{template "head" .}}
+</head>
+<body>
+  {{template "nav" .}}
+  {{$d := .Data}}
+
+  <main class="page game-page">
+    <h1>{{.T.GameTitle}} 💥</h1>
+    {{if $d.Duel}}<p class="game-lead">{{printf .T.GameVs $d.Duel.Other}}</p>{{end}}
+
+    {{if $d.Played}}
+    <section class="game-end">
+      {{if $d.Duel}}
+        {{if $d.Duel.Theirs}}<p class="game-result">{{$d.Duel.Result .T}}</p>
+        {{else}}<p class="game-result">{{printf .T.GameSent $d.Duel.Other}}</p>{{end}}
+      {{else}}
+        <p class="game-best">{{printf .T.GameBest $d.Best $d.Max}}</p>
+      {{end}}
+      <a href="/game?lang={{$d.Lang}}" class="btn btn-primary">{{.T.GameBack}}</a>
+    </section>
+    {{else}}
+    <section id="game-intro" class="game-intro">
+      <p>{{printf .T.GameLead $d.SecLimit}}</p>
+      <button type="button" id="game-start" class="btn btn-primary">{{.T.GamePlay}}</button>
+    </section>
+
+    <section id="game-play" class="game-play" hidden>
+      <div class="game-top">
+        <span id="game-step"></span>
+        <span id="game-score" class="game-score">0</span>
+      </div>
+      <div class="game-timer"><div id="game-bar"></div></div>
+      <p class="game-word"><span id="game-phrase"></span> <button type="button" id="game-say" class="btn-link" aria-label="{{.T.GameListen}}">🔊</button></p>
+      <div id="game-choices" class="game-choices"></div>
+    </section>
+
+    <section id="game-end" class="game-end" hidden>
+      <div class="game-final"><span id="game-final"></span> / {{$d.Max}}</div>
+      <p id="game-msg" class="game-result"></p>
+      <a href="/game?lang={{$d.Lang}}" class="btn btn-primary">{{.T.GameBack}}</a>
+    </section>
+
+    <script id="game-data" type="application/json">{{$d.Questions}}</script>
+    <script>
+    (function () {
+      var Q = JSON.parse(document.getElementById('game-data').textContent);
+      var LANG = {{$d.Lang}}, LIMIT = {{$d.SecLimit}} * 1000, MAXP = 10, ROUND = {{$d.ID}};
+      var DUEL = {{if $d.Duel}}{ other: {{$d.Duel.Other}}, theirs: {{if $d.Duel.Theirs}}{{$d.Duel.Theirs}}{{else}}null{{end}} }{{else}}null{{end}};
+      var T = { won: {{.T.GameYouWon}}, lost: {{.T.GameYouLost}}, draw: {{.T.GameDraw}}, sent: {{.T.GameSent}},
+                record: {{.T.GameNewRecord}}, best: {{.T.GameBest}}, max: {{$d.Max}} };
+      var $ = function (id) { return document.getElementById(id); };
+      var i = 0, score = 0, answers = [], t0 = 0, raf = 0, locked = false;
+
+      function fmt(s) { var a = [].slice.call(arguments, 1); return s.replace(/%[sd]/g, function () { return a.shift(); }); }
+      function say(text) {
+        if (!window.speechSynthesis) return;
+        speechSynthesis.cancel();
+        var u = new SpeechSynthesisUtterance(text);
+        u.lang = LANG;
+        speechSynthesis.speak(u);
+      }
+      function points(right, ms) {
+        if (!right || ms >= LIMIT) return 0;
+        return Math.max(1, MAXP - Math.floor(ms / 1000));
+      }
+      function tick() {
+        var left = Math.max(0, 1 - (performance.now() - t0) / LIMIT);
+        $('game-bar').style.width = (left * 100) + '%';
+        if (left === 0) { pick(-1); return; }
+        raf = requestAnimationFrame(tick);
+      }
+      function show() {
+        var q = Q[i];
+        locked = false;
+        $('game-step').textContent = (i + 1) + ' / ' + Q.length;
+        $('game-phrase').textContent = q.phrase;
+        var box = $('game-choices');
+        box.innerHTML = '';
+        q.choices.forEach(function (c, k) {
+          var b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'game-choice';
+          b.textContent = c;
+          b.onclick = function () { pick(k); };
+          box.appendChild(b);
+        });
+        say(q.phrase);
+        t0 = performance.now();
+        raf = requestAnimationFrame(tick);
+      }
+      function pick(k) {
+        if (locked) return;
+        locked = true;
+        cancelAnimationFrame(raf);
+        var q = Q[i], ms = k >= 0 ? Math.round(performance.now() - t0) : LIMIT;
+        var btns = $('game-choices').children;
+        btns[q.answer].classList.add('right');
+        if (k >= 0 && k !== q.answer) btns[k].classList.add('wrong');
+        score += points(k === q.answer, ms);
+        $('game-score').textContent = score;
+        answers.push({ choice: k, ms: ms });
+        setTimeout(function () { i++; i < Q.length ? show() : end(); }, 900);
+      }
+      function message(d) {
+        if (!DUEL) return d.record ? T.record + ' — ' + fmt(T.best, d.best, T.max) : fmt(T.best, d.best, T.max);
+        if (DUEL.theirs === null) return fmt(T.sent, DUEL.other);
+        if (d.score > DUEL.theirs) return fmt(T.won, DUEL.other, d.score, DUEL.theirs);
+        if (d.score < DUEL.theirs) return fmt(T.lost, DUEL.other, DUEL.theirs, d.score);
+        return fmt(T.draw, DUEL.other, d.score);
+      }
+      function end() {
+        $('game-play').hidden = true;
+        $('game-end').hidden = false;
+        $('game-final').textContent = score;
+        fetch('/game/rounds/' + ROUND + '/score', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(answers)
+        }).then(function (r) { return r.json(); }).then(function (d) {
+          $('game-final').textContent = d.score;
+          $('game-msg').textContent = message(d);
+        }).catch(function () {});
+      }
+      $('game-say').onclick = function () { say(Q[i].phrase); };
+      $('game-start').onclick = function () {
+        $('game-intro').hidden = true;
+        $('game-play').hidden = false;
+        show();
+      };
+    })();
+    </script>
+    {{end}}
+  </main>
+</body>
+</html>

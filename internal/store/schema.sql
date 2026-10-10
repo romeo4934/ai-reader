@@ -66,3 +66,19 @@ CREATE TABLE IF NOT EXISTS game_scores (
     played_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_game_scores_user ON game_scores(user_id, lang_key, score);
+
+-- A round of the word game. Solo rounds have opponent_id 0; in a duel the
+-- challenger plays first, then the friend plays the same questions (JSON).
+CREATE TABLE IF NOT EXISTS game_rounds (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    challenger_id    INTEGER NOT NULL REFERENCES users(id),
+    opponent_id      INTEGER NOT NULL DEFAULT 0,
+    lang_key         TEXT NOT NULL,
+    questions        TEXT NOT NULL,
+    challenger_score INTEGER,
+    opponent_score   INTEGER,
+    created_at       TEXT NOT NULL,
+    finished_at      TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_game_rounds_challenger ON game_rounds(challenger_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_game_rounds_opponent ON game_rounds(opponent_id, created_at);

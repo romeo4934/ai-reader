@@ -121,7 +121,9 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("POST /books/{id}/unarchive", s.requireAuth(s.handleArchiveBook(false)))
 
 	mux.HandleFunc("GET /game", s.requireAuth(s.handleGame))
-	mux.HandleFunc("POST /game/score", s.requireAuth(s.handleGameScore))
+	mux.HandleFunc("POST /game/rounds", s.requireAuth(s.handleGameNew))
+	mux.HandleFunc("GET /game/rounds/{id}", s.requireAuth(s.handleGameRound))
+	mux.HandleFunc("POST /game/rounds/{id}/score", s.requireAuth(s.handleGameScore))
 	mux.HandleFunc("GET /review", s.requireAuth(s.handleReviewPage))
 	mux.HandleFunc("POST /review/{id}/answer", s.requireAuth(s.handleReviewAnswer))
 	mux.HandleFunc("POST /review/more", s.requireAuth(s.handleReviewMore))
@@ -280,10 +282,14 @@ func (s *Server) handleReady(w http.ResponseWriter, r *http.Request) {
 type pageData struct {
 	Title    string
 	DueCount int
-	LoggedIn bool
-	IsAdmin  bool
-	Theme    string // "light" / "dark" chosen by the user, "" = system
-	Eink     bool
+	// GameTurns: duels waiting for this reader; ShowGame: the game's link,
+	// while it's only open to admins and those they challenge.
+	GameTurns int
+	ShowGame  bool
+	LoggedIn  bool
+	IsAdmin   bool
+	Theme     string // "light" / "dark" chosen by the user, "" = system
+	Eink      bool
 	// Reading: the reading mode, "scroll", "pages" or "" (auto).
 	Reading string
 	T       i18n.Dict
@@ -325,6 +331,11 @@ func (s *Server) renderDict(w http.ResponseWriter, r *http.Request, T i18n.Dict,
 		pd.DueCount = daily.AllRemaining
 		pd.LoggedIn = true
 		pd.IsAdmin = s.isAdmin(user)
+		turns, involved, err := s.store.GameTurns(user.ID)
+		if err != nil {
+			s.log.Error("game turns", "err", err)
+		}
+		pd.GameTurns, pd.ShowGame = turns, involved || pd.IsAdmin
 		pd.Theme = user.Theme
 		pd.Eink = user.Eink
 		pd.Reading = user.ReadingMode
