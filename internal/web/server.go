@@ -1191,12 +1191,7 @@ func (s *Server) handleAPITranslate(w http.ResponseWriter, r *http.Request) {
 	// touch-drag can produce despite the selection debounce).
 	tooLongForVocab := len(strings.Fields(phrase)) > maxVocabWords
 	if !alreadySaved && !tooLongForVocab {
-		freq := tr.Frequency
-		if rank, found := frequency.Rank(book.Language, tr.Lemma); found {
-			freq = rank
-		} else {
-			freq = frequency.FallbackFromEstimate(tr.Frequency)
-		}
+		freq := frequency.Of(book.Language, tr.Lemma, phrase, tr.Frequency)
 		if _, err := s.store.InsertVocab(store.Vocab{
 			UserID:      user.ID,
 			BookID:      req.BookID,

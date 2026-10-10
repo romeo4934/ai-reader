@@ -1,64 +1,112 @@
-// Package frequency ranks English words by how common they are, from a
-// static corpus-derived list, so the review deck can prioritize genuinely
-// frequent vocabulary instead of relying on a model's own estimate.
+// Package frequency ranks words by how common they are, from static
+// corpus-derived lists, so the review deck and the word game can rely on
+// genuinely frequent vocabulary instead of a model's own estimate.
 //
-// data/en.txt is the "Google 10000 English" list (the top ~10k words of
-// Google's Trillion Word Corpus, one per line, most common first) —
-// https://github.com/first20hours/google-10000-english. It's word-frequency
-// data, not creative text, and is widely reused unmodified for exactly this
-// purpose.
+// data/<lang>.txt are the 50k lists of FrequencyWords by Hermit Dave
+// (https://github.com/hermitdave/FrequencyWords, 2018 OpenSubtitles corpus,
+// content under CC BY-SA 4.0, credited on /credits): one word per line,
+// most common first, counts stripped.
 package frequency
 
 import (
 	"bufio"
 	"bytes"
-	_ "embed"
+	"embed"
 	"strings"
 )
 
-//go:embed data/en.txt
-var enData []byte
+//go:embed data/*.txt
+var dataFS embed.FS
 
 // NotInList is the rank given to a word that doesn't appear in the top of
 // the corpus — rarer than anything the list covers.
 const NotInList = 100000
 
-var enRank map[string]int
+// ranks maps a two-letter language code to its word ranks.
+var ranks = map[string]map[string]int{}
 
 func init() {
-	enRank = make(map[string]int, 10000)
-	scanner := bufio.NewScanner(bytes.NewReader(enData))
-	rank := 1
-	for scanner.Scan() {
-		word := strings.ToLower(strings.TrimSpace(scanner.Text()))
-		if word == "" {
-			continue
+	entries, err := dataFS.ReadDir("data")
+	if err != nil {
+		panic(err)
+	}
+	for _, e := range entries {
+		raw, err := dataFS.ReadFile("data/" + e.Name())
+		if err != nil {
+			panic(err)
 		}
-		if _, exists := enRank[word]; !exists {
-			enRank[word] = rank
+		m := make(map[string]int, 50000)
+		scanner := bufio.NewScanner(bytes.NewReader(raw))
+		rank := 1
+		for scanner.Scan() {
+			word := strings.ToLower(strings.TrimSpace(scanner.Text()))
+			if word == "" {
+				continue
+			}
+			if _, exists := m[word]; !exists {
+				m[word] = rank
+			}
+			rank++
 		}
-		rank++
+		ranks[strings.TrimSuffix(e.Name(), ".txt")] = m
 	}
 }
 
-// Rank looks up a word's frequency rank (1 = most common) for the given
-// book language. Only English is covered today; other languages and words
-// missing from the list return (NotInList, false).
-func Rank(lang, word string) (rank int, found bool) {
+// listFor resolves an epub dc:language value ("en", "en-US", "eng", "fra"…)
+// to its list, if Lydi has one.
+func listFor(lang string) map[string]int {
 	lang = strings.ToLower(strings.TrimSpace(lang))
-	// epub dc:language values vary: "en", "en-US", "en-GB", "eng"...
-	if !strings.HasPrefix(lang, "en") {
-		return NotInList, false
+	if i := strings.IndexAny(lang, "-_"); i >= 0 {
+		lang = lang[:i]
 	}
+	if m, ok := ranks[lang]; ok {
+		return m
+	}
+	if two, ok := iso639_2[lang]; ok {
+		return ranks[two]
+	}
+	return nil
+}
+
+var iso639_2 = map[string]string{
+	"eng": "en", "spa": "es", "fra": "fr", "fre": "fr", "por": "pt",
+	"ita": "it", "deu": "de", "ger": "de", "nld": "nl", "dut": "nl",
+}
+
+// Covered: the language has a frequency list, so a single word missing from
+// it is genuinely rare.
+func Covered(lang string) bool { return listFor(lang) != nil }
+
+// Rank looks up a word's frequency rank (1 = most common) for the given
+// book language. Languages without a list, and words missing from it,
+// return (NotInList, false).
+func Rank(lang, word string) (rank int, found bool) {
+	m := listFor(lang)
 	word = strings.ToLower(strings.TrimSpace(word))
-	if word == "" {
+	if m == nil || word == "" {
 		return NotInList, false
 	}
-	r, ok := enRank[word]
+	r, ok := m[word]
 	if !ok {
 		return NotInList, false
 	}
 	return r, true
+}
+
+// Of ranks a looked-up word: its lemma, else the form found in the book, on
+// the corpus list; failing that, a single word in a covered language is
+// rarer than the whole list, and anything else (phrases, uncovered
+// languages) falls back on the model's 1-5 estimate.
+func Of(lang, lemma, phrase string, estimate int) int {
+	for _, w := range []string{lemma, phrase} {
+		if r, ok := Rank(lang, w); ok {
+			return r
+		}
+	}
+	if Covered(lang) && len(strings.Fields(phrase)) == 1 {
+		return NotInList
+	}
+	return FallbackFromEstimate(estimate)
 }
 
 // fallbackBands maps Claude's own 1-5 frequency estimate to a representative

@@ -33,7 +33,7 @@ const (
 
 // gameBands: common, middling and rare words. The language's ~100 most
 // common words ("the", "a", "was") are too easy to be worth a question.
-var gameBands = []store.GameBand{{Min: 101, Max: 1500}, {Min: 1501, Max: 5000}, {Min: 5001, Max: 1 << 30}}
+var gameBands = []store.GameBand{{Min: 101, Max: 2000}, {Min: 2001, Max: 10000}, {Min: 10001, Max: 1 << 30}}
 
 type gameQuestion struct {
 	Phrase  string   `json:"phrase"`
