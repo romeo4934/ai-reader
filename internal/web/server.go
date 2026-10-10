@@ -120,6 +120,8 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("POST /books/{id}/archive", s.requireAuth(s.handleArchiveBook(true)))
 	mux.HandleFunc("POST /books/{id}/unarchive", s.requireAuth(s.handleArchiveBook(false)))
 
+	mux.HandleFunc("GET /game", s.requireAuth(s.handleGame))
+	mux.HandleFunc("POST /game/score", s.requireAuth(s.handleGameScore))
 	mux.HandleFunc("GET /review", s.requireAuth(s.handleReviewPage))
 	mux.HandleFunc("POST /review/{id}/answer", s.requireAuth(s.handleReviewAnswer))
 	mux.HandleFunc("POST /review/more", s.requireAuth(s.handleReviewMore))

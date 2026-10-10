@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="{{.T.LangCode}}"{{if .Theme}} data-theme="{{.Theme}}"{{end}}{{if .Eink}} data-eink{{end}}>
+<head>
+  <title>{{.Title}}</title>
+  {{template "head" .}}
+</head>
+<body>
+  {{template "nav" .}}
+
+  <main class="page game-page">
+    <h1>{{.T.GameTitle}}</h1>
+    {{if .Data.Tabs}}
+    <nav class="lb-tabs deck-tabs">
+      {{range .Data.Tabs}}<a href="/game?lang={{.Lang}}"{{if .Active}} class="active" aria-current="page"{{end}}>{{.Name}}</a>{{end}}
+    </nav>
+    {{end}}
+
+    {{if .Data.TooFew}}
+      <p class="empty">{{.T.GameTooFew}}</p>
+    {{else}}
+    <section id="game-intro" class="game-intro">
+      <p>{{printf .T.GameLead .Data.SecLimit}}</p>
+      <p class="game-best">{{printf .T.GameBest .Data.Best .Data.MaxScore}}</p>
+      <button type="button" id="game-start" class="btn btn-primary">{{.T.GamePlay}}</button>
+    </section>
+
+    <section id="game-play" class="game-play" hidden>
+      <div class="game-top">
+        <span id="game-step"></span>
+        <span id="game-score" class="game-score">0</span>
+      </div>
+      <div class="game-timer"><div id="game-bar"></div></div>
+      <p class="game-word"><span id="game-phrase"></span> <button type="button" id="game-say" class="btn-link" aria-label="{{.T.GameListen}}">🔊</button></p>
+      <div id="game-choices" class="game-choices"></div>
+    </section>
+
+    <section id="game-end" class="game-end" hidden>
+      <div class="game-final"><span id="game-final"></span> / {{.Data.MaxScore}}</div>
+      <p id="game-record" class="game-record" hidden>{{.T.GameNewRecord}}</p>
+      <p id="game-best-after" class="game-best"></p>
+      <a href="/game?lang={{.Data.Lang}}" class="btn btn-primary">{{.T.GameAgain}}</a>
+    </section>
+
+    <script id="game-data" type="application/json">{{.Data.Questions}}</script>
+    <script>
+    (function () {
+      var Q = JSON.parse(document.getElementById('game-data').textContent);
+      var LANG = {{.Data.Lang}}, LIMIT = {{.Data.SecLimit}} * 1000, MAXP = 10;
+      var BEST_FMT = {{.T.GameBest}}, MAX = {{.Data.MaxScore}};
+      var $ = function (id) { return document.getElementById(id); };
+      var i = 0, score = 0, answers = [], t0 = 0, raf = 0, locked = false;
+
+      function say(text) {
+        if (!window.speechSynthesis) return;
+        speechSynthesis.cancel();
+        var u = new SpeechSynthesisUtterance(text);
+        u.lang = LANG;
+        speechSynthesis.speak(u);
+      }
+      function points(right, ms) {
+        if (!right || ms >= LIMIT) return 0;
+        return Math.max(1, MAXP - Math.floor(ms / 1000));
+      }
+      function tick() {
+        var left = Math.max(0, 1 - (performance.now() - t0) / LIMIT);
+        $('game-bar').style.width = (left * 100) + '%';
+        if (left === 0) { pick(-1); return; }
+        raf = requestAnimationFrame(tick);
+      }
+      function show() {
+        var q = Q[i];
+        locked = false;
+        $('game-step').textContent = (i + 1) + ' / ' + Q.length;
+        $('game-phrase').textContent = q.phrase;
+        var box = $('game-choices');
+        box.innerHTML = '';
+        q.choices.forEach(function (c, k) {
+          var b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'game-choice';
+          b.textContent = c;
+          b.onclick = function () { pick(k); };
+          box.appendChild(b);
+        });
+        say(q.phrase);
+        t0 = performance.now();
+        raf = requestAnimationFrame(tick);
+      }
+      function pick(k) {
+        if (locked) return;
+        locked = true;
+        cancelAnimationFrame(raf);
+        var q = Q[i], ms = Math.round(performance.now() - t0);
+        var btns = $('game-choices').children;
+        btns[q.answer].classList.add('right');
+        if (k >= 0 && k !== q.answer) btns[k].classList.add('wrong');
+        score += points(k === q.answer, ms);
+        $('game-score').textContent = score;
+        answers.push({ id: q.id, choice: k >= 0 ? q.choices[k] : '', ms: k >= 0 ? ms : LIMIT });
+        setTimeout(function () { i++; i < Q.length ? show() : end(); }, 900);
+      }
+      function end() {
+        $('game-play').hidden = true;
+        $('game-end').hidden = false;
+        $('game-final').textContent = score;
+        fetch('/game/score', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ lang: LANG, answers: answers })
+        }).then(function (r) { return r.json(); }).then(function (d) {
+          $('game-final').textContent = d.score;
+          $('game-record').hidden = !d.record;
+          $('game-best-after').textContent = BEST_FMT.replace('%d', d.best).replace('%d', MAX);
+        }).catch(function () {});
+      }
+      $('game-say').onclick = function () { say(Q[i].phrase); };
+      $('game-start').onclick = function () {
+        $('game-intro').hidden = true;
+        $('game-play').hidden = false;
+        show();
+      };
+    })();
+    </script>
+    {{end}}
+  </main>
+</body>
+</html>

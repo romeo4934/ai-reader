@@ -56,3 +56,13 @@ CREATE TABLE IF NOT EXISTS vocab (
     archived         INTEGER NOT NULL DEFAULT 0
 );
 -- idx_vocab_due: same reason as idx_books_user above — created in Go.
+
+-- One finished round of the word game (solo for now).
+CREATE TABLE IF NOT EXISTS game_scores (
+    id        INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id   INTEGER NOT NULL REFERENCES users(id),
+    lang_key  TEXT NOT NULL,
+    score     INTEGER NOT NULL,
+    played_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_game_scores_user ON game_scores(user_id, lang_key, score);
