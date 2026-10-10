@@ -865,44 +865,59 @@ a.agora-enter { display: block; text-align: center; text-decoration: none; }
 .game-link-form { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; margin-top: 0.8rem; }
 .game-link-input { width: 100%; max-width: 28rem; padding: 0.6rem; border-radius: 8px; border: 1px solid var(--border); background: var(--card-bg); color: var(--fg); font: inherit; }
 
-/* the game's hero: a Lydi book drops on "LINGO" and scatters it, 3.2s loop */
+/* the game's hero, Street Fighter II bonus-stage style, in pixel art: a club
+   hits "LINGO" three times (sparks, shake, its health bar dropping), the
+   letters fly apart, K.O.! — on a 4.8s loop. */
 .game-hero { display: flex; justify-content: center; margin: 0.5rem 0 -0.4rem; }
-.game-hero-art { width: 100%; max-width: 300px; height: auto; overflow: visible; }
-.lg-ground { stroke: var(--border); stroke-width: 2; }
-.lg-face { fill: #58a644; }
-.lg-side { fill: #3f7d31; }
-.lg-letter { font: 900 30px sans-serif; fill: #fff; text-anchor: middle; }
-.lg-cover { fill: var(--accent); }
-.lg-pages { fill: var(--card-bg); }
-.lg-title { font: 700 13px sans-serif; fill: var(--accent-fg); text-anchor: middle; }
-.lg-pouf { font: 900 22px sans-serif; fill: #e8710a; text-anchor: middle; opacity: 0; }
-.lg-block, .lg-book, .lg-pouf { transform-box: fill-box; transform-origin: 50% 100%; animation: 3.2s infinite; }
-.lg-book { animation-name: lg-drop; animation-timing-function: ease-in; }
-.lg-pouf { animation-name: lg-pouf; }
-.lg-l { animation-name: lg-l; } .lg-i { animation-name: lg-i; } .lg-n { animation-name: lg-n; }
-.lg-g { animation-name: lg-g; } .lg-o { animation-name: lg-o; transform-origin: 50% 50%; }
-/* tipping blocks pivot on the corner they fall towards, so it stays on the ground */
+.game-hero-art { width: 100%; max-width: 320px; height: auto; overflow: visible; image-rendering: pixelated; }
+.px-ground { fill: #7a5c3a; }
+.px-outline { fill: #1f3d17; }
+.px-face { fill: #58a644; }
+.px-shade { fill: #3f7d31; }
+.px-light { fill: #8fd16f; }
+.px-glyph { fill: #fff; }
+.px-club-o { fill: #3b2210; } .px-club-w { fill: #9a5a2a; } .px-club-d { fill: #6e3d18; } .px-club-h { fill: #c98a4b; }
+.px-spark { fill: #ffd23f; }
+.px-hud-text { fill: var(--fg); }
+.px-bar-o { fill: #1c1c1e; } .px-bar-bg { fill: #b3261e; } .px-bar { fill: #ffd23f; }
+.px-ko { fill: #e8312a; }
+.px-club, .px-bar, .px-spark-g, .px-ko-g, .lg-shake, .lg-blocks, .lg-block { animation: 4.8s infinite; }
+.px-club { transform-box: view-box; transform-origin: 300px 96px; animation-name: px-swing; animation-timing-function: steps(3, end); }
+.px-bar { transform-box: fill-box; transform-origin: 0 0; animation-name: px-health; animation-timing-function: steps(1, end); }
+.px-spark-g { opacity: 0; animation-name: px-spark; animation-timing-function: steps(1, end); }
+.px-ko-g { opacity: 0; transform-box: fill-box; transform-origin: 50% 50%; animation-name: px-ko; animation-timing-function: steps(1, end); }
+.lg-shake { animation-name: px-shake; animation-timing-function: steps(1, end); }
+.lg-blocks { animation-name: px-fade; animation-timing-function: steps(4, end); }
+.lg-block { transform-box: fill-box; transform-origin: 50% 100%; animation-timing-function: steps(4, end); }
+.lg-l { animation-name: px-l; } .lg-i { animation-name: px-i; } .lg-n { animation-name: px-n; }
+.lg-g { animation-name: px-g; } .lg-o { animation-name: px-o; transform-origin: 50% 50%; }
+/* tipping blocks pivot on the corner they fall towards */
 .lg-l, .lg-i { transform-origin: 0% 100%; } .lg-g { transform-origin: 100% 100%; }
-.lg-blocks { animation: lg-fade 3.2s infinite; }
-@keyframes lg-drop {
-  0%, 12% { transform: translateY(-120px); opacity: 0; }
-  14% { opacity: 1; }
-  30% { transform: translateY(0); }
-  33% { transform: translateY(0) scale(1.08, 0.88); }
-  44%, 78% { transform: translateY(29px) rotate(-4deg); opacity: 1; }
-  86%, 100% { transform: translateY(29px) rotate(-4deg); opacity: 0; }
+@keyframes px-swing {
+  0%, 6% { transform: rotate(-40deg); } 12% { transform: rotate(-30deg); } 15%, 17% { transform: rotate(-83deg); }
+  22% { transform: rotate(-40deg); } 29% { transform: rotate(-30deg); } 32%, 34% { transform: rotate(-83deg); }
+  39% { transform: rotate(-40deg); } 46% { transform: rotate(-30deg); } 49%, 62% { transform: rotate(-83deg); }
+  76%, 100% { transform: rotate(-40deg); }
 }
-@keyframes lg-pouf { 0%, 30% { opacity: 0; transform: scale(0.6); } 34%, 60% { opacity: 1; transform: scale(1.1); } 70%, 100% { opacity: 0; transform: scale(1); } }
-@keyframes lg-l { 0%, 30% { transform: none; } 46%, 100% { transform: rotate(-30deg); } }
-@keyframes lg-i { 0%, 30% { transform: none; } 46%, 100% { transform: translate(-8px, 0) rotate(-20deg); } }
-@keyframes lg-n { 0%, 30% { transform: none; } 44%, 100% { transform: scale(1.15, 0.3); } }
-@keyframes lg-g { 0%, 30% { transform: none; } 46%, 100% { transform: translate(8px, 0) rotate(25deg); } }
-@keyframes lg-o { 0%, 30% { transform: none; } 56%, 100% { transform: translate(18px, 0) rotate(150deg); } }
-@keyframes lg-fade { 0% { opacity: 0; } 8%, 80% { opacity: 1; } 90%, 100% { opacity: 0; } }
+@keyframes px-health { 0% { transform: scaleX(1); } 15% { transform: scaleX(0.66); } 32% { transform: scaleX(0.33); } 49% { transform: scaleX(0); } 92%, 100% { transform: scaleX(1); } }
+@keyframes px-spark { 0% { opacity: 0; } 15% { opacity: 1; } 19% { opacity: 0; } 32% { opacity: 1; } 36% { opacity: 0; } 49% { opacity: 1; } 54%, 100% { opacity: 0; } }
+@keyframes px-shake {
+  0% { transform: none; } 15% { transform: translate(-3px, 2px); } 16% { transform: translate(3px, -1px); } 17% { transform: none; }
+  32% { transform: translate(3px, 2px); } 33% { transform: translate(-3px, 0); } 34% { transform: none; }
+  49% { transform: translate(-4px, 3px); } 50% { transform: translate(4px, -2px); } 51%, 100% { transform: none; }
+}
+@keyframes px-ko { 0% { opacity: 0; transform: scale(0.5); } 53% { opacity: 1; transform: scale(1.15); } 56% { transform: scale(1); } 86%, 100% { opacity: 0; } }
+@keyframes px-fade { 0% { opacity: 0; } 6%, 84% { opacity: 1; } 92%, 100% { opacity: 0; } }
+@keyframes px-l { 0%, 49% { transform: none; } 58%, 100% { transform: rotate(-30deg); } }
+@keyframes px-i { 0%, 49% { transform: none; } 58%, 100% { transform: translate(-8px, 0) rotate(-20deg); } }
+@keyframes px-n { 0%, 14% { transform: none; } 15%, 31% { transform: scale(1, 0.85); } 32%, 48% { transform: scale(1.05, 0.65); } 49%, 100% { transform: scale(1.15, 0.3); } }
+@keyframes px-g { 0%, 49% { transform: none; } 58%, 100% { transform: translate(8px, 0) rotate(25deg); } }
+@keyframes px-o { 0%, 49% { transform: none; } 66%, 100% { transform: translate(18px, 0) rotate(180deg); } }
 @media (prefers-reduced-motion: reduce) {
-  .lg-block, .lg-book, .lg-pouf, .lg-blocks { animation: none; }
+  .px-club, .px-bar, .px-spark-g, .px-ko-g, .lg-shake, .lg-blocks, .lg-block { animation: none; }
 }
-[data-eink] .lg-block, [data-eink] .lg-book, [data-eink] .lg-pouf, [data-eink] .lg-blocks { animation: none; }
+[data-eink] .px-club, [data-eink] .px-bar, [data-eink] .px-spark-g, [data-eink] .px-ko-g,
+[data-eink] .lg-shake, [data-eink] .lg-blocks, [data-eink] .lg-block { animation: none; }
 .game-title { text-align: center; margin-bottom: 0.2rem; }
 .game-slogan { text-align: center; font-weight: 800; font-size: 1.2rem; letter-spacing: 0.02em; margin: 0 0 0.6rem; }
 .game-page .game-rank { text-align: center; }
