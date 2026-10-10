@@ -84,6 +84,7 @@ func New(st *store.Store, aiClient *ai.Client, log *slog.Logger, secret []byte, 
 		"timeAgo":   timeAgo,
 		// the arguments of the "install" partial
 		"installCard": func(T i18n.Dict, mode string) map[string]any { return map[string]any{"T": T, "Mode": mode} },
+		"bookRow":     func(b store.Book, T i18n.Dict) map[string]any { return map[string]any{"Book": b, "T": T} },
 	}).ParseFS(templateFS, "templates/*.html")
 	if err != nil {
 		return nil, fmt.Errorf("parse templates : %w", err)
@@ -116,6 +117,8 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("GET /{$}", s.handleHome)
 	mux.HandleFunc("POST /books", s.requireAuth(s.handleUploadBook))
 	mux.HandleFunc("GET /books/{id}", s.requireAuth(s.handleReader))
+	mux.HandleFunc("POST /books/{id}/archive", s.requireAuth(s.handleArchiveBook(true)))
+	mux.HandleFunc("POST /books/{id}/unarchive", s.requireAuth(s.handleArchiveBook(false)))
 
 	mux.HandleFunc("GET /review", s.requireAuth(s.handleReviewPage))
 	mux.HandleFunc("POST /review/{id}/answer", s.requireAuth(s.handleReviewAnswer))
@@ -345,7 +348,36 @@ func (s *Server) handleLibrary(w http.ResponseWriter, r *http.Request) {
 		s.renderStart(w, r)
 		return
 	}
-	s.render(w, r, "library.html", s.dictFor(r)["LibTitle"], books)
+	var lib libraryView
+	for _, b := range books {
+		if b.Archived {
+			lib.Archived = append(lib.Archived, b)
+		} else {
+			lib.Reading = append(lib.Reading, b)
+		}
+	}
+	s.render(w, r, "library.html", s.dictFor(r)["LibTitle"], lib)
+}
+
+type libraryView struct {
+	Reading  []store.Book // most recently read first
+	Archived []store.Book
+}
+
+func (s *Server) handleArchiveBook(archived bool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		user := userFromContext(r)
+		id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+		if err != nil {
+			s.fail(w, http.StatusBadRequest, err)
+			return
+		}
+		if err := s.store.SetBookArchived(id, user.ID, archived); err != nil {
+			s.fail(w, http.StatusInternalServerError, err)
+			return
+		}
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+	}
 }
 
 func (s *Server) handleUploadBook(w http.ResponseWriter, r *http.Request) {

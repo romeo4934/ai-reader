@@ -9,7 +9,7 @@
 
   <main class="page">
     <h1>{{.T.LibTitle}}</h1>
-    {{if .Data}}{{template "install" (installCard .T "banner")}}{{end}}
+    {{if .Data.Reading}}{{template "install" (installCard .T "banner")}}{{end}}
 
     <div class="add-book">
       <a href="/catalog" class="add-book-option add-book-catalog">
@@ -23,22 +23,42 @@
       </form>
     </div>
 
-    {{if not .Data}}
+    {{if and (not .Data.Reading) (not .Data.Archived)}}
       <p class="empty">{{.T.LibEmpty}}</p>
-    {{else}}
+    {{end}}
+    {{if .Data.Reading}}
       <ul class="book-list">
-        {{range .Data}}
-        <li>
-          <a href="/books/{{.ID}}">
-            <span class="book-title">{{.Title}}</span>
-            {{if .Author}}<span class="book-author">{{.Author}}</span>{{end}}
-            <span class="book-meta">{{.ChapterCount}} {{$.T.LibChapters}}{{if .Language}} · {{.Language}}{{end}}</span>
-          </a>
-        </li>
-        {{end}}
+        {{range .Data.Reading}}{{template "book-row" (bookRow . $.T)}}{{end}}
       </ul>
+    {{end}}
+    {{if .Data.Archived}}
+      <details class="book-archive">
+        <summary>{{.T.LibArchived}} ({{len .Data.Archived}})</summary>
+        <ul class="book-list">
+          {{range .Data.Archived}}{{template "book-row" (bookRow . $.T)}}{{end}}
+        </ul>
+      </details>
     {{end}}
   </main>
   <script src="/static/install.js"></script>
 </body>
 </html>
+
+{{define "book-row"}}
+<li class="book-row">
+  <a href="/books/{{.Book.ID}}">
+    <span class="book-title">{{.Book.Title}}</span>
+    {{if .Book.Author}}<span class="book-author">{{.Book.Author}}</span>{{end}}
+    <span class="book-meta">{{.Book.ChapterCount}} {{.T.LibChapters}}{{if .Book.Language}} · {{.Book.Language}}{{end}}</span>
+  </a>
+  {{if .Book.Archived}}
+  <form action="/books/{{.Book.ID}}/unarchive" method="post">
+    <button type="submit" class="btn-link">{{.T.LibUnarchive}}</button>
+  </form>
+  {{else}}
+  <form action="/books/{{.Book.ID}}/archive" method="post">
+    <button type="submit" class="btn-link">{{.T.LibArchive}}</button>
+  </form>
+  {{end}}
+</li>
+{{end}}

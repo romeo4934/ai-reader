@@ -62,6 +62,11 @@ func Open(path string) (*Store, error) {
 		db.Close()
 		return nil, fmt.Errorf("migration books.source : %w", err)
 	}
+	// books.archived: put away by the reader, shown in a folded-up section
+	if err := ensureColumn(db, "books", "archived", "INTEGER NOT NULL DEFAULT 0"); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("migration books.archived : %w", err)
+	}
 	if err := migrateBookLangKeys(db); err != nil {
 		db.Close()
 		return nil, err
@@ -680,6 +685,7 @@ type Book struct {
 	Language     string
 	AddedAt      time.Time
 	ChapterCount int
+	Archived     bool
 }
 
 type Chapter struct {
@@ -737,12 +743,15 @@ func (s *Store) BookSources(userID int64) (map[string]int64, error) {
 	return out, rows.Err()
 }
 
+// ListBooks returns the user's books, the most recently read first (a book
+// never opened counts from when it was added), archived ones last.
 func (s *Store) ListBooks(userID int64) ([]Book, error) {
 	rows, err := s.db.Query(`
-		SELECT b.id, b.user_id, b.title, b.author, b.language, b.added_at, COUNT(c.id)
-		FROM books b LEFT JOIN chapters c ON c.book_id = b.id
+		SELECT b.id, b.user_id, b.title, b.author, b.language, b.added_at, b.archived,
+		       (SELECT COUNT(*) FROM chapters c WHERE c.book_id = b.id)
+		FROM books b LEFT JOIN reading_progress rp ON rp.book_id = b.id
 		WHERE b.user_id = ?
-		GROUP BY b.id ORDER BY b.added_at DESC`, userID)
+		ORDER BY b.archived, COALESCE(rp.updated_at, b.added_at) DESC, b.id DESC`, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -752,13 +761,19 @@ func (s *Store) ListBooks(userID int64) ([]Book, error) {
 	for rows.Next() {
 		var b Book
 		var addedAt string
-		if err := rows.Scan(&b.ID, &b.UserID, &b.Title, &b.Author, &b.Language, &addedAt, &b.ChapterCount); err != nil {
+		if err := rows.Scan(&b.ID, &b.UserID, &b.Title, &b.Author, &b.Language, &addedAt, &b.Archived, &b.ChapterCount); err != nil {
 			return nil, err
 		}
 		b.AddedAt, _ = time.Parse(timeLayout, addedAt)
 		out = append(out, b)
 	}
 	return out, rows.Err()
+}
+
+// SetBookArchived archives or brings back one of the user's books.
+func (s *Store) SetBookArchived(id, userID int64, archived bool) error {
+	_, err := s.db.Exec(`UPDATE books SET archived = ? WHERE id = ? AND user_id = ?`, archived, id, userID)
+	return err
 }
 
 // GetBook fetches a book, scoped to its owner — a wrong userID behaves like

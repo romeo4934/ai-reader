@@ -17,6 +17,9 @@ var catalogStrings = map[string]Dict{
 		"LibFromCatalogHint": "Free classics in 7 languages, by level",
 		"LibImport":          "Import my own epub",
 		"LibEmpty":           "No books yet: pick one from the Lydi library, or import your own epub.",
+		"LibArchive":         "Archive",
+		"LibUnarchive":       "Bring back",
+		"LibArchived":        "Archived",
 	},
 	"fr": {
 		"CatalogTitle":       "Bibliothèque Lydi",
@@ -33,6 +36,9 @@ var catalogStrings = map[string]Dict{
 		"LibFromCatalogHint": "Des classiques gratuits en 7 langues, par niveau",
 		"LibImport":          "Importer mon epub",
 		"LibEmpty":           "Aucun livre pour l'instant : choisis-en un dans la bibliothèque Lydi, ou importe ton propre epub.",
+		"LibArchive":         "Archiver",
+		"LibUnarchive":       "Ressortir",
+		"LibArchived":        "Archivés",
 	},
 	"es": {
 		"CatalogTitle":       "Biblioteca Lydi",
@@ -49,6 +55,9 @@ var catalogStrings = map[string]Dict{
 		"LibFromCatalogHint": "Clásicos gratis en 7 idiomas, por nivel",
 		"LibImport":          "Importar mi epub",
 		"LibEmpty":           "Todavía no hay libros: elige uno de la biblioteca Lydi o importa tu propio epub.",
+		"LibArchive":         "Archivar",
+		"LibUnarchive":       "Recuperar",
+		"LibArchived":        "Archivados",
 	},
 	"pt": {
 		"CatalogTitle":       "Biblioteca Lydi",
@@ -65,6 +74,9 @@ var catalogStrings = map[string]Dict{
 		"LibFromCatalogHint": "Clássicos grátis em 7 idiomas, por nível",
 		"LibImport":          "Importar meu epub",
 		"LibEmpty":           "Nenhum livro ainda: escolha um na biblioteca Lydi ou importe seu próprio epub.",
+		"LibArchive":         "Arquivar",
+		"LibUnarchive":       "Recuperar",
+		"LibArchived":        "Arquivados",
 	},
 	"it": {
 		"CatalogTitle":       "Biblioteca Lydi",
@@ -81,6 +93,9 @@ var catalogStrings = map[string]Dict{
 		"LibFromCatalogHint": "Classici gratuiti in 7 lingue, per livello",
 		"LibImport":          "Importa il mio epub",
 		"LibEmpty":           "Ancora nessun libro: scegline uno dalla biblioteca Lydi o importa il tuo epub.",
+		"LibArchive":         "Archivia",
+		"LibUnarchive":       "Ripristina",
+		"LibArchived":        "Archiviati",
 	},
 	"de": {
 		"CatalogTitle":       "Lydi-Bibliothek",
@@ -97,6 +112,9 @@ var catalogStrings = map[string]Dict{
 		"LibFromCatalogHint": "Kostenlose Klassiker in 7 Sprachen, nach Niveau",
 		"LibImport":          "Eigenes epub importieren",
 		"LibEmpty":           "Noch keine Bücher: wähle eins aus der Lydi-Bibliothek oder importiere dein eigenes epub.",
+		"LibArchive":         "Archivieren",
+		"LibUnarchive":       "Zurückholen",
+		"LibArchived":        "Archiviert",
 	},
 	"nl": {
 		"CatalogTitle":       "Lydi-bibliotheek",
@@ -113,6 +131,9 @@ var catalogStrings = map[string]Dict{
 		"LibFromCatalogHint": "Gratis klassiekers in 7 talen, per niveau",
 		"LibImport":          "Mijn eigen epub importeren",
 		"LibEmpty":           "Nog geen boeken: kies er een uit de Lydi-bibliotheek of importeer je eigen epub.",
+		"LibArchive":         "Archiveren",
+		"LibUnarchive":       "Terugzetten",
+		"LibArchived":        "Gearchiveerd",
 	},
 }
 
