@@ -234,6 +234,9 @@ type GameRound struct {
 	OpponentDisp    string
 	Lang            string
 	Mode            string // "classic", "reverse" or "listen"
+	OpenToken       string // set on a challenge shared by link
+	SourceID        int64  // the link challenge this duel was copied from
+	Daily           string // the day, for a daily-challenge round
 	Questions       string // JSON, with the right answers
 	ChallengerScore *int
 	OpponentScore   *int
@@ -253,7 +256,7 @@ func (s *Store) CreateGameRound(challengerID, opponentID int64, lang, mode, ques
 }
 
 const gameRoundColumns = `r.id, r.challenger_id, cu.username, cu.display_name, r.opponent_id,
-	COALESCE(ou.username, ''), COALESCE(ou.display_name, ''), r.lang_key, r.mode, r.questions,
+	COALESCE(ou.username, ''), COALESCE(ou.display_name, ''), r.lang_key, r.mode, r.open_token, r.source_id, r.daily, r.questions,
 	r.challenger_score, r.opponent_score, r.created_at
 	FROM game_rounds r JOIN users cu ON cu.id = r.challenger_id LEFT JOIN users ou ON ou.id = r.opponent_id`
 
@@ -262,7 +265,7 @@ func scanGameRound(sc interface{ Scan(...any) error }) (GameRound, error) {
 	var cs, os sql.NullInt64
 	var created string
 	if err := sc.Scan(&g.ID, &g.ChallengerID, &g.ChallengerUser, &g.ChallengerDisp, &g.OpponentID,
-		&g.OpponentUser, &g.OpponentDisp, &g.Lang, &g.Mode, &g.Questions, &cs, &os, &created); err != nil {
+		&g.OpponentUser, &g.OpponentDisp, &g.Lang, &g.Mode, &g.OpenToken, &g.SourceID, &g.Daily, &g.Questions, &cs, &os, &created); err != nil {
 		return GameRound{}, err
 	}
 	if cs.Valid {
@@ -335,10 +338,151 @@ func (s *Store) GameTurns(userID int64) (turns int, involved bool, err error) {
 	return turns, n > 0, err
 }
 
-// GameDueled: a and b have played a duel against each other.
-func (s *Store) GameDueled(a, b int64) (bool, error) {
+// Solo: a practice round, counting towards the personal record.
+func (g GameRound) Solo() bool { return g.OpponentID == 0 && g.OpenToken == "" && g.Daily == "" }
+
+// GameRoundByID fetches a round with no player check — for a link challenge
+// someone played before having an account.
+func (s *Store) GameRoundByID(id int64) (GameRound, error) {
+	return scanGameRound(s.db.QueryRow(`SELECT `+gameRoundColumns+` WHERE r.id = ?`, id))
+}
+
+// SetGameOpenToken makes a round a challenge anyone with the link can take.
+func (s *Store) SetGameOpenToken(id int64, token string) error {
+	_, err := s.db.Exec(`UPDATE game_rounds SET open_token = ? WHERE id = ?`, token, id)
+	return err
+}
+
+// GameOpenRound fetches a link challenge its challenger has played.
+func (s *Store) GameOpenRound(token string) (GameRound, error) {
+	if token == "" {
+		return GameRound{}, sql.ErrNoRows
+	}
+	return scanGameRound(s.db.QueryRow(`SELECT `+gameRoundColumns+`
+		WHERE r.open_token = ? AND r.challenger_score IS NOT NULL`, token))
+}
+
+// TakeGameChallenge gives the user their own duel copied from a link
+// challenge — the existing one if they already took it up — with their
+// score when they played it before having an account (score >= 0).
+func (s *Store) TakeGameChallenge(src GameRound, userID int64, score int, now time.Time) (int64, error) {
+	var id int64
+	err := s.db.QueryRow(`SELECT id FROM game_rounds WHERE source_id = ? AND opponent_id = ?`, src.ID, userID).Scan(&id)
+	if err == nil {
+		return id, nil
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return 0, err
+	}
+	var opp any
+	var finished any
+	if score >= 0 {
+		opp, finished = score, now.UTC().Format(timeLayout)
+	}
+	res, err := s.db.Exec(`INSERT INTO game_rounds
+		(challenger_id, opponent_id, lang_key, mode, questions, challenger_score, opponent_score, created_at, finished_at, source_id)
+		SELECT challenger_id, ?, lang_key, mode, questions, challenger_score, ?, ?, ?, id FROM game_rounds WHERE id = ?`,
+		userID, opp, now.UTC().Format(timeLayout), finished, src.ID)
+	if err != nil {
+		return 0, err
+	}
+	return res.LastInsertId()
+}
+
+// GameLinkTakers counts the duels taken up from a link challenge.
+func (s *Store) GameLinkTakers(sourceID int64) (int, error) {
 	var n int
-	err := s.db.QueryRow(`SELECT COUNT(*) FROM game_rounds
-		WHERE (challenger_id = ? AND opponent_id = ?) OR (challenger_id = ? AND opponent_id = ?)`, a, b, b, a).Scan(&n)
-	return n > 0, err
+	err := s.db.QueryRow(`SELECT COUNT(*) FROM game_rounds WHERE source_id = ?`, sourceID).Scan(&n)
+	return n, err
+}
+
+// GameDailyQuestions returns the day's stored questions (JSON), "" if none.
+func (s *Store) GameDailyQuestions(day, lang, nativeLang string) (string, error) {
+	var q string
+	err := s.db.QueryRow(`SELECT questions FROM game_daily WHERE day = ? AND lang_key = ? AND native_lang = ?`,
+		day, lang, nativeLang).Scan(&q)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", nil
+	}
+	return q, err
+}
+
+// SetGameDailyQuestions stores the day's questions, keeping any stored first
+// (two readers starting at once), and returns those in force.
+func (s *Store) SetGameDailyQuestions(day, lang, nativeLang, questions string) (string, error) {
+	if _, err := s.db.Exec(`INSERT OR IGNORE INTO game_daily (day, lang_key, native_lang, questions) VALUES (?, ?, ?, ?)`,
+		day, lang, nativeLang, questions); err != nil {
+		return "", err
+	}
+	return s.GameDailyQuestions(day, lang, nativeLang)
+}
+
+// GameDailyWords picks n random words, across every reader of the language
+// with that native language, for the daily challenge.
+func (s *Store) GameDailyWords(lang, nativeLang string, b GameBand, n int) ([]GameWord, []int64, error) {
+	rows, err := s.db.Query(`
+		SELECT v.id, v.phrase, v.translation, v.frequency, v.user_id FROM vocab v
+		JOIN books b ON b.id = v.book_id JOIN users u ON u.id = v.user_id
+		WHERE b.lang_key = ? AND u.native_lang = ? AND v.translation != '' AND v.frequency BETWEEN ? AND ?
+		AND LENGTH(v.phrase) <= 30 AND LENGTH(v.translation) <= 60
+		GROUP BY LOWER(v.phrase) ORDER BY RANDOM() LIMIT ?`, lang, nativeLang, b.Min, b.Max, n)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer rows.Close()
+	var words []GameWord
+	var owners []int64
+	for rows.Next() {
+		var w GameWord
+		var owner int64
+		if err := rows.Scan(&w.ID, &w.Phrase, &w.Translation, &w.Frequency, &owner); err != nil {
+			return nil, nil, err
+		}
+		words, owners = append(words, w), append(owners, owner)
+	}
+	return words, owners, rows.Err()
+}
+
+// GameDailyRound is the user's round of the day's challenge, if started.
+func (s *Store) GameDailyRound(userID int64, day, lang string) (GameRound, error) {
+	return scanGameRound(s.db.QueryRow(`SELECT `+gameRoundColumns+`
+		WHERE r.challenger_id = ? AND r.daily = ? AND r.lang_key = ?`, userID, day, lang))
+}
+
+func (s *Store) CreateGameDailyRound(userID int64, day, lang, questions string, now time.Time) (int64, error) {
+	res, err := s.db.Exec(`INSERT INTO game_rounds (challenger_id, opponent_id, lang_key, mode, questions, created_at, daily)
+		VALUES (?, 0, ?, 'classic', ?, ?, ?)`, userID, lang, questions, now.UTC().Format(timeLayout), day)
+	if err != nil {
+		return 0, err
+	}
+	return res.LastInsertId()
+}
+
+// GameDailyEntry is one line of a daily challenge's ranking.
+type GameDailyEntry struct {
+	UserID            int64
+	Username, Display string
+	Score             int
+}
+
+// GameDailyRanking ranks the day's scores among readers of the language
+// with the same native language (they played the same questions).
+func (s *Store) GameDailyRanking(day, lang, nativeLang string, limit int) ([]GameDailyEntry, error) {
+	rows, err := s.db.Query(`
+		SELECT u.id, u.username, u.display_name, r.challenger_score FROM game_rounds r JOIN users u ON u.id = r.challenger_id
+		WHERE r.daily = ? AND r.lang_key = ? AND u.native_lang = ? AND r.challenger_score IS NOT NULL
+		ORDER BY r.challenger_score DESC, r.finished_at LIMIT ?`, day, lang, nativeLang, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []GameDailyEntry
+	for rows.Next() {
+		var e GameDailyEntry
+		if err := rows.Scan(&e.UserID, &e.Username, &e.Display, &e.Score); err != nil {
+			return nil, err
+		}
+		out = append(out, e)
+	}
+	return out, rows.Err()
 }

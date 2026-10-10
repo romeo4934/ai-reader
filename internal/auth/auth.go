@@ -71,6 +71,7 @@ const (
 	PurposeReset       = "reset"
 	PurposeInvite      = "invite"
 	PurposeUnsubscribe = "unsubscribe"
+	PurposeGameGuest   = "game-guest"
 )
 
 func SignLink(secret []byte, purpose string, userID int64, binding string, ttl time.Duration) string {

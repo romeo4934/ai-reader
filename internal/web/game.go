@@ -1,16 +1,19 @@
 package web
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math/rand/v2"
+	mrand "math/rand/v2"
 	"net/http"
 	"slices"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/romeo4934/ai-reader/internal/auth"
 	"github.com/romeo4934/ai-reader/internal/store"
 )
 
@@ -23,8 +26,11 @@ import (
 // practice against one's record. Words of one's own missed in a round come
 // back into review.
 //
-// While it's tried out, only admins can start rounds; anyone challenged to
-// a duel can play it and ask for a rematch.
+// A challenge can also go out by link, to anyone: each one who takes it up
+// gets their own duel against the challenger, and someone without an
+// account plays first and signs up (through the challenger's invite, so
+// they become friends) to see who won. And every day brings a daily
+// challenge: the same questions for all, and a ranking.
 
 const (
 	gameRoundLen  = 5
@@ -129,15 +135,6 @@ func rankFor(T map[string]string, wins int) gameRank {
 		}
 	}
 	return r
-}
-
-// canPlay: the game isn't public yet.
-func (s *Server) canPlay(user *store.User) bool {
-	if s.isAdmin(user) {
-		return true
-	}
-	_, involved, err := s.store.GameTurns(user.ID)
-	return err == nil && involved
 }
 
 // gameOptions are a round's settings; the zero value is the one-click
@@ -245,7 +242,7 @@ func (s *Server) gameQuestions(lang string, o gameOptions, owners ...store.User)
 			q.Prompt, answer = wd.Translation, wd.Phrase
 		}
 		q.Choices = append(decoys, answer)
-		rand.Shuffle(len(q.Choices), func(a, b int) { q.Choices[a], q.Choices[b] = q.Choices[b], q.Choices[a] })
+		mrand.Shuffle(len(q.Choices), func(a, b int) { q.Choices[a], q.Choices[b] = q.Choices[b], q.Choices[a] })
 		q.Answer = slices.Index(q.Choices, answer)
 		out = append(out, q)
 	}
@@ -283,9 +280,9 @@ func (s *Server) gameBand(lang string, o gameOptions, owners []store.User, filte
 	}
 	switch {
 	case o.Level == 0 && len(fair) > 0:
-		return fair[rand.IntN(len(fair))], nil
+		return fair[mrand.IntN(len(fair))], nil
 	case o.Level == 0 && len(enough) > 0:
-		return enough[rand.IntN(len(enough))], nil
+		return enough[mrand.IntN(len(enough))], nil
 	}
 	return gameAnyBand, nil
 }
@@ -336,13 +333,13 @@ type gameHub struct {
 	Tabs    []deckTab
 	Best    int
 	Max     int
-	Admin   bool
 	TooFew  bool
 	Turns   []gameDuel
 	Waiting []gameDuel
 	Done    []gameDuel
 	Friends []gameFriend
 	Rank    gameRank
+	Daily   gameDailyView
 	Books   []store.GameBook // playlists
 	Missed  int              // words in the "missed" playlist
 	Levels  []int
@@ -350,11 +347,7 @@ type gameHub struct {
 
 func (s *Server) handleGame(w http.ResponseWriter, r *http.Request) {
 	user := userFromContext(r)
-	if !s.canPlay(user) {
-		http.NotFound(w, r)
-		return
-	}
-	hub := gameHub{Max: gameMaxScore, Admin: s.isAdmin(user), TooFew: r.URL.Query().Get("few") != ""}
+	hub := gameHub{Max: gameMaxScore, TooFew: r.URL.Query().Get("few") != ""}
 	langs, err := s.store.VocabLangs(user.ID)
 	if err != nil {
 		s.fail(w, http.StatusInternalServerError, err)
@@ -392,6 +385,12 @@ func (s *Server) handleGame(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	hub.Rank = rankFor(s.dictFor(r), wins)
+	if hub.Lang != "" {
+		if hub.Daily, err = s.gameDaily(user, hub.Lang); err != nil {
+			s.fail(w, http.StatusInternalServerError, err)
+			return
+		}
+	}
 	duels, err := s.store.GameDuels(user.ID, 30)
 	if err != nil {
 		s.fail(w, http.StatusInternalServerError, err)
@@ -423,10 +422,6 @@ func (s *Server) handleGame(w http.ResponseWriter, r *http.Request) {
 // which the challenger plays first.
 func (s *Server) handleGameNew(w http.ResponseWriter, r *http.Request) {
 	user := userFromContext(r)
-	if !s.canPlay(user) || (!s.isAdmin(user) && r.FormValue("friend") == "") {
-		http.NotFound(w, r)
-		return
-	}
 	lang := r.FormValue("lang")
 	langs, err := s.store.VocabLangs(user.ID)
 	if err != nil {
@@ -438,12 +433,9 @@ func (s *Server) handleGameNew(w http.ResponseWriter, r *http.Request) {
 	}
 	owners := []store.User{*user}
 	var opponentID int64
+	open := r.FormValue("friend") == "link"
 	if fid, _ := strconv.ParseInt(r.FormValue("friend"), 10, 64); fid != 0 {
 		ok, err := s.store.AreFriends(user.ID, fid)
-		if err == nil && ok && !s.isAdmin(user) {
-			// Not public yet: a non-admin can only take revenge.
-			ok, err = s.store.GameDueled(user.ID, fid)
-		}
 		if err != nil || !ok {
 			http.NotFound(w, r)
 			return
@@ -489,6 +481,12 @@ func (s *Server) handleGameNew(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, http.StatusInternalServerError, err)
 		return
 	}
+	if open {
+		if err := s.store.SetGameOpenToken(id, newGameToken()); err != nil {
+			s.fail(w, http.StatusInternalServerError, err)
+			return
+		}
+	}
 	http.Redirect(w, r, fmt.Sprintf("/game/rounds/%d", id), http.StatusSeeOther)
 }
 
@@ -502,6 +500,25 @@ type gamePlay struct {
 	Best      int
 	Max       int
 	SecLimit  int
+	ScoreURL  string
+	ShareURL  string // shared with the result: the game, or the link challenge
+	Link      bool   // a link challenge, ShareURL being its link
+	Takers    int    // how many took it up
+	Daily     bool
+	MyScore   int
+	Guest     string // without an account: the challenger's name
+}
+
+func gamePlayFor(g store.GameRound) (gamePlay, error) {
+	view := gamePlay{ID: g.ID, Lang: g.Lang, Mode: g.Mode, Max: gameMaxScore, SecLimit: int(gameTimeLimit / time.Second),
+		ScoreURL: fmt.Sprintf("/game/rounds/%d/score", g.ID)}
+	return view, json.Unmarshal([]byte(g.Questions), &view.Questions)
+}
+
+func newGameToken() string {
+	b := make([]byte, 9)
+	rand.Read(b)
+	return hex.EncodeToString(b)
 }
 
 func (s *Server) gameRound(r *http.Request) (store.GameRound, error) {
@@ -520,17 +537,30 @@ func (s *Server) handleGameRound(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	view := gamePlay{ID: g.ID, Lang: g.Lang, Mode: g.Mode, Max: gameMaxScore, SecLimit: int(gameTimeLimit / time.Second)}
-	if err := json.Unmarshal([]byte(g.Questions), &view.Questions); err != nil {
+	view, err := gamePlayFor(g)
+	if err != nil {
 		s.fail(w, http.StatusInternalServerError, err)
 		return
 	}
-	if g.OpponentID != 0 {
+	view.ShareURL = s.cfg.BaseURL + "/game"
+	if g.ChallengerScore != nil {
+		view.MyScore = *g.ChallengerScore
+	}
+	switch {
+	case g.OpponentID != 0:
 		d := duelFor(g, user.ID)
 		view.Duel = &d
 		view.Played = d.Mine != nil
-	} else {
+	case g.OpenToken != "":
 		view.Played = g.ChallengerScore != nil
+		view.ShareURL, view.Link = s.cfg.BaseURL+"/game/c/"+g.OpenToken, true
+		if view.Takers, err = s.store.GameLinkTakers(g.ID); err != nil {
+			s.fail(w, http.StatusInternalServerError, err)
+			return
+		}
+	default:
+		view.Played = g.ChallengerScore != nil
+		view.Daily = g.Daily != ""
 		if view.Best, err = s.store.GameBest(user.ID, g.Lang); err != nil {
 			s.fail(w, http.StatusInternalServerError, err)
 			return
@@ -561,7 +591,7 @@ func (s *Server) handleGameScore(w http.ResponseWriter, r *http.Request) {
 	score, right := gameScore(qs, answers)
 	now := time.Now()
 	best := 0
-	if g.OpponentID == 0 {
+	if g.Solo() {
 		if best, err = s.store.GameBest(user.ID, g.Lang); err != nil {
 			s.fail(w, http.StatusInternalServerError, err)
 			return
@@ -575,7 +605,7 @@ func (s *Server) handleGameScore(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, http.StatusInternalServerError, err)
 		return
 	}
-	if g.OpponentID == 0 {
+	if g.Solo() {
 		if _, err := s.store.SaveGameScore(user.ID, g.Lang, score, now); err != nil {
 			s.fail(w, http.StatusInternalServerError, err)
 			return
@@ -595,7 +625,7 @@ func (s *Server) handleGameScore(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]any{"score": score, "best": max(best, score), "record": g.OpponentID == 0 && score > best && score > 0})
+	json.NewEncoder(w).Encode(map[string]any{"score": score, "best": max(best, score), "record": g.Solo() && score > best && score > 0})
 }
 
 type gamePick struct {
@@ -609,10 +639,6 @@ type gamePick struct {
 // handleGamePick lists the challenger's words to hand-pick a round's five.
 func (s *Server) handleGamePick(w http.ResponseWriter, r *http.Request) {
 	user := userFromContext(r)
-	if !s.isAdmin(user) {
-		http.NotFound(w, r)
-		return
-	}
 	langs, err := s.store.VocabLangs(user.ID)
 	if err != nil {
 		s.fail(w, http.StatusInternalServerError, err)
@@ -632,4 +658,210 @@ func (s *Server) handleGamePick(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.render(w, r, "game_pick.html", s.dictFor(r)["GameTitle"], view)
+}
+
+// --- link challenges ---
+
+// gameGuestCookie keeps the score of someone who played a link challenge
+// before having an account, until they sign up or log in.
+const gameGuestCookie = "game_guest"
+
+// handleGameLink opens a link challenge: the challenger sees their own
+// round, a reader gets their own duel (and the challenger as a friend, for
+// rematches), and someone without an account plays it straight away.
+func (s *Server) handleGameLink(w http.ResponseWriter, r *http.Request) {
+	src, err := s.store.GameOpenRound(r.PathValue("token"))
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	if r, ok := s.withSessionUser(r); ok {
+		user := userFromContext(r)
+		if user.ID == src.ChallengerID {
+			http.Redirect(w, r, fmt.Sprintf("/game/rounds/%d", src.ID), http.StatusSeeOther)
+			return
+		}
+		id, err := s.takeGameChallenge(src, user.ID, -1)
+		if err != nil {
+			s.fail(w, http.StatusInternalServerError, err)
+			return
+		}
+		http.Redirect(w, r, fmt.Sprintf("/game/rounds/%d", id), http.StatusSeeOther)
+		return
+	}
+	view, err := gamePlayFor(src)
+	if err != nil {
+		s.fail(w, http.StatusInternalServerError, err)
+		return
+	}
+	view.ScoreURL = "/game/c/" + src.OpenToken + "/score"
+	view.ShareURL = s.cfg.BaseURL + "/game"
+	view.Guest = publicName(src.ChallengerID, src.ChallengerUser, src.ChallengerDisp)
+	T := s.visitorDict(w, r)
+	s.renderDict(w, r, T, "game_play.html", T["GameTitle"], view)
+}
+
+func (s *Server) takeGameChallenge(src store.GameRound, userID int64, score int) (int64, error) {
+	id, err := s.store.TakeGameChallenge(src, userID, score, time.Now())
+	if err != nil {
+		return 0, err
+	}
+	return id, s.store.AddFriendship(userID, src.ChallengerID)
+}
+
+// handleGameLinkScore scores a link challenge played without an account and
+// keeps the score in a signed cookie; the answer points to the challenger's
+// invite to sign up and see who won.
+func (s *Server) handleGameLinkScore(w http.ResponseWriter, r *http.Request) {
+	src, err := s.store.GameOpenRound(r.PathValue("token"))
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	var qs []gameQuestion
+	if err := json.Unmarshal([]byte(src.Questions), &qs); err != nil {
+		s.fail(w, http.StatusInternalServerError, err)
+		return
+	}
+	var answers []gameAnswer
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<14)).Decode(&answers); err != nil || len(answers) > len(qs) {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+	score, _ := gameScore(qs, answers)
+	token := auth.SignLink(s.secret, auth.PurposeGameGuest, src.ID, strconv.Itoa(score), 30*24*time.Hour)
+	http.SetCookie(w, &http.Cookie{
+		Name: gameGuestCookie, Value: strconv.Itoa(score) + ":" + token, Path: "/", MaxAge: 30 * 24 * 3600,
+		HttpOnly: true, Secure: r.Header.Get("X-Forwarded-Proto") == "https", SameSite: http.SameSiteLaxMode,
+	})
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]any{"score": score, "signup": s.inviteLink(src.ChallengerID)})
+}
+
+// claimGameGuest turns the score of a link challenge played before signing
+// up into the reader's duel, once they're logged in. Returns the duel's id.
+func (s *Server) claimGameGuest(w http.ResponseWriter, r *http.Request, user *store.User) (int64, bool) {
+	c, err := r.Cookie(gameGuestCookie)
+	if err != nil {
+		return 0, false
+	}
+	http.SetCookie(w, &http.Cookie{Name: gameGuestCookie, Value: "", Path: "/", MaxAge: -1})
+	scoreStr, token, ok := strings.Cut(c.Value, ":")
+	score, err := strconv.Atoi(scoreStr)
+	if !ok || err != nil || !auth.VerifyLink(s.secret, auth.PurposeGameGuest, token, scoreStr) {
+		return 0, false
+	}
+	roundID, _ := auth.LinkUserID(token)
+	src, err := s.store.GameRoundByID(roundID)
+	if err != nil || src.OpenToken == "" || src.ChallengerID == user.ID {
+		return 0, false
+	}
+	id, err := s.takeGameChallenge(src, user.ID, score)
+	if err != nil {
+		s.log.Error("game: claim guest score", "err", err)
+		return 0, false
+	}
+	return id, true
+}
+
+// --- daily challenge ---
+
+type gameDailyEntry struct {
+	Rank  int
+	Name  string
+	Score int
+	Me    bool
+}
+
+type gameDailyView struct {
+	Lang    string
+	Played  bool
+	Score   int
+	Ranking []gameDailyEntry
+	Players int
+}
+
+func gameDay(now time.Time) string { return now.UTC().Format("2006-01-02") }
+
+func (s *Server) gameDaily(user *store.User, lang string) (gameDailyView, error) {
+	v := gameDailyView{Lang: lang}
+	day := gameDay(time.Now())
+	if g, err := s.store.GameDailyRound(user.ID, day, lang); err == nil && g.ChallengerScore != nil {
+		v.Played, v.Score = true, *g.ChallengerScore
+	}
+	entries, err := s.store.GameDailyRanking(day, lang, user.NativeLang, 100)
+	if err != nil {
+		return v, err
+	}
+	v.Players = len(entries)
+	for i, e := range entries {
+		if i < 10 || e.UserID == user.ID {
+			v.Ranking = append(v.Ranking, gameDailyEntry{Rank: i + 1, Name: publicName(e.UserID, e.Username, e.Display), Score: e.Score, Me: e.UserID == user.ID})
+		}
+	}
+	return v, nil
+}
+
+// gameDailyQuestions builds — once per day, language and native language —
+// the daily challenge, from every such reader's words.
+func (s *Server) gameDailyQuestions(day, lang, nativeLang string) (string, error) {
+	if q, err := s.store.GameDailyQuestions(day, lang, nativeLang); err != nil || q != "" {
+		return q, err
+	}
+	words, owners, err := s.store.GameDailyWords(lang, nativeLang, store.GameBand{Min: gameBands[0].Min, Max: gameAnyBand.Max}, gameRoundLen*3)
+	if err != nil {
+		return "", err
+	}
+	var qs []gameQuestion
+	for i, wd := range words {
+		if len(qs) == gameRoundLen {
+			break
+		}
+		decoys, err := s.store.GameDecoys(owners[i], lang, nativeLang, wd, false, gameChoices-1)
+		if err != nil {
+			return "", err
+		}
+		if len(decoys) < gameChoices-1 {
+			continue
+		}
+		q := gameQuestion{Phrase: wd.Phrase, VocabID: wd.ID, OwnerID: owners[i], Choices: append(decoys, wd.Translation)}
+		mrand.Shuffle(len(q.Choices), func(a, b int) { q.Choices[a], q.Choices[b] = q.Choices[b], q.Choices[a] })
+		q.Answer = slices.Index(q.Choices, wd.Translation)
+		qs = append(qs, q)
+	}
+	if len(qs) < gameRoundLen {
+		return "", nil
+	}
+	raw, _ := json.Marshal(qs)
+	return s.store.SetGameDailyQuestions(day, lang, nativeLang, string(raw))
+}
+
+// handleGameDaily starts (or resumes) the reader's daily challenge.
+func (s *Server) handleGameDaily(w http.ResponseWriter, r *http.Request) {
+	user := userFromContext(r)
+	lang := r.FormValue("lang")
+	if !validLangKey(lang) {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+	day := gameDay(time.Now())
+	if g, err := s.store.GameDailyRound(user.ID, day, lang); err == nil {
+		http.Redirect(w, r, fmt.Sprintf("/game/rounds/%d", g.ID), http.StatusSeeOther)
+		return
+	}
+	qs, err := s.gameDailyQuestions(day, lang, user.NativeLang)
+	if err != nil {
+		s.fail(w, http.StatusInternalServerError, err)
+		return
+	}
+	if qs == "" {
+		http.Redirect(w, r, "/game?few=1&lang="+lang, http.StatusSeeOther)
+		return
+	}
+	id, err := s.store.CreateGameDailyRound(user.ID, day, lang, qs, time.Now())
+	if err != nil {
+		s.fail(w, http.StatusInternalServerError, err)
+		return
+	}
+	http.Redirect(w, r, fmt.Sprintf("/game/rounds/%d", id), http.StatusSeeOther)
 }

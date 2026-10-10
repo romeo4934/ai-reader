@@ -49,7 +49,7 @@
       <a href="/friends">{{.T.NavFriends}}</a>
       <a href="/reviewed">{{.T.NavHistory}}</a>
       <a href="/settings">{{.T.NavSettings}}</a>
-      {{if .ShowGame}}<a href="/game">{{.T.NavGame}}{{if gt .GameTurns 0}} <span class="badge">{{.GameTurns}}</span>{{end}}</a>{{end}}
+      <a href="/game">{{.T.NavGame}}{{if gt .GameTurns 0}} <span class="badge">{{.GameTurns}}</span>{{end}}</a>
       {{if .IsAdmin}}<a href="/admin">admin</a>{{end}}
     {{else}}
       <a href="/login">{{.T.NavLogin}}</a>

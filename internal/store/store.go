@@ -71,9 +71,19 @@ func Open(path string) (*Store, error) {
 		db.Close()
 		return nil, err
 	}
-	if err := ensureColumn(db, "game_rounds", "mode", "TEXT NOT NULL DEFAULT 'classic'"); err != nil {
-		db.Close()
-		return nil, fmt.Errorf("migration game_rounds.mode : %w", err)
+	// game_rounds.open_token: a duel challenge shared by link, open to
+	// anyone (each one who takes it up gets their own copy, source_id);
+	// daily: the day of a daily-challenge round.
+	for _, c := range []struct{ name, decl string }{
+		{"mode", "TEXT NOT NULL DEFAULT 'classic'"},
+		{"open_token", "TEXT NOT NULL DEFAULT ''"},
+		{"source_id", "INTEGER NOT NULL DEFAULT 0"},
+		{"daily", "TEXT NOT NULL DEFAULT ''"},
+	} {
+		if err := ensureColumn(db, "game_rounds", c.name, c.decl); err != nil {
+			db.Close()
+			return nil, fmt.Errorf("migration game_rounds.%s : %w", c.name, err)
+		}
 	}
 	if err := ensureColumn(db, "reading_progress", "section_idx", "INTEGER NOT NULL DEFAULT 0"); err != nil {
 		db.Close()

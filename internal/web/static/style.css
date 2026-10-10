@@ -858,3 +858,9 @@ a.agora-enter { display: block; text-align: center; text-decoration: none; }
 .game-custom-actions { display: flex; flex-wrap: wrap; gap: 0.6rem; }
 .game-pick-list label { display: flex; gap: 0.5rem; align-items: baseline; flex-wrap: wrap; cursor: pointer; }
 .game-pick-bar { position: sticky; bottom: 0; background: var(--bg); display: flex; justify-content: space-between; align-items: center; padding: 0.8rem 0; border-top: 1px solid var(--border); }
+.game-ranking { padding-left: 1.6rem; font-family: sans-serif; }
+.game-ranking li { padding: 0.3rem 0; }
+.game-ranking li span { display: inline-block; min-width: 60%; }
+.game-ranking li.me { font-weight: 700; color: var(--accent); }
+.game-link-form { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; margin-top: 0.8rem; }
+.game-link-input { width: 100%; max-width: 28rem; padding: 0.6rem; border-radius: 8px; border: 1px solid var(--border); background: var(--card-bg); color: var(--fg); font: inherit; }

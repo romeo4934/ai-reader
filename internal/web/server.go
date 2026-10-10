@@ -123,6 +123,9 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("GET /game", s.requireAuth(s.handleGame))
 	mux.HandleFunc("POST /game/rounds", s.requireAuth(s.handleGameNew))
 	mux.HandleFunc("GET /game/pick", s.requireAuth(s.handleGamePick))
+	mux.HandleFunc("POST /game/daily", s.requireAuth(s.handleGameDaily))
+	mux.HandleFunc("GET /game/c/{token}", s.handleGameLink)
+	mux.HandleFunc("POST /game/c/{token}/score", s.handleGameLinkScore)
 	mux.HandleFunc("GET /game/rounds/{id}", s.requireAuth(s.handleGameRound))
 	mux.HandleFunc("POST /game/rounds/{id}/score", s.requireAuth(s.handleGameScore))
 	mux.HandleFunc("GET /review", s.requireAuth(s.handleReviewPage))
@@ -215,6 +218,11 @@ func (s *Server) withSessionUser(r *http.Request) (*http.Request, bool) {
 // app to a visitor instead of bouncing them to /login.
 func (s *Server) handleHome(w http.ResponseWriter, r *http.Request) {
 	if r, ok := s.withSessionUser(r); ok {
+		// Just signed up or logged in after playing a link challenge?
+		if id, ok := s.claimGameGuest(w, r, userFromContext(r)); ok {
+			http.Redirect(w, r, fmt.Sprintf("/game/rounds/%d", id), http.StatusSeeOther)
+			return
+		}
 		s.handleLibrary(w, r)
 		return
 	}
@@ -281,12 +289,9 @@ func (s *Server) handleReady(w http.ResponseWriter, r *http.Request) {
 // --- pages ---
 
 type pageData struct {
-	Title    string
-	DueCount int
-	// GameTurns: duels waiting for this reader; ShowGame: the game's link,
-	// while it's only open to admins and those they challenge.
-	GameTurns int
-	ShowGame  bool
+	Title     string
+	DueCount  int
+	GameTurns int // duels waiting for this reader
 	LoggedIn  bool
 	IsAdmin   bool
 	Theme     string // "light" / "dark" chosen by the user, "" = system
@@ -332,11 +337,11 @@ func (s *Server) renderDict(w http.ResponseWriter, r *http.Request, T i18n.Dict,
 		pd.DueCount = daily.AllRemaining
 		pd.LoggedIn = true
 		pd.IsAdmin = s.isAdmin(user)
-		turns, involved, err := s.store.GameTurns(user.ID)
+		turns, _, err := s.store.GameTurns(user.ID)
 		if err != nil {
 			s.log.Error("game turns", "err", err)
 		}
-		pd.GameTurns, pd.ShowGame = turns, involved || pd.IsAdmin
+		pd.GameTurns = turns
 		pd.Theme = user.Theme
 		pd.Eink = user.Eink
 		pd.Reading = user.ReadingMode

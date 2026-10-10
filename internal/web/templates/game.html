@@ -30,7 +30,25 @@
     </section>
     {{end}}
 
-    {{if $d.Admin}}
+    {{if $d.Lang}}
+    <section class="game-section game-daily">
+      <h2>{{.T.GameDailyTitle}}</h2>
+      {{if $d.Daily.Played}}
+        <p>{{printf .T.GameDailyDone $d.Daily.Score $d.Max $d.Daily.Players}}</p>
+      {{else}}
+        <p class="game-lead">{{.T.GameDailyLead}}</p>
+        <form action="/game/daily" method="post">
+          <input type="hidden" name="lang" value="{{$d.Lang}}">
+          <button type="submit" class="btn btn-primary">{{.T.GameDailyPlay}}</button>
+        </form>
+      {{end}}
+      {{if $d.Daily.Ranking}}
+      <ol class="game-ranking">
+        {{range $d.Daily.Ranking}}<li value="{{.Rank}}"{{if .Me}} class="me"{{end}}><span>{{.Name}}</span><strong>{{.Score}}</strong></li>{{end}}
+      </ol>
+      {{end}}
+    </section>
+
     <section class="game-section">
       <h2>{{.T.GameDuels}}</h2>
       <p class="game-lead">{{.T.GameDuelsLead}}</p>
@@ -47,6 +65,11 @@
       {{else}}
       <p class="empty">{{.T.GameNoFriends}} <a href="/friends">{{.T.GameInvite}}</a></p>
       {{end}}
+      <form action="/game/rounds" method="post" class="game-link-form">
+        <input type="hidden" name="friend" value="link"><input type="hidden" name="lang" value="{{$d.Lang}}">
+        <button type="submit" class="btn">🔗 {{.T.GameLinkChallenge}}</button>
+        <span class="game-lead">{{.T.GameLinkHint}}</span>
+      </form>
       {{if $d.Lang}}
       <details class="game-custom">
         <summary>{{.T.GameCustomize}}</summary>
@@ -55,6 +78,7 @@
           <label>{{.T.GameOpponent}}
             <select name="friend">
               {{range $d.Friends}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
+              <option value="link">🔗 {{.T.GameLinkOption}}</option>
               <option value="0">{{.T.GameSoloOption}}</option>
             </select>
           </label>
@@ -110,7 +134,7 @@
     </section>
     {{end}}
 
-    {{if and $d.Admin $d.Lang}}
+    {{if $d.Lang}}
     <section class="game-section">
       <h2>{{.T.GameSolo}}</h2>
       <p class="game-lead">{{printf .T.GameBest $d.Best $d.Max}}</p>

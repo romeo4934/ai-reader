@@ -90,3 +90,13 @@ CREATE TABLE IF NOT EXISTS game_misses (
     missed_at TEXT NOT NULL,
     PRIMARY KEY (user_id, vocab_id)
 );
+
+-- The daily challenge: the same questions for every reader of a language
+-- with the same native language (the answers are in it), for a day (UTC).
+CREATE TABLE IF NOT EXISTS game_daily (
+    day         TEXT NOT NULL,
+    lang_key    TEXT NOT NULL,
+    native_lang TEXT NOT NULL,
+    questions   TEXT NOT NULL,
+    PRIMARY KEY (day, lang_key, native_lang)
+);
