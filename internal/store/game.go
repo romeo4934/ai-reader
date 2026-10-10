@@ -12,14 +12,30 @@ type GameWord struct {
 	ID          int64
 	Phrase      string
 	Translation string
+	Frequency   int
 }
 
-// GameWords picks n random words from the user's list in one language.
-func (s *Store) GameWords(userID int64, lang string, n int) ([]GameWord, error) {
+// GameBand is a range of word frequency ranks (1 = the language's most
+// common word), so a round's words are about as hard as each other.
+type GameBand struct{ Min, Max int }
+
+// GameBandCount counts the user's words in a language within a band.
+func (s *Store) GameBandCount(userID int64, lang string, b GameBand) (int, error) {
+	var n int
+	err := s.db.QueryRow(`
+		SELECT COUNT(*) FROM vocab v JOIN books b ON b.id = v.book_id
+		WHERE v.user_id = ? AND b.lang_key = ? AND v.translation != '' AND v.frequency BETWEEN ? AND ?`,
+		userID, lang, b.Min, b.Max).Scan(&n)
+	return n, err
+}
+
+// GameWords picks n random words from the user's list in one language and
+// frequency band.
+func (s *Store) GameWords(userID int64, lang string, b GameBand, n int) ([]GameWord, error) {
 	rows, err := s.db.Query(`
-		SELECT v.id, v.phrase, v.translation FROM vocab v JOIN books b ON b.id = v.book_id
-		WHERE v.user_id = ? AND b.lang_key = ? AND v.translation != ''
-		ORDER BY RANDOM() LIMIT ?`, userID, lang, n)
+		SELECT v.id, v.phrase, v.translation, v.frequency FROM vocab v JOIN books b ON b.id = v.book_id
+		WHERE v.user_id = ? AND b.lang_key = ? AND v.translation != '' AND v.frequency BETWEEN ? AND ?
+		ORDER BY RANDOM() LIMIT ?`, userID, lang, b.Min, b.Max, n)
 	if err != nil {
 		return nil, err
 	}
@@ -27,7 +43,7 @@ func (s *Store) GameWords(userID int64, lang string, n int) ([]GameWord, error) 
 	var out []GameWord
 	for rows.Next() {
 		var w GameWord
-		if err := rows.Scan(&w.ID, &w.Phrase, &w.Translation); err != nil {
+		if err := rows.Scan(&w.ID, &w.Phrase, &w.Translation, &w.Frequency); err != nil {
 			return nil, err
 		}
 		out = append(out, w)
@@ -35,16 +51,19 @@ func (s *Store) GameWords(userID int64, lang string, n int) ([]GameWord, error) 
 	return out, rows.Err()
 }
 
-// GameDecoys returns up to n wrong answers for a word: translations of the
-// user's other words in that language first, then — for a short list —
-// other readers' with the same native language. None equals exclude.
-func (s *Store) GameDecoys(userID int64, lang, nativeLang, exclude string, n int) ([]string, error) {
+// GameDecoys returns up to n wrong answers for a word: translations of
+// words about as common as it — the hardest to rule out — from the user's
+// list in that language, or other readers' with the same native language.
+// None equals the right answer.
+func (s *Store) GameDecoys(userID int64, lang, nativeLang string, w GameWord, n int) ([]string, error) {
 	rows, err := s.db.Query(`
-		SELECT v.translation, v.user_id = ? AS mine FROM vocab v
-		JOIN books b ON b.id = v.book_id JOIN users u ON u.id = v.user_id
-		WHERE b.lang_key = ? AND v.translation != '' AND (v.user_id = ? OR u.native_lang = ?)
-		GROUP BY LOWER(v.translation)
-		ORDER BY mine DESC, RANDOM() LIMIT ?`, userID, lang, userID, nativeLang, n+5)
+		SELECT translation FROM (
+			SELECT v.translation, v.frequency FROM vocab v
+			JOIN books b ON b.id = v.book_id JOIN users u ON u.id = v.user_id
+			WHERE b.lang_key = ? AND v.translation != '' AND v.id != ? AND (v.user_id = ? OR u.native_lang = ?)
+			GROUP BY LOWER(v.translation)
+			ORDER BY ABS(v.frequency - ?), RANDOM() LIMIT ?)
+		ORDER BY RANDOM()`, lang, w.ID, userID, nativeLang, w.Frequency, n*5)
 	if err != nil {
 		return nil, err
 	}
@@ -52,11 +71,10 @@ func (s *Store) GameDecoys(userID int64, lang, nativeLang, exclude string, n int
 	var out []string
 	for rows.Next() {
 		var t string
-		var mine bool
-		if err := rows.Scan(&t, &mine); err != nil {
+		if err := rows.Scan(&t); err != nil {
 			return nil, err
 		}
-		if strings.EqualFold(strings.TrimSpace(t), strings.TrimSpace(exclude)) || len(out) == n {
+		if strings.EqualFold(strings.TrimSpace(t), strings.TrimSpace(w.Translation)) || len(out) == n {
 			continue
 		}
 		out = append(out, t)

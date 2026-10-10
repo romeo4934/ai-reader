@@ -31,6 +31,10 @@ const (
 	gameMaxScore  = gameRoundLen * gameMaxPoints
 )
 
+// gameBands: common, middling and rare words. The language's ~100 most
+// common words ("the", "a", "was") are too easy to be worth a question.
+var gameBands = []store.GameBand{{Min: 101, Max: 1500}, {Min: 1501, Max: 5000}, {Min: 5001, Max: 1 << 30}}
+
 type gameQuestion struct {
 	Phrase  string   `json:"phrase"`
 	Choices []string `json:"choices"`
@@ -56,11 +60,17 @@ func (s *Server) canPlay(user *store.User) bool {
 }
 
 // gameQuestions builds a round in lang from the words of owners, taking
-// turns between them, each word's decoys drawn from its owner's list.
+// turns between them, each word's decoys drawn from its owner's list. All
+// words come from one frequency band, picked at random among those with
+// enough words — and, in a duel, words from both players.
 func (s *Server) gameQuestions(lang string, owners ...store.User) ([]gameQuestion, error) {
+	band, err := s.gameBand(lang, owners)
+	if err != nil {
+		return nil, err
+	}
 	pools := make([][]store.GameWord, len(owners))
 	for i, o := range owners {
-		words, err := s.store.GameWords(o.ID, lang, gameRoundLen*2)
+		words, err := s.store.GameWords(o.ID, lang, band, gameRoundLen*2)
 		if err != nil {
 			return nil, err
 		}
@@ -82,7 +92,7 @@ func (s *Server) gameQuestions(lang string, owners ...store.User) ([]gameQuestio
 		if seen[key] {
 			continue
 		}
-		decoys, err := s.store.GameDecoys(owners[i].ID, lang, owners[i].NativeLang, wd.Translation, gameChoices-1)
+		decoys, err := s.store.GameDecoys(owners[i].ID, lang, owners[i].NativeLang, wd, gameChoices-1)
 		if err != nil {
 			return nil, err
 		}
@@ -95,6 +105,38 @@ func (s *Server) gameQuestions(lang string, owners ...store.User) ([]gameQuestio
 		out = append(out, gameQuestion{Phrase: wd.Phrase, Choices: choices, Answer: slices.Index(choices, wd.Translation)})
 	}
 	return out, nil
+}
+
+// gameBand picks the round's frequency band: one where the owners have
+// enough words between them, each owner at least a couple when possible;
+// failing both, every word but the easiest.
+func (s *Server) gameBand(lang string, owners []store.User) (store.GameBand, error) {
+	var fair, enough []store.GameBand
+	for _, b := range gameBands {
+		total, least := 0, gameRoundLen
+		for _, o := range owners {
+			n, err := s.store.GameBandCount(o.ID, lang, b)
+			if err != nil {
+				return store.GameBand{}, err
+			}
+			total += n
+			least = min(least, n)
+		}
+		// A little slack: some words get skipped for want of decoys.
+		if total >= gameRoundLen+2 {
+			enough = append(enough, b)
+			if len(owners) == 1 || least >= 2 {
+				fair = append(fair, b)
+			}
+		}
+	}
+	switch {
+	case len(fair) > 0:
+		return fair[rand.IntN(len(fair))], nil
+	case len(enough) > 0:
+		return enough[rand.IntN(len(enough))], nil
+	}
+	return store.GameBand{Min: gameBands[0].Min, Max: gameBands[len(gameBands)-1].Max}, nil
 }
 
 type gameDuel struct {
