@@ -3,6 +3,7 @@ package i18n
 // The word game, DLingo Destruction.
 var gameStrings = map[string]Dict{
 	"en": {
+		"GameSound":          "Sound on/off",
 		"NavGame":            "game",
 		"GameTitle":          "DLingo Destruction",
 		"GameLead":           "5 words from your list, 4 answers each. Find the right translation: the faster, the more points (%d seconds per word).",
@@ -76,6 +77,7 @@ var gameStrings = map[string]Dict{
 		"GameShareLink":      "Beat me:",
 	},
 	"fr": {
+		"GameSound":          "Son on/off",
 		"NavGame":            "jeu",
 		"GameTitle":          "DLingo Destruction",
 		"GameLead":           "5 mots de ta liste, 4 réponses à chaque fois. Trouve la bonne traduction : plus tu vas vite, plus tu marques (%d secondes par mot).",
@@ -149,6 +151,7 @@ var gameStrings = map[string]Dict{
 		"GameShareLink":      "Bats-moi :",
 	},
 	"es": {
+		"GameSound":          "Sonido sí/no",
 		"NavGame":            "juego",
 		"GameTitle":          "DLingo Destruction",
 		"GameLead":           "5 palabras de tu lista, 4 respuestas cada vez. Encuentra la traducción correcta: cuanto más rápido, más puntos (%d segundos por palabra).",
@@ -222,6 +225,7 @@ var gameStrings = map[string]Dict{
 		"GameShareLink":      "Gáname:",
 	},
 	"pt": {
+		"GameSound":          "Som liga/desliga",
 		"NavGame":            "jogo",
 		"GameTitle":          "DLingo Destruction",
 		"GameLead":           "5 palavras da sua lista, 4 respostas cada. Encontre a tradução certa: quanto mais rápido, mais pontos (%d segundos por palavra).",
@@ -295,6 +299,7 @@ var gameStrings = map[string]Dict{
 		"GameShareLink":      "Me vença:",
 	},
 	"it": {
+		"GameSound":          "Audio sì/no",
 		"NavGame":            "gioco",
 		"GameTitle":          "DLingo Destruction",
 		"GameLead":           "5 parole dalla tua lista, 4 risposte ciascuna. Trova la traduzione giusta: più sei veloce, più punti fai (%d secondi per parola).",
@@ -368,6 +373,7 @@ var gameStrings = map[string]Dict{
 		"GameShareLink":      "Battimi:",
 	},
 	"de": {
+		"GameSound":          "Ton an/aus",
 		"NavGame":            "Spiel",
 		"GameTitle":          "DLingo Destruction",
 		"GameLead":           "5 Wörter aus deiner Liste, je 4 Antworten. Finde die richtige Übersetzung: je schneller, desto mehr Punkte (%d Sekunden pro Wort).",
@@ -441,6 +447,7 @@ var gameStrings = map[string]Dict{
 		"GameShareLink":      "Schlag mich:",
 	},
 	"nl": {
+		"GameSound":          "Geluid aan/uit",
 		"NavGame":            "spel",
 		"GameTitle":          "DLingo Destruction",
 		"GameLead":           "5 woorden uit je lijst, telkens 4 antwoorden. Vind de juiste vertaling: hoe sneller, hoe meer punten (%d seconden per woord).",
