@@ -1,10 +1,10 @@
 package i18n
 
-// The word game. Its name is a placeholder until one is picked.
+// The word game, DLingo Destruction.
 var gameStrings = map[string]Dict{
 	"en": {
 		"NavGame":       "game",
-		"GameTitle":     "Adieulingo",
+		"GameTitle":     "DLingo Destruction",
 		"GameLead":      "5 words from your list, 4 answers each. Find the right translation: the faster, the more points (%d seconds per word).",
 		"GameBest":      "Your record: %d / %d",
 		"GamePlay":      "Play",
@@ -15,7 +15,7 @@ var gameStrings = map[string]Dict{
 	},
 	"fr": {
 		"NavGame":       "jeu",
-		"GameTitle":     "Adieulingo",
+		"GameTitle":     "DLingo Destruction",
 		"GameLead":      "5 mots de ta liste, 4 réponses à chaque fois. Trouve la bonne traduction : plus tu vas vite, plus tu marques (%d secondes par mot).",
 		"GameBest":      "Ton record : %d / %d",
 		"GamePlay":      "Jouer",
@@ -26,7 +26,7 @@ var gameStrings = map[string]Dict{
 	},
 	"es": {
 		"NavGame":       "juego",
-		"GameTitle":     "Adieulingo",
+		"GameTitle":     "DLingo Destruction",
 		"GameLead":      "5 palabras de tu lista, 4 respuestas cada vez. Encuentra la traducción correcta: cuanto más rápido, más puntos (%d segundos por palabra).",
 		"GameBest":      "Tu récord: %d / %d",
 		"GamePlay":      "Jugar",
@@ -37,7 +37,7 @@ var gameStrings = map[string]Dict{
 	},
 	"pt": {
 		"NavGame":       "jogo",
-		"GameTitle":     "Adieulingo",
+		"GameTitle":     "DLingo Destruction",
 		"GameLead":      "5 palavras da sua lista, 4 respostas cada. Encontre a tradução certa: quanto mais rápido, mais pontos (%d segundos por palavra).",
 		"GameBest":      "Seu recorde: %d / %d",
 		"GamePlay":      "Jogar",
@@ -48,7 +48,7 @@ var gameStrings = map[string]Dict{
 	},
 	"it": {
 		"NavGame":       "gioco",
-		"GameTitle":     "Adieulingo",
+		"GameTitle":     "DLingo Destruction",
 		"GameLead":      "5 parole dalla tua lista, 4 risposte ciascuna. Trova la traduzione giusta: più sei veloce, più punti fai (%d secondi per parola).",
 		"GameBest":      "Il tuo record: %d / %d",
 		"GamePlay":      "Gioca",
@@ -59,7 +59,7 @@ var gameStrings = map[string]Dict{
 	},
 	"de": {
 		"NavGame":       "Spiel",
-		"GameTitle":     "Adieulingo",
+		"GameTitle":     "DLingo Destruction",
 		"GameLead":      "5 Wörter aus deiner Liste, je 4 Antworten. Finde die richtige Übersetzung: je schneller, desto mehr Punkte (%d Sekunden pro Wort).",
 		"GameBest":      "Dein Rekord: %d / %d",
 		"GamePlay":      "Spielen",
@@ -70,7 +70,7 @@ var gameStrings = map[string]Dict{
 	},
 	"nl": {
 		"NavGame":       "spel",
-		"GameTitle":     "Adieulingo",
+		"GameTitle":     "DLingo Destruction",
 		"GameLead":      "5 woorden uit je lijst, telkens 4 antwoorden. Vind de juiste vertaling: hoe sneller, hoe meer punten (%d seconden per woord).",
 		"GameBest":      "Je record: %d / %d",
 		"GamePlay":      "Spelen",
