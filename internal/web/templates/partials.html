@@ -43,6 +43,7 @@
   <label for="nav-toggle" class="nav-toggle-btn" aria-label="Menu">☰</label>
   <div class="nav-links">
     {{if .LoggedIn}}
+      <a href="/">{{.T.NavMyBooks}}</a>
       <a href="/words">{{.T.NavMyWords}}</a>
       <a href="/review">{{.T.NavReview}}{{if gt .DueCount 0}} <span class="badge">{{.DueCount}}</span>{{end}}</a>
       <a href="/leaderboard">{{.T.NavLeaderboard}}</a>

@@ -34,7 +34,7 @@ func For(nativeLang string) Dict {
 
 var fr = Dict{
 	"LangCode":   "fr",
-	"NavMyWords": "mes mots", "NavReview": "révision", "NavHistory": "historique",
+	"NavMyBooks": "mes livres", "NavMyWords": "mes mots", "NavReview": "révision", "NavHistory": "historique",
 	"NavSettings": "réglages", "NavLogin": "connexion",
 
 	"LibTitle": "Bibliothèque", "LibUpload": "Ajouter un livre",
@@ -84,7 +84,7 @@ var fr = Dict{
 
 var en = Dict{
 	"LangCode":   "en",
-	"NavMyWords": "my words", "NavReview": "review", "NavHistory": "history",
+	"NavMyBooks": "my books", "NavMyWords": "my words", "NavReview": "review", "NavHistory": "history",
 	"NavSettings": "settings", "NavLogin": "log in",
 
 	"LibTitle": "Library", "LibUpload": "Add a book",
@@ -134,7 +134,7 @@ var en = Dict{
 
 var es = Dict{
 	"LangCode":   "es",
-	"NavMyWords": "mis palabras", "NavReview": "repaso", "NavHistory": "historial",
+	"NavMyBooks": "mis libros", "NavMyWords": "mis palabras", "NavReview": "repaso", "NavHistory": "historial",
 	"NavSettings": "ajustes", "NavLogin": "iniciar sesión",
 
 	"LibTitle": "Biblioteca", "LibUpload": "Añadir un libro",
@@ -184,7 +184,7 @@ var es = Dict{
 
 var pt = Dict{
 	"LangCode":   "pt",
-	"NavMyWords": "minhas palavras", "NavReview": "revisão", "NavHistory": "histórico",
+	"NavMyBooks": "meus livros", "NavMyWords": "minhas palavras", "NavReview": "revisão", "NavHistory": "histórico",
 	"NavSettings": "ajustes", "NavLogin": "entrar",
 
 	"LibTitle": "Biblioteca", "LibUpload": "Adicionar um livro",
@@ -234,7 +234,7 @@ var pt = Dict{
 
 var it = Dict{
 	"LangCode":   "it",
-	"NavMyWords": "le mie parole", "NavReview": "ripasso", "NavHistory": "cronologia",
+	"NavMyBooks": "i miei libri", "NavMyWords": "le mie parole", "NavReview": "ripasso", "NavHistory": "cronologia",
 	"NavSettings": "impostazioni", "NavLogin": "accedi",
 
 	"LibTitle": "Libreria", "LibUpload": "Aggiungi un libro",
@@ -284,7 +284,7 @@ var it = Dict{
 
 var de = Dict{
 	"LangCode":   "de",
-	"NavMyWords": "meine Wörter", "NavReview": "Wiederholung", "NavHistory": "Verlauf",
+	"NavMyBooks": "meine Bücher", "NavMyWords": "meine Wörter", "NavReview": "Wiederholung", "NavHistory": "Verlauf",
 	"NavSettings": "Einstellungen", "NavLogin": "Anmelden",
 
 	"LibTitle": "Bibliothek", "LibUpload": "Buch hinzufügen",
@@ -334,7 +334,7 @@ var de = Dict{
 
 var nl = Dict{
 	"LangCode":   "nl",
-	"NavMyWords": "mijn woorden", "NavReview": "herhaling", "NavHistory": "geschiedenis",
+	"NavMyBooks": "mijn boeken", "NavMyWords": "mijn woorden", "NavReview": "herhaling", "NavHistory": "geschiedenis",
 	"NavSettings": "instellingen", "NavLogin": "inloggen",
 
 	"LibTitle": "Bibliotheek", "LibUpload": "Boek toevoegen",
