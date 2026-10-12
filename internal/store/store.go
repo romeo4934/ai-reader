@@ -210,6 +210,8 @@ func migrateUsersForEmail(db *sql.DB) error {
 		{"avatar_color", "TEXT NOT NULL DEFAULT ''"},
 		{"agora_welcomed", "INTEGER NOT NULL DEFAULT 0"},
 		{"avatar_look", "TEXT NOT NULL DEFAULT ''"},
+		{"game_mails", "INTEGER NOT NULL DEFAULT 1"},
+		{"last_game_mail_at", "TEXT NOT NULL DEFAULT ''"},
 	} {
 		if err := ensureColumn(db, "users", c.name, c.decl); err != nil {
 			return fmt.Errorf("migration users.%s : %w", c.name, err)

@@ -64,6 +64,7 @@
     </nav>
     {{end}}
     {{if $d.TooFew}}<p class="empty">{{.T.GameTooFew}}</p>{{end}}
+    {{if $d.Starter}}<p class="game-lead">🎯 {{.T.GameStarterLead}}</p>{{end}}
 
     {{if $d.Turns}}
     <section class="game-section">

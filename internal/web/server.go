@@ -125,6 +125,7 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("GET /game/pick", s.requireAuth(s.handleGamePick))
 	mux.HandleFunc("POST /game/daily", s.requireAuth(s.handleGameDaily))
 	mux.HandleFunc("GET /game/c/{token}", s.handleGameLink)
+	mux.HandleFunc("GET /game/c/{token}/card.png", s.handleGameCard)
 	mux.HandleFunc("POST /game/c/{token}/score", s.handleGameLinkScore)
 	mux.HandleFunc("GET /game/rounds/{id}", s.requireAuth(s.handleGameRound))
 	mux.HandleFunc("POST /game/rounds/{id}/score", s.requireAuth(s.handleGameScore))
@@ -597,6 +598,7 @@ type deckTab struct {
 }
 
 type reviewView struct {
+	Lang     string // the deck's language, for pronouncing the words
 	Tabs     []deckTab
 	LangName string
 	// LangDone: nothing left in this language today, but Elsewhere has.
@@ -636,7 +638,7 @@ func (s *Server) handleReviewPage(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, http.StatusInternalServerError, err)
 		return
 	}
-	view := reviewView{Daily: daily}
+	view := reviewView{Lang: lang, Daily: daily}
 	if lang != "" {
 		for _, l := range langs {
 			tab := deckTab{Lang: l, Name: langName(l), Active: l == lang}
@@ -811,7 +813,7 @@ func (s *Server) handleWords(w http.ResponseWriter, r *http.Request) {
 	}
 	var missing []store.Vocab
 	now := time.Now().In(userLocation(r))
-	view := wordsView{Status: status, Groups: groupByFrequency(T, words), Any: waiting+learning+known > 0}
+	view := wordsView{Lang: lang, Status: status, Groups: groupByFrequency(T, words), Any: waiting+learning+known > 0}
 	for _, g := range view.Groups {
 		for i := range g.Words {
 			wr := &g.Words[i]
@@ -857,6 +859,7 @@ func (s *Server) handleWords(w http.ResponseWriter, r *http.Request) {
 }
 
 type wordsView struct {
+	Lang       string // the deck's language, for pronouncing the words
 	Tabs       []deckTab
 	StatusTabs []wordsTab
 	Status     string // the tab shown: store.VocabLearning, VocabNew or VocabKnown

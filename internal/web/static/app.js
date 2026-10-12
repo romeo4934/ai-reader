@@ -291,6 +291,8 @@
     var hint = document.getElementById('first-hint');
     if (hint) hint.remove(); // they've got it
     resetPopoverBody();
+    var say = document.getElementById('tp-say');
+    if (say) say.setAttribute('data-say', phrase);
     popover.hidden = false;
     elLoading.hidden = false;
     positionPopover(rect);

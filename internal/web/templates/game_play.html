@@ -3,6 +3,18 @@
 <head>
   <title>{{.Title}}</title>
   {{template "head" .}}
+  {{with .Data.OG}}
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Lydi">
+  <meta property="og:title" content="{{.Title}}">
+  <meta property="og:description" content="{{.Description}}">
+  <meta property="og:url" content="{{.URL}}">
+  <meta property="og:image" content="{{.Image}}">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="description" content="{{.Description}}">
+  {{end}}
 </head>
 <body>
   {{template "nav" .}}

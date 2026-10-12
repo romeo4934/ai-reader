@@ -399,6 +399,23 @@ details[open] .word-row::after { content: '⌄'; }
 .tp-close:active { background: color-mix(in srgb, var(--fg) 16%, var(--card-bg)); }
 [data-eink] .tp-close { border: 2px solid #000; background: #fff; color: #000; }
 
+/* The 🔊 pronunciation button: on cards, in the word list, and in the
+   reader's panel under the close button (stacked, so the panel's text keeps
+   its right margin). */
+.say-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 36px; height: 36px; padding: 0; vertical-align: middle;
+  border-radius: 50%; border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--fg) 6%, var(--card-bg)); color: var(--fg);
+  font-size: 1.05rem; line-height: 1; cursor: pointer;
+}
+.say-btn:active { background: color-mix(in srgb, var(--fg) 16%, var(--card-bg)); }
+.word-row .say-btn { width: 30px; height: 30px; font-size: 0.9rem; }
+.card-say { margin: 0.2rem 0 0.6rem; font-weight: 600; display: flex; gap: 0.5rem; align-items: center; }
+.tp-say { position: absolute; top: calc(0.5rem + 52px); right: 0.5rem; width: 44px; height: 44px; font-size: 1.2rem; }
+#translate-popover { min-height: 116px; }
+[data-eink] .say-btn { border: 2px solid #000; background: #fff; color: #000; }
+
 @media (min-width: 900px) {
   .chapter { font-size: 1.25rem; }
 }

@@ -89,7 +89,7 @@
             </p>
             <button type="button" class="btn-link type-why" id="why" data-label="{{$t.ReviewWhyNot}}" data-loading="{{$t.ReviewExplaining}}" data-failed="{{$t.ReviewExplainFailed}}" hidden></button>
             <p class="type-diff" id="fb-explain" hidden></p>
-            <div class="card-translation">{{$rc.Answer}}</div>
+            <div class="card-translation">{{$rc.Answer}} <button type="button" class="say-btn" data-say="{{$rc.Answer}}" data-lang="{{$.Data.Lang}}" aria-label="{{$t.SayWord}}" title="{{$t.SayWord}}">🔊</button></div>
             <div class="card-original">
               <span class="card-original-label">{{$t.ReviewOriginalLabel}}</span>
               {{highlight $card.Context $card.Phrase}}
@@ -134,6 +134,7 @@
 
           <div id="answer" hidden>
             <div class="card-translation">{{$card.Translation}}</div>
+            <p class="card-say"><button type="button" class="say-btn" data-say="{{$card.Phrase}}" data-lang="{{$.Data.Lang}}" aria-label="{{$t.SayWord}}" title="{{$t.SayWord}}">🔊</button> {{$card.Phrase}}</p>
             {{if $card.Lemma}}<div class="card-lemma">{{$card.Lemma}}</div>{{end}}
             {{if $card.Note}}<div class="card-note">{{$card.Note}}</div>{{end}}
 

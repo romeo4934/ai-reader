@@ -17,7 +17,7 @@
     {{if .Data.FirstTime}}<p class="first-hint" id="first-hint">{{.T.ReaderFirstHint}}</p>{{end}}
     <article id="chapter" class="chapter" data-reading="{{.Reading}}"{{if .Data.StartPara}} data-start-para="{{.Data.StartPara}}"{{end}}
       data-book-id="{{.Data.Book.ID}}"
-      data-chapter-id="{{.Data.Chapter.ID}}">
+      data-chapter-id="{{.Data.Chapter.ID}}" data-lang="{{.Data.Book.Language}}">
       {{range .Data.Paragraphs}}
       <p class="para">{{.}}</p>
       {{end}}
@@ -50,6 +50,7 @@
     <div id="tp-error" class="tp-error" hidden></div>
     <div class="tp-sentence" id="tp-sentence" hidden></div>
     <button id="tp-close" type="button" class="tp-close" aria-label="{{.T.ReaderClose}}">×</button>
+    <button id="tp-say" type="button" class="say-btn tp-say" data-say="" data-lang="{{.Data.Book.Language}}" aria-label="{{.T.SayWord}}" title="{{.T.SayWord}}">🔊</button>
   </div>
 
   <script src="/static/app.js"></script>

@@ -97,16 +97,26 @@ func (s *Server) handleUnsubscribe(w http.ResponseWriter, r *http.Request) {
 	T := s.visitorDict(w, r)
 	token := r.URL.Query().Get("t")
 	id, ok := auth.LinkUserID(token)
-	if !ok || !auth.VerifyLink(s.secret, auth.PurposeUnsubscribe, token, "") {
+	// The same page turns off either the evening reminder or the duel
+	// emails, depending on which email the link came from.
+	game := ok && auth.VerifyLink(s.secret, auth.PurposeUnsubscribe, token, gameUnsubscribe)
+	if !ok || !game && !auth.VerifyLink(s.secret, auth.PurposeUnsubscribe, token, "") {
 		s.renderAccount(w, r, T, "message.html", "ReminderOffTitle", accountView{Error: T["ReminderOffBad"]})
 		return
 	}
-	if err := s.store.SetReminders(id, false); err != nil {
+	off, title, done := s.store.SetReminders, "ReminderOffTitle", "ReminderOff"
+	if game {
+		off, title, done = s.store.SetGameMails, "GameMailsOffTitle", "GameMailsOff"
+	}
+	if err := off(id, false); err != nil {
 		s.fail(w, http.StatusInternalServerError, err)
 		return
 	}
 	if u, err := s.store.GetUserByID(id); err == nil {
 		T = i18n.For(u.NativeLang)
 	}
-	s.renderAccount(w, r, T, "message.html", "ReminderOffTitle", accountView{Message: T["ReminderOff"]})
+	s.renderAccount(w, r, T, "message.html", title, accountView{Message: T[done]})
 }
+
+// gameUnsubscribe binds an unsubscribe link to the duel emails.
+const gameUnsubscribe = "game"

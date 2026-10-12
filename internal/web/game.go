@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -8,12 +9,15 @@ import (
 	"fmt"
 	mrand "math/rand/v2"
 	"net/http"
+	"net/url"
 	"slices"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/romeo4934/ai-reader/internal/auth"
+	"github.com/romeo4934/ai-reader/internal/i18n"
+	"github.com/romeo4934/ai-reader/internal/starter"
 	"github.com/romeo4934/ai-reader/internal/store"
 )
 
@@ -176,28 +180,38 @@ func (o gameOptions) narrowed() bool { return o.BookID != 0 || o.Missed || len(o
 // gameQuestions builds a round in lang from the words of owners, taking
 // turns between them, each word's decoys drawn from its owner's list. All
 // words come from one frequency band — the one asked for, or one picked at
-// random among those with enough words, from both players in a duel.
+// random among those with enough words, from both players in a duel. An
+// owner without enough words of their own plays the starter words.
 func (s *Server) gameQuestions(lang string, o gameOptions, owners ...store.User) ([]gameQuestion, error) {
 	if o.narrowed() {
 		owners = owners[:1]
 	}
-	filters := make([]store.GameFilter, len(owners))
-	for i := range owners {
-		filters[i] = store.GameFilter{Band: gameAnyBand}
+	srcs := make([]gameSource, len(owners))
+	for i, ow := range owners {
+		srcs[i] = gameSource{s: s, owner: ow, lang: lang, f: store.GameFilter{Band: gameAnyBand}}
+		if i == 0 {
+			srcs[i].f.BookID, srcs[i].f.Missed, srcs[i].f.IDs = o.BookID, o.Missed, o.IDs
+		}
+		if !o.narrowed() && starter.Has(lang, ow.NativeLang) {
+			n, err := s.store.GameCount(ow.ID, lang, store.GameFilter{Band: gameAnyBand})
+			if err != nil {
+				return nil, err
+			}
+			srcs[i].starter = n < gameRoundLen+2
+		}
 	}
-	filters[0].BookID, filters[0].Missed, filters[0].IDs = o.BookID, o.Missed, o.IDs
 	if len(o.IDs) == 0 {
-		band, err := s.gameBand(lang, o, owners, filters)
+		band, err := s.gameBand(o, srcs)
 		if err != nil {
 			return nil, err
 		}
-		for i := range filters {
-			filters[i].Band = band
+		for i := range srcs {
+			srcs[i].f.Band = band
 		}
 	}
-	pools := make([][]store.GameWord, len(owners))
-	for i, ow := range owners {
-		words, err := s.store.GameWords(ow.ID, lang, filters[i], gameRoundLen*2)
+	pools := make([][]store.GameWord, len(srcs))
+	for i, src := range srcs {
+		words, err := src.words(src.f, gameRoundLen*2)
 		if err != nil {
 			return nil, err
 		}
@@ -205,7 +219,7 @@ func (s *Server) gameQuestions(lang string, o gameOptions, owners ...store.User)
 	}
 	// A book or the missed words may not fill a round: top up with others.
 	if o.BookID != 0 || o.Missed {
-		more, err := s.store.GameWords(owners[0].ID, lang, store.GameFilter{Band: gameAnyBand}, gameRoundLen*2)
+		more, err := srcs[0].words(store.GameFilter{Band: gameAnyBand}, gameRoundLen*2)
 		if err != nil {
 			return nil, err
 		}
@@ -228,7 +242,7 @@ func (s *Server) gameQuestions(lang string, o gameOptions, owners ...store.User)
 		if seen[key] {
 			continue
 		}
-		decoys, err := s.store.GameDecoys(owners[i].ID, lang, owners[i].NativeLang, wd, reverse, gameChoices-1)
+		decoys, err := srcs[i].decoys(wd, reverse, gameChoices-1)
 		if err != nil {
 			return nil, err
 		}
@@ -249,17 +263,78 @@ func (s *Server) gameQuestions(lang string, o gameOptions, owners ...store.User)
 	return out, nil
 }
 
+// gameSource is where one player's words for a round come from: their own
+// list, or the starter words (whose VocabID is 0: nothing to bring back
+// into review).
+type gameSource struct {
+	s       *Server
+	owner   store.User
+	lang    string
+	f       store.GameFilter
+	starter bool
+}
+
+func (g gameSource) count(f store.GameFilter) (int, error) {
+	if g.starter {
+		return starter.Count(g.lang, g.owner.NativeLang, f.Band.Min, f.Band.Max), nil
+	}
+	return g.s.store.GameCount(g.owner.ID, g.lang, f)
+}
+
+func (g gameSource) words(f store.GameFilter, n int) ([]store.GameWord, error) {
+	if !g.starter {
+		return g.s.store.GameWords(g.owner.ID, g.lang, f, n)
+	}
+	var out []store.GameWord
+	for _, w := range starter.Pick(g.lang, g.owner.NativeLang, f.Band.Min, f.Band.Max, n) {
+		out = append(out, store.GameWord{Phrase: w.Phrase, Translation: w.Translation, Frequency: w.Rank})
+	}
+	return out, nil
+}
+
+// decoys: from the player's words and those of readers with the same
+// native language, topped up with starter words when that's too few.
+func (g gameSource) decoys(w store.GameWord, reverse bool, n int) ([]string, error) {
+	return gameDecoys(g.s, g.owner.ID, g.lang, g.owner.NativeLang, w, reverse, n, g.starter)
+}
+
+func gameDecoys(s *Server, ownerID int64, lang, nativeLang string, w store.GameWord, reverse bool, n int, starterOnly bool) ([]string, error) {
+	answer := w.Translation
+	if reverse {
+		answer = w.Phrase
+	}
+	var out []string
+	if !starterOnly {
+		var err error
+		if out, err = s.store.GameDecoys(ownerID, lang, nativeLang, w, reverse, n); err != nil {
+			return nil, err
+		}
+	}
+	if len(out) < n {
+		taken := append([]string{answer}, out...)
+		for _, d := range starter.Decoys(lang, nativeLang, w.Frequency, answer, reverse, n+len(out)) {
+			if len(out) == n {
+				break
+			}
+			if !slices.ContainsFunc(taken, func(t string) bool { return strings.EqualFold(strings.TrimSpace(t), strings.TrimSpace(d)) }) {
+				out, taken = append(out, d), append(taken, d)
+			}
+		}
+	}
+	return out, nil
+}
+
 // gameBand picks the round's frequency band: the level asked for if it has
 // enough words, else one where the owners have enough between them, each
 // owner at least a couple when possible; failing all, any word.
-func (s *Server) gameBand(lang string, o gameOptions, owners []store.User, filters []store.GameFilter) (store.GameBand, error) {
+func (s *Server) gameBand(o gameOptions, srcs []gameSource) (store.GameBand, error) {
 	var fair, enough []store.GameBand
 	for bi, b := range gameBands {
 		total, least := 0, gameRoundLen
-		for i, ow := range owners {
-			f := filters[i]
+		for _, src := range srcs {
+			f := src.f
 			f.Band = b
-			n, err := s.store.GameCount(ow.ID, lang, f)
+			n, err := src.count(f)
 			if err != nil {
 				return store.GameBand{}, err
 			}
@@ -273,7 +348,7 @@ func (s *Server) gameBand(lang string, o gameOptions, owners []store.User, filte
 		}
 		if ok {
 			enough = append(enough, b)
-			if len(owners) == 1 || least >= 2 {
+			if len(srcs) == 1 || least >= 2 {
 				fair = append(fair, b)
 			}
 		}
@@ -334,6 +409,7 @@ type gameHub struct {
 	Best    int
 	Max     int
 	TooFew  bool
+	Starter bool // no list of their own: the starter words
 	Turns   []gameDuel
 	Waiting []gameDuel
 	Done    []gameDuel
@@ -348,7 +424,8 @@ type gameHub struct {
 func (s *Server) handleGame(w http.ResponseWriter, r *http.Request) {
 	user := userFromContext(r)
 	hub := gameHub{Max: gameMaxScore, TooFew: r.URL.Query().Get("few") != ""}
-	langs, err := s.store.VocabLangs(user.ID)
+	langs, err := s.gameLangs(user)
+	hub.Starter = len(langs) > 0 && !s.hasOwnWords(user)
 	if err != nil {
 		s.fail(w, http.StatusInternalServerError, err)
 		return
@@ -420,10 +497,25 @@ func (s *Server) handleGame(w http.ResponseWriter, r *http.Request) {
 
 // handleGameNew starts a round: solo (no friend) or a duel with a friend,
 // which the challenger plays first.
+// gameLangs: the languages the user can play, those of their list or,
+// without one, those with starter words.
+func (s *Server) gameLangs(user *store.User) ([]string, error) {
+	langs, err := s.store.VocabLangs(user.ID)
+	if err != nil || len(langs) > 0 {
+		return langs, err
+	}
+	return starter.Langs(user.NativeLang), nil
+}
+
+func (s *Server) hasOwnWords(user *store.User) bool {
+	langs, err := s.store.VocabLangs(user.ID)
+	return err == nil && len(langs) > 0
+}
+
 func (s *Server) handleGameNew(w http.ResponseWriter, r *http.Request) {
 	user := userFromContext(r)
 	lang := r.FormValue("lang")
-	langs, err := s.store.VocabLangs(user.ID)
+	langs, err := s.gameLangs(user)
 	if err != nil {
 		s.fail(w, http.StatusInternalServerError, err)
 		return
@@ -507,6 +599,12 @@ type gamePlay struct {
 	Daily     bool
 	MyScore   int
 	Guest     string // without an account: the challenger's name
+	OG        *gameOG
+}
+
+// gameOG: the link preview of a link challenge.
+type gameOG struct {
+	Title, Description, Image, URL string
 }
 
 func gamePlayFor(g store.GameRound) (gamePlay, error) {
@@ -605,6 +703,9 @@ func (s *Server) handleGameScore(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, http.StatusInternalServerError, err)
 		return
 	}
+	if g.OpponentID != 0 {
+		s.notifyGame(g.ID, user.ID)
+	}
 	if g.Solo() {
 		if _, err := s.store.SaveGameScore(user.ID, g.Lang, score, now); err != nil {
 			s.fail(w, http.StatusInternalServerError, err)
@@ -698,6 +799,15 @@ func (s *Server) handleGameLink(w http.ResponseWriter, r *http.Request) {
 	view.ShareURL = s.cfg.BaseURL + "/game"
 	view.Guest = publicName(src.ChallengerID, src.ChallengerUser, src.ChallengerDisp)
 	T := s.visitorDict(w, r)
+	link := s.cfg.BaseURL + "/game/c/" + src.OpenToken
+	view.OG = &gameOG{Title: fmt.Sprintf(T["GameCardTitle"], view.Guest), Description: fmt.Sprintf(T["GameCardNoScore"], view.Guest),
+		Image: link + "/card.png", URL: link}
+	if src.ChallengerScore != nil {
+		view.OG.Description = fmt.Sprintf(T["GameCardScore"], view.Guest, *src.ChallengerScore, gameMaxScore)
+		// The card changes once the challenger has played: a new address,
+		// or previews cached before keep the old one.
+		view.OG.Image += fmt.Sprintf("?s=%d", *src.ChallengerScore)
+	}
 	s.renderDict(w, r, T, "game_play.html", T["GameTitle"], view)
 }
 
@@ -761,6 +871,7 @@ func (s *Server) claimGameGuest(w http.ResponseWriter, r *http.Request, user *st
 		s.log.Error("game: claim guest score", "err", err)
 		return 0, false
 	}
+	s.notifyGame(id, user.ID)
 	return id, true
 }
 
@@ -812,12 +923,19 @@ func (s *Server) gameDailyQuestions(day, lang, nativeLang string) (string, error
 	if err != nil {
 		return "", err
 	}
+	// Few readers of this language yet: the starter words fill the round
+	// (owner 0, so no one's list).
+	for _, w := range starter.Pick(lang, nativeLang, gameBands[0].Min, gameBands[1].Max, gameRoundLen*3-len(words)) {
+		if !slices.ContainsFunc(words, func(o store.GameWord) bool { return strings.EqualFold(o.Phrase, w.Phrase) }) {
+			words, owners = append(words, store.GameWord{Phrase: w.Phrase, Translation: w.Translation, Frequency: w.Rank}), append(owners, 0)
+		}
+	}
 	var qs []gameQuestion
 	for i, wd := range words {
 		if len(qs) == gameRoundLen {
 			break
 		}
-		decoys, err := s.store.GameDecoys(owners[i], lang, nativeLang, wd, false, gameChoices-1)
+		decoys, err := gameDecoys(s, owners[i], lang, nativeLang, wd, false, gameChoices-1, owners[i] == 0)
 		if err != nil {
 			return "", err
 		}
@@ -864,4 +982,65 @@ func (s *Server) handleGameDaily(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.Redirect(w, r, fmt.Sprintf("/game/rounds/%d", id), http.StatusSeeOther)
+}
+
+// --- duel emails ---
+
+// gameMailGap: at most one duel email per player in this window.
+const gameMailGap = 20 * time.Minute
+
+// notifyGame emails the other player of a duel once playerID has played:
+// "your turn" when the challenger has just played, the result when the
+// round is over. Sent in the background: the score answer doesn't wait.
+func (s *Server) notifyGame(roundID, playerID int64) {
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		if err := s.sendGameMail(ctx, roundID, playerID, time.Now()); err != nil {
+			s.log.Error("game: email", "round", roundID, "err", err)
+		}
+	}()
+}
+
+func (s *Server) sendGameMail(ctx context.Context, roundID, playerID int64, now time.Time) error {
+	g, err := s.store.GameRoundByID(roundID)
+	if err != nil || g.OpponentID == 0 || g.ChallengerScore == nil {
+		return err
+	}
+	otherID := g.ChallengerID
+	if playerID == g.ChallengerID {
+		otherID = g.OpponentID
+	}
+	turn := g.OpponentScore == nil
+	if turn && otherID != g.OpponentID {
+		return nil
+	}
+	to, err := s.store.GameMailTo(otherID, now, gameMailGap)
+	if err != nil || to == "" {
+		return err
+	}
+	other, err := s.store.GetUserByID(otherID)
+	if err != nil {
+		return err
+	}
+	T := i18n.For(other.NativeLang)
+	d := duelFor(g, otherID)
+	link := fmt.Sprintf("%s/game/rounds/%d", s.cfg.BaseURL, g.ID)
+	if !turn {
+		link = s.cfg.BaseURL + "/game"
+	}
+	unsub := s.cfg.BaseURL + "/unsubscribe?t=" + url.QueryEscape(auth.SignLink(s.secret, auth.PurposeUnsubscribe, otherID, gameUnsubscribe, unsubscribeTTL))
+	var subject, body string
+	if turn {
+		subject = fmt.Sprintf(T["MailGameTurnSubject"], d.Other)
+		body = fmt.Sprintf(T["MailGameTurnBody"], d.Other, *d.Theirs, gameMaxScore, link, unsub)
+	} else {
+		subject = fmt.Sprintf(T["MailGameResultSubject"], d.Other)
+		body = fmt.Sprintf(T["MailGameResultBody"], d.Result(T), link, unsub)
+	}
+	if err := s.mail.Send(ctx, to, subject, body, ""); err != nil {
+		return err
+	}
+	s.log.Info("game: email envoyé", "round", g.ID, "to_user", otherID, "turn", turn)
+	return nil
 }

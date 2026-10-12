@@ -45,7 +45,7 @@
           <details>
             <summary class="word-row">
               <span class="word-main">
-                <span class="word-phrase">{{.Phrase}}</span>{{if .Lemma}} <span class="word-lemma">← {{if .Forms}}{{.Forms}}{{else}}{{.Lemma}}{{end}}</span>{{end}}
+                <span class="word-phrase">{{.Phrase}}</span> <button type="button" class="say-btn" data-say="{{.Phrase}}" data-lang="{{$.Data.Lang}}" aria-label="{{$t.SayWord}}" title="{{$t.SayWord}}">🔊</button>{{if .Lemma}} <span class="word-lemma">← {{if .Forms}}{{.Forms}}{{else}}{{.Lemma}}{{end}}</span>{{end}}
                 <span class="word-translation">{{.Translation}}</span>
               </span>
               {{if .Due}}<span class="word-due">{{.Due}}</span>{{end}}

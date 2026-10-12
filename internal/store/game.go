@@ -486,3 +486,28 @@ func (s *Store) GameDailyRanking(day, lang, nativeLang string, limit int) ([]Gam
 	}
 	return out, rows.Err()
 }
+
+// GameMailTo returns the address to tell a player about a duel, claiming
+// their game-email slot: "" when they have no confirmed email, turned these
+// emails off, or already got one less than gap ago (a burst of rounds
+// makes one email, not ten).
+func (s *Store) GameMailTo(userID int64, now time.Time, gap time.Duration) (string, error) {
+	res, err := s.db.Exec(`UPDATE users SET last_game_mail_at = ?
+		WHERE id = ? AND email != '' AND email_verified_at != '' AND game_mails = 1 AND last_game_mail_at < ?`,
+		now.UTC().Format(timeLayout), userID, now.Add(-gap).UTC().Format(timeLayout))
+	if err != nil {
+		return "", err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return "", nil
+	}
+	var email string
+	err = s.db.QueryRow(`SELECT email FROM users WHERE id = ?`, userID).Scan(&email)
+	return email, err
+}
+
+// SetGameMails turns the duel emails on or off.
+func (s *Store) SetGameMails(userID int64, on bool) error {
+	_, err := s.db.Exec(`UPDATE users SET game_mails = ? WHERE id = ?`, on, userID)
+	return err
+}
