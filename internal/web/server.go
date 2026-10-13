@@ -616,6 +616,7 @@ type reviewView struct {
 	AgoraGauge   string
 	AgoraEntered bool
 	Card         *store.Vocab
+	Forms        string // a verb's forms ("swing · swung · swung")
 	IsNew        bool
 	IsRetry      bool // missed earlier today, back for another go
 	// Recall is nil when generation failed or no API key is set — the
@@ -667,6 +668,7 @@ func (s *Server) handleReviewPage(w http.ResponseWriter, r *http.Request) {
 			// one, so they're ready by the time this card is answered.
 			s.prefetchRecallCards(user, cards, daily.NewLeft)
 			view.Recall = s.recallCardFor(r.Context(), user, view.Card)
+			view.Forms = s.cardForms(r.Context(), user, view.Card)
 		}
 	}
 	if view.Card == nil && daily.DeckSize > 0 && daily.AllRemaining > 0 && view.Elsewhere != nil {

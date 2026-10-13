@@ -1056,15 +1056,17 @@ func (s *Store) DeleteVocab(id, userID int64) error {
 // — "known" declutters the list, it doesn't opt a word out of ever being
 // checked again.
 // VocabForms gives, for the user's words whose dictionary form differs from
-// the form read, their forms ("" when there are none worth showing); ok is
-// false for those not worked out yet.
+// the form read — and every English word, for a verb's principal parts —
+// their forms ("" when there are none worth showing); ok is false for those
+// not worked out yet.
 type VocabFormsEntry struct {
 	Forms string
 	OK    bool
 }
 
 func (s *Store) VocabForms(userID int64) (map[int64]VocabFormsEntry, error) {
-	rows, err := s.db.Query(`SELECT id, forms FROM vocab WHERE user_id = ? AND lemma != '' AND lower(lemma) != lower(phrase)`, userID)
+	rows, err := s.db.Query(`SELECT v.id, v.forms FROM vocab v JOIN books b ON b.id = v.book_id
+		WHERE v.user_id = ? AND `+formsEligible, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -1077,6 +1079,46 @@ func (s *Store) VocabForms(userID int64) (map[int64]VocabFormsEntry, error) {
 			return nil, err
 		}
 		out[id] = VocabFormsEntry{Forms: f.String, OK: f.Valid}
+	}
+	return out, rows.Err()
+}
+
+// formsEligible: the words worth working out forms for (vocab v, books b).
+const formsEligible = `v.lemma != '' AND (lower(v.lemma) != lower(v.phrase) OR b.language = 'en')`
+
+// VocabFormsOf is one word's forms; ok is false when they're still to be
+// worked out (or the word has none to work out: eligible false).
+func (s *Store) VocabFormsOf(id, userID int64) (forms string, ok, eligible bool, err error) {
+	var f sql.NullString
+	err = s.db.QueryRow(`SELECT v.forms, `+formsEligible+` FROM vocab v JOIN books b ON b.id = v.book_id
+		WHERE v.id = ? AND v.user_id = ?`, id, userID).Scan(&f, &eligible)
+	return f.String, f.Valid, eligible, err
+}
+
+// FormsJob is a word whose forms are still to be worked out.
+type FormsJob struct {
+	Vocab        Vocab
+	BookLanguage string
+	NativeLang   string
+}
+
+// VocabNeedingForms lists up to limit words, of any user, whose forms are
+// still to be worked out.
+func (s *Store) VocabNeedingForms(limit int) ([]FormsJob, error) {
+	rows, err := s.db.Query(`SELECT v.id, v.user_id, v.phrase, v.lemma, v.context, b.language, u.native_lang
+		FROM vocab v JOIN books b ON b.id = v.book_id JOIN users u ON u.id = v.user_id
+		WHERE v.forms IS NULL AND `+formsEligible+` ORDER BY v.id DESC LIMIT ?`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []FormsJob
+	for rows.Next() {
+		var j FormsJob
+		if err := rows.Scan(&j.Vocab.ID, &j.Vocab.UserID, &j.Vocab.Phrase, &j.Vocab.Lemma, &j.Vocab.Context, &j.BookLanguage, &j.NativeLang); err != nil {
+			return nil, err
+		}
+		out = append(out, j)
 	}
 	return out, rows.Err()
 }

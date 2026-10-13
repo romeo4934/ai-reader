@@ -73,6 +73,7 @@ func run() error {
 
 	log.Info("démarrage", "addr", addr, "db", dbPath)
 	go srv.RunReminders(context.Background())
+	go srv.RunForms(context.Background())
 	return http.ListenAndServe(addr, srv.Routes())
 }
 
