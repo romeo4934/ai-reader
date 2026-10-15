@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="{{.T.LangCode}}"{{if .Theme}} data-theme="{{.Theme}}"{{end}}{{if .Eink}} data-eink{{end}}>
+<head>
+  <title>{{.Title}}</title>
+  {{template "head" .}}
+</head>
+<body>
+  {{template "nav" .}}
+  {{$t := .T}}{{$d := .Data}}
+
+  <main class="page conj-page">
+    <h1>{{$t.ConjTitle}}</h1>
+    <p class="hint">{{$t.ConjLead}}</p>
+
+    <nav class="lb-tabs deck-tabs">
+      {{range $d.Tabs}}<a href="/conjugate?lang={{.Lang}}"{{if .Active}} class="active" aria-current="page"{{end}}>{{.Name}}</a>{{end}}
+    </nav>
+
+    <form action="/conjugate" method="get" class="conj-tenses">
+      <input type="hidden" name="lang" value="{{$d.Lang}}">
+      <input type="hidden" name="go" value="1">
+      <p class="conj-tenses-label">{{$t.ConjTenses}}</p>
+      <div class="conj-chips">
+        {{range $d.Tenses}}
+        <label class="conj-chip">
+          <input type="checkbox" name="t" value="{{.ID}}"{{if .On}} checked{{end}}>
+          <span><b>{{.Name}}</b>{{if .Gloss}} <small>{{.Gloss}}</small>{{end}}{{if ge .Score 0}} <em class="conj-score{{if ge .Score 80}} conj-score-good{{else if lt .Score 50}} conj-score-low{{end}}">{{.Score}} %</em>{{end}}</span>
+        </label>
+        {{end}}
+      </div>
+      <button type="submit" class="btn">{{$t.ConjNew}}</button>
+    </form>
+
+    {{if $d.Preparing}}
+      <p class="empty">{{$t.ConjPrepare}}</p>
+    {{else}}
+      <div class="card conj-card" id="conj">
+        <div class="card-top">
+          <div class="card-source"><span id="conj-step"></span> <span class="card-new card-retry" id="conj-again" hidden>{{$t.ConjAgain}}</span></div>
+        </div>
+        <p class="conj-verb"><span id="conj-verb"></span> <button type="button" class="say-btn" id="conj-say-verb" data-lang="{{$d.Lang}}" aria-label="{{$t.SayWord}}" title="{{$t.SayWord}}">🔊</button></p>
+        <p class="conj-meaning" id="conj-meaning"></p>
+        <p class="conj-tense"><span id="conj-tense"></span> <small id="conj-gloss"></small></p>
+
+        <form id="conj-form" class="type-form conj-form" autocomplete="off">
+          <span class="conj-pronoun" id="conj-pronoun"></span>
+          <input type="text" id="conj-typed" aria-label="{{$t.ConjTyped}}" placeholder="…"
+                 autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="done" lang="{{$d.Lang}}">
+          <button type="submit" class="btn btn-primary">{{$t.ConjCheck}}</button>
+        </form>
+        <button type="button" class="btn-link" id="conj-skip">{{$t.ConjDontKnow}}</button>
+
+        <div id="conj-result" hidden>
+          <p class="type-feedback" id="conj-feedback">
+            <span id="conj-ok" hidden>{{$t.ConjCorrect}}</span>
+            <span id="conj-accents" hidden>{{$t.ConjAccents}} <s id="conj-accents-typed"></s></span>
+            <span id="conj-wrong" hidden>{{$t.ConjWrong}} <s id="conj-wrong-typed"></s></span>
+          </p>
+          <div class="card-translation"><span id="conj-full"></span> <button type="button" class="say-btn" id="conj-say" data-lang="{{$d.Lang}}" aria-label="{{$t.SayWord}}" title="{{$t.SayWord}}">🔊</button></div>
+          <button type="button" class="btn-link type-why" id="conj-why" data-loading="{{$t.ConjExplaining}}" data-failed="{{$t.ConjExplainFailed}}" hidden>{{$t.ConjWhy}}</button>
+          <p class="type-diff" id="conj-explain" hidden></p>
+          <div class="card-original" id="conj-book" hidden>
+            <span class="card-original-label" id="conj-book-label" data-label="{{$t.ConjFromBook}}"></span>
+            <span id="conj-sentence"></span>
+          </div>
+          <div class="card-buttons">
+            <button type="button" class="btn btn-good" id="conj-next">{{$t.ConjContinue}}</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card conj-card" id="conj-done" hidden>
+        <p class="conj-done-score" id="conj-done-score" data-label="{{$t.ConjDone}}"></p>
+        <p id="conj-all-right" hidden>{{$t.ConjAllRight}}</p>
+        <div id="conj-missed" hidden>
+          <p class="conj-tenses-label">{{$t.ConjMissed}}</p>
+          <ul class="conj-missed-list" id="conj-missed-list"></ul>
+        </div>
+        <div class="card-buttons">
+          <a class="btn btn-primary" href="/conjugate?lang={{$d.Lang}}">{{$t.ConjMore}}</a>
+        </div>
+      </div>
+
+      <p class="hint conj-own">{{if $d.OwnVerbs}}{{printf $t.ConjOwn $d.OwnVerbs}}{{else}}{{$t.ConjNoOwn}}{{end}}</p>
+
+      <script>window.conjData = { lang: {{$d.Lang}}, questions: {{$d.Questions}} };</script>
+      <script src="/static/conj.js" defer></script>
+    {{end}}
+  </main>
+</body>
+</html>

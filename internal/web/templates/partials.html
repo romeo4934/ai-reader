@@ -45,6 +45,7 @@
     {{if .LoggedIn}}
       <a href="/">{{.T.NavMyBooks}}</a>
       <a href="/words">{{.T.NavMyWords}}</a>
+      <a href="/conjugate">{{.T.NavConj}}</a>
       <a href="/review">{{.T.NavReview}}{{if gt .DueCount 0}} <span class="badge">{{.DueCount}}</span>{{end}}</a>
       <a href="/leaderboard">{{.T.NavLeaderboard}}</a>
       <a href="/agora">{{.T.NavAgora}}</a>

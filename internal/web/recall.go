@@ -173,7 +173,7 @@ func (s *Server) handleAPIExplain(w http.ResponseWriter, r *http.Request) {
 		Sentence: req.Sentence, Answer: req.Answer, Typed: req.Typed,
 	})
 	if err != nil {
-		s.failJSON(w, http.StatusBadGateway, err)
+		s.failAI(w, r, err)
 		return
 	}
 	if err := s.store.CountTranslation(user.ID, now); err != nil {

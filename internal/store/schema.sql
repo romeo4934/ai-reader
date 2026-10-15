@@ -100,3 +100,44 @@ CREATE TABLE IF NOT EXISTS game_daily (
     questions   TEXT NOT NULL,
     PRIMARY KEY (day, lang_key, native_lang)
 );
+
+-- The conjugation exercise. A verb's table (JSON: tense ID -> forms), the
+-- same for everyone, worked out once by the AI.
+CREATE TABLE IF NOT EXISTS conj_tables (
+    lang_key   TEXT NOT NULL,
+    verb       TEXT NOT NULL,
+    forms      TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (lang_key, verb)
+);
+
+-- Forms a reader missed: they come back, sooner after a miss, rarer once
+-- right a few times (box 1-5, as the review cards).
+CREATE TABLE IF NOT EXISTS conj_items (
+    user_id  INTEGER NOT NULL REFERENCES users(id),
+    lang_key TEXT NOT NULL,
+    verb     TEXT NOT NULL,
+    tense    TEXT NOT NULL,
+    person   INTEGER NOT NULL,
+    box      INTEGER NOT NULL,
+    due_at   TEXT NOT NULL,
+    PRIMARY KEY (user_id, lang_key, verb, tense, person)
+);
+
+-- Every answer, for the score per tense.
+CREATE TABLE IF NOT EXISTS conj_answers (
+    user_id     INTEGER NOT NULL REFERENCES users(id),
+    lang_key    TEXT NOT NULL,
+    tense       TEXT NOT NULL,
+    ok          INTEGER NOT NULL,
+    answered_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_conj_answers_user ON conj_answers(user_id, lang_key, tense, answered_at);
+
+-- The tenses a reader drills, per language (comma-separated IDs).
+CREATE TABLE IF NOT EXISTS conj_prefs (
+    user_id  INTEGER NOT NULL REFERENCES users(id),
+    lang_key TEXT NOT NULL,
+    tenses   TEXT NOT NULL,
+    PRIMARY KEY (user_id, lang_key)
+);

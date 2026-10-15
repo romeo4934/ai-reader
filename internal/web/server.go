@@ -129,6 +129,9 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("POST /game/c/{token}/score", s.handleGameLinkScore)
 	mux.HandleFunc("GET /game/rounds/{id}", s.requireAuth(s.handleGameRound))
 	mux.HandleFunc("POST /game/rounds/{id}/score", s.requireAuth(s.handleGameScore))
+	mux.HandleFunc("GET /conjugate", s.requireAuth(s.handleConj))
+	mux.HandleFunc("POST /conjugate/answer", s.requireAuth(s.handleConjAnswer))
+	mux.HandleFunc("POST /conjugate/explain", s.requireAuth(s.handleConjExplain))
 	mux.HandleFunc("GET /review", s.requireAuth(s.handleReviewPage))
 	mux.HandleFunc("POST /review/{id}/answer", s.requireAuth(s.handleReviewAnswer))
 	mux.HandleFunc("POST /review/more", s.requireAuth(s.handleReviewMore))
@@ -1180,7 +1183,7 @@ func (s *Server) handleAPITranslate(w http.ResponseWriter, r *http.Request) {
 			s.failJSON(w, http.StatusServiceUnavailable, errors.New("ANTHROPIC_API_KEY absente sur le serveur"))
 			return
 		}
-		s.failJSON(w, http.StatusBadGateway, err)
+		s.failAI(w, r, err)
 		return
 	}
 
@@ -1226,6 +1229,14 @@ func (s *Server) handleAPITranslate(w http.ResponseWriter, r *http.Request) {
 func (s *Server) fail(w http.ResponseWriter, status int, err error) {
 	s.log.Error("http", "status", status, "err", err)
 	http.Error(w, err.Error(), status)
+}
+
+// failAI answers an AI call that failed (API down, out of credit): the
+// error is logged, the reader gets a message they can read — and a 503,
+// since the proxy in front replaces a 502's body with its own page.
+func (s *Server) failAI(w http.ResponseWriter, r *http.Request, err error) {
+	s.log.Error("api : IA", "err", err)
+	writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": s.dictFor(r)["AIUnavailable"]})
 }
 
 func (s *Server) failJSON(w http.ResponseWriter, status int, err error) {
