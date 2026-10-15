@@ -33,7 +33,7 @@ const (
 // tenses per language, the most useful first: the first three are drilled
 // until the reader picks others.
 var tenses = map[string][]Tense{
-	"en": {{ID: Present, Name: "present simple"}, {ID: Preterite, Name: "simple past"}, {ID: Perfect, Name: "present perfect"}, {ID: Participle, Name: "past participle", Impersonal: true}},
+	"en": {{ID: Preterite, Name: "simple past"}, {ID: Participle, Name: "past participle", Impersonal: true}, {ID: Perfect, Name: "present perfect"}, {ID: Present, Name: "present simple"}},
 	"fr": {{ID: Present, Name: "présent"}, {ID: Imperfect, Name: "imparfait"}, {ID: Perfect, Name: "passé composé"}, {ID: Future, Name: "futur simple"}, {ID: Conditional, Name: "conditionnel présent"}, {ID: Subjunctive, Name: "subjonctif présent"}, {ID: Preterite, Name: "passé simple"}},
 	"es": {{ID: Present, Name: "presente"}, {ID: Preterite, Name: "pretérito indefinido"}, {ID: Imperfect, Name: "pretérito imperfecto"}, {ID: Perfect, Name: "pretérito perfecto"}, {ID: Future, Name: "futuro simple"}, {ID: Conditional, Name: "condicional"}, {ID: Subjunctive, Name: "presente de subjuntivo"}},
 	"pt": {{ID: Present, Name: "presente"}, {ID: Preterite, Name: "pretérito perfeito"}, {ID: Imperfect, Name: "pretérito imperfeito"}, {ID: Future, Name: "futuro do presente"}, {ID: Conditional, Name: "futuro do pretérito"}, {ID: Subjunctive, Name: "presente do subjuntivo"}},

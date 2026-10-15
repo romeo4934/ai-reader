@@ -252,12 +252,18 @@ func (s *Server) conjQuestions(ctx context.Context, user *store.User, T i18n.Dic
 			Full: conj.Full(lang, t, person, forms[person]),
 		}
 		q.Answers = conj.Answers(forms[person])
+		// The meaning: the verb's own, else the translation of the form
+		// looked up ("m'en suis tiré" for "got off": better than nothing).
+		if cv, ok := conj.CommonVerb(lang, verb); ok {
+			q.Meaning = cv.Meaning(native)
+		}
 		if i := slices.IndexFunc(mine, func(o store.OwnVerb) bool { return o.Infinitive == verb }); i >= 0 {
 			o := mine[i]
-			q.Meaning, q.Phrase, q.Book = o.Translation, o.Phrase, o.Book
+			if q.Meaning == "" {
+				q.Meaning = o.Translation
+			}
+			q.Phrase, q.Book = o.Phrase, o.Book
 			q.Sentence = wordSentence(o.Context, o.Phrase)
-		} else if cv, ok := conj.CommonVerb(lang, verb); ok {
-			q.Meaning = cv.Meaning(native)
 		}
 		qs = append(qs, q)
 		used[verb] = true
