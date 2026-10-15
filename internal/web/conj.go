@@ -251,7 +251,7 @@ func (s *Server) conjQuestions(ctx context.Context, user *store.User, T i18n.Dic
 			Person: person, Pronoun: conj.Pronoun(lang, t, person), Again: again,
 			Full: conj.Full(lang, t, person, forms[person]),
 		}
-		q.Answers = conj.Answers(forms[person])
+		q.Answers = conj.Answers(lang, forms[person])
 		// The meaning: the verb's own, else the translation of the form
 		// looked up ("m'en suis tiré" for "got off": better than nothing).
 		if cv, ok := conj.CommonVerb(lang, verb); ok {

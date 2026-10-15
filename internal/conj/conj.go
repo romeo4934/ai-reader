@@ -139,9 +139,9 @@ func startsWithVowel(s string) bool {
 
 // Answers lists the forms accepted for a table entry: "devo / debbo" is
 // either one, "have gotten / got" is "have gotten" or "have got", and a
-// gender ending given with a slash or in brackets ("sono andato/a",
-// "es allé(e)") is either gender.
-func Answers(form string) []string {
+// participle given with its other genders and numbers ("sono andato/a",
+// "suis allé/e", "sommes allés/ées", "es allé(e)") is any of them.
+func Answers(lang, form string) []string {
 	var out []string
 	add := func(a string) {
 		if a = strings.Join(strings.Fields(a), " "); a != "" && !slices.Contains(out, a) {
@@ -155,21 +155,67 @@ func Answers(form string) []string {
 		if i > 0 && len(words) < len(first) {
 			words = append(slices.Clone(first[:len(first)-len(words)]), words...)
 		}
-		masc, fem := make([]string, len(words)), make([]string, len(words))
+		variants := [][]string{slices.Clone(words)}
 		for j, w := range words {
-			masc[j], fem[j] = w, w
-			if base, end, ok := strings.Cut(w, "/"); ok && len(end) <= 2 && len(base) > len(end) {
-				masc[j] = base
-				fem[j] = base[:len(base)-len(end)] + end
-			} else if before, rest, ok := strings.Cut(w, "("); ok {
-				if inside, after, ok := strings.Cut(rest, ")"); ok { // "allé(e)s"
-					masc[j] = before + after
-					fem[j] = before + inside + after
+			var forms []string
+			if pieces := strings.Split(w, "/"); len(pieces) > 1 {
+				forms = append(forms, pieces[0])
+				for _, end := range pieces[1:] {
+					forms = append(forms, withEnding(lang, pieces[0], end))
 				}
 			}
+			if strings.Contains(w, "(") { // "allé(e)s", "descendu/e(s)"
+				if forms == nil {
+					forms = []string{w}
+				}
+				var both []string
+				for _, f := range forms {
+					before, rest, _ := strings.Cut(f, "(")
+					inside, after, ok := strings.Cut(rest, ")")
+					if !ok {
+						both = append(both, f)
+						continue
+					}
+					both = append(both, before+after, before+inside+after)
+				}
+				forms = both
+			}
+			for k, f := range forms {
+				if k >= len(variants) {
+					variants = append(variants, slices.Clone(variants[0]))
+				}
+				variants[k][j] = f
+			}
 		}
-		add(strings.Join(masc, " "))
-		add(strings.Join(fem, " "))
+		for _, v := range variants {
+			add(strings.Join(v, " "))
+		}
 	}
 	return out
+}
+
+// withEnding puts another gender or number ending on a participle. In
+// French it is added ("allé" + "e"), after the plural s ("venus" + "es":
+// "venues"), or replaces from its first letter ("allés" + "ées"); elsewhere
+// it replaces the ending ("andato" + "a").
+func withEnding(lang, base, end string) string {
+	if end == "" {
+		return base
+	}
+	if lang != "fr" {
+		if len([]rune(end)) >= len([]rune(base)) {
+			return base + end
+		}
+		r := []rune(base)
+		return string(r[:len(r)-len([]rune(end))]) + end
+	}
+	stem := base
+	if strings.HasSuffix(end, "s") {
+		stem = strings.TrimSuffix(stem, "s")
+	}
+	first := []rune(end)[0]
+	if r := []rune(stem); len(r) > 0 && r[len(r)-1] == first {
+		return string(r[:len(r)-1]) + end
+	}
+	return stem + end
 }

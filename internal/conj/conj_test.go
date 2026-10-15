@@ -42,18 +42,23 @@ func TestFull(t *testing.T) {
 }
 
 func TestAnswers(t *testing.T) {
-	for form, want := range map[string]string{
-		"hablo":              "hablo",
-		"devo / debbo":       "devo|debbo",
-		"have gotten / got":  "have gotten|have got",
-		"sono andato/a":      "sono andato|sono andata",
-		"siamo andati/e":     "siamo andati|siamo andate",
-		"sono stato / stata": "sono stato|sono stata",
-		"es allé(e)":         "es allé|es allée",
-		"sommes allé(e)s":    "sommes allés|sommes allées",
+	for _, c := range []struct{ lang, form, want string }{
+		{"es", "hablo", "hablo"},
+		{"it", "devo / debbo", "devo|debbo"},
+		{"en", "have gotten / got", "have gotten|have got"},
+		{"it", "sono andato/a", "sono andato|sono andata"},
+		{"it", "siamo andati/e", "siamo andati|siamo andate"},
+		{"it", "sono stato / stata", "sono stato|sono stata"},
+		{"fr", "es allé(e)", "es allé|es allée"},
+		{"fr", "sommes allé(e)s", "sommes allés|sommes allées"},
+		{"fr", "suis allé/e", "suis allé|suis allée"},
+		{"fr", "sommes allés/ées", "sommes allés|sommes allées"},
+		{"fr", "sont venus/es", "sont venus|sont venues"},
+		{"fr", "êtes descendu/e(s)", "êtes descendu|êtes descendue|êtes descendues"},
+		{"fr", "êtes venu/e/s/es", "êtes venu|êtes venue|êtes venus|êtes venues"},
 	} {
-		if got := strings.Join(Answers(form), "|"); got != want {
-			t.Errorf("%q : %q, voulu %q", form, got, want)
+		if got := strings.Join(Answers(c.lang, c.form), "|"); got != c.want {
+			t.Errorf("%q : %q, voulu %q", c.form, got, c.want)
 		}
 	}
 }
