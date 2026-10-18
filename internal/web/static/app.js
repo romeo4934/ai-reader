@@ -343,6 +343,46 @@
   }
 
   // --- pages ---
+  // Text size (A− / A+): a factor on the reader's font size, kept on this
+  // device (a tablet and a phone want different ones). Pages are laid
+  // out again, on the page holding the same text.
+  (function () {
+    var STEPS = [0.7, 0.8, 0.9, 1, 1.1, 1.2, 1.35, 1.5, 1.7, 1.9, 2.2];
+    var down = document.getElementById('font-down'), up = document.getElementById('font-up');
+    if (!down || !up) return;
+    var scale = 1;
+    try { scale = parseFloat(localStorage.getItem('readerScale')) || 1; } catch (e) {}
+    var at = STEPS.indexOf(scale);
+    if (at < 0) at = STEPS.indexOf(1);
+    function apply(i) {
+      at = Math.max(0, Math.min(STEPS.length - 1, i));
+      document.documentElement.style.setProperty('--reader-scale', STEPS[at]);
+      try { localStorage.setItem('readerScale', String(STEPS[at])); } catch (e) {}
+      down.disabled = at === 0;
+      up.disabled = at === STEPS.length - 1;
+    }
+    function change(d) {
+      var anchor = firstVisiblePara();
+      apply(at + d);
+      document.dispatchEvent(new CustomEvent('lydi-relayout', { detail: { anchor: anchor } }));
+    }
+    down.addEventListener('click', function (e) { e.stopPropagation(); change(-1); });
+    up.addEventListener('click', function (e) { e.stopPropagation(); change(1); });
+    apply(at);
+  })();
+
+  // The first paragraph showing on screen (to stay on it when the text
+  // size changes).
+  function firstVisiblePara() {
+    var r = chapterEl.getBoundingClientRect();
+    var paras = chapterEl.querySelectorAll('.para');
+    for (var i = 0; i < paras.length; i++) {
+      var pr = paras[i].getBoundingClientRect();
+      if (pr.right > r.left + 1 && pr.bottom > r.top + 1 && pr.left < r.right && pr.top < r.bottom) return paras[i];
+    }
+    return null;
+  }
+
   if (paged) setupPages();
   else {
     var startEl = startParaEl();
@@ -444,6 +484,12 @@
     window.addEventListener('resize', function () {
       clearTimeout(resizeTimer);
       resizeTimer = setTimeout(layout, 150);
+    });
+
+    document.addEventListener('lydi-relayout', function (e) {
+      layout();
+      var a = e.detail && e.detail.anchor;
+      if (a) go(Math.max(0, Math.min(pages - 1, Math.floor((a.getBoundingClientRect().left - chapterEl.getBoundingClientRect().left + chapterEl.scrollLeft) / stride()))));
     });
 
     layout();

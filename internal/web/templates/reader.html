@@ -5,6 +5,10 @@
   {{template "head" .}}
 </head>
 <body>
+  <script>
+    // The text size chosen on this device, set before the text shows.
+    try { var fs = parseFloat(localStorage.getItem('readerScale')); if (fs) document.documentElement.style.setProperty('--reader-scale', fs); } catch (e) {}
+  </script>
   {{template "nav" .}}
 
   <main class="page reader-page">
@@ -12,6 +16,10 @@
       <a href="/">{{.T.ReaderBack}}</a>
       <h1>{{.Data.Book.Title}}</h1>
       <span class="chapter-label">{{.Data.Chapter.Title}}</span>
+      <span class="font-size-ctl">
+        <button type="button" id="font-down" aria-label="{{.T.ReaderSmaller}}" title="{{.T.ReaderSmaller}}">A−</button>
+        <button type="button" id="font-up" aria-label="{{.T.ReaderBigger}}" title="{{.T.ReaderBigger}}">A+</button>
+      </span>
     </header>
 
     {{if .Data.FirstTime}}<p class="first-hint" id="first-hint">{{.T.ReaderFirstHint}}</p>{{end}}

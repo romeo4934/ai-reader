@@ -213,7 +213,7 @@ h1 { font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
 .chapter-label { color: var(--muted); font-size: 0.9em; }
 
 .chapter {
-  font-size: 1.15rem;
+  font-size: calc(1.15rem * var(--reader-scale, 1));
   line-height: 1.65;
   -webkit-touch-callout: none;
   /* room below the last words for the bubble (desktop); phones and pages
@@ -418,7 +418,7 @@ details[open] .word-row::after { content: '⌄'; }
 [data-eink] .say-btn { border: 2px solid #000; background: #fff; color: #000; }
 
 @media (min-width: 900px) {
-  .chapter { font-size: 1.25rem; }
+  .chapter { font-size: calc(1.25rem * var(--reader-scale, 1)); }
 }
 
 .btn-link-danger { color: var(--danger); }
@@ -652,7 +652,7 @@ details[open] .word-row::after { content: '⌄'; }
   --accent: #000; --accent-fg: #fff; --mark: #d0d0d0; --mark-sentence: #ececec; --danger: #000;
 }
 [data-eink] *, [data-eink] *::before, [data-eink] *::after { transition: none !important; animation: none !important; box-shadow: none !important; }
-[data-eink] .chapter { font-size: 1.3rem; line-height: 1.7; }
+[data-eink] .chapter { font-size: calc(1.3rem * var(--reader-scale, 1)); line-height: 1.7; }
 [data-eink] .btn, [data-eink] .btn-icon { min-height: 48px; min-width: 48px; border-width: 2px; }
 [data-eink] .popover { border: 2px solid #000; }
 
@@ -980,3 +980,9 @@ a.agora-enter { display: block; text-align: center; text-decoration: none; }
 .conj-done-score { font-size: 1.3rem; font-weight: 600; }
 .conj-missed-list { margin: 0 0 1rem; padding-left: 1.2rem; }
 .conj-own { margin-top: 1rem; }
+
+/* Text size in the reader (A− / A+), kept per device. */
+.font-size-ctl { display: inline-flex; gap: 0.3rem; margin-left: auto; flex: none; }
+.font-size-ctl button { font: 600 0.9rem sans-serif; min-width: 40px; min-height: 34px; padding: 0 0.5rem; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--fg); cursor: pointer; }
+.font-size-ctl button:disabled { opacity: 0.4; cursor: default; }
+[data-eink] .font-size-ctl button { border: 2px solid #000; min-width: 48px; min-height: 44px; }
