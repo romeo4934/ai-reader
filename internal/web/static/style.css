@@ -993,3 +993,6 @@ a.agora-enter { display: block; text-align: center; text-decoration: none; }
 .reader-docked .chapter-nav .btn-icon { padding: 0.35rem 0.9rem; }
 .paged .chapter-nav .btn-icon { min-width: 72px; min-height: 56px; font-size: 1.9rem; }
 .font-size-ctl button { border-color: var(--muted); }
+/* A page-turn button with nowhere to go (first chapter, last page): kept
+   in place, faded, so the others don't shift. */
+.chapter-nav .btn-off { opacity: 0.25; pointer-events: none; }
