@@ -986,3 +986,10 @@ a.agora-enter { display: block; text-align: center; text-decoration: none; }
 .font-size-ctl button { font: 600 0.9rem sans-serif; min-width: 40px; min-height: 34px; padding: 0 0.5rem; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--fg); cursor: pointer; }
 .font-size-ctl button:disabled { opacity: 0.4; cursor: default; }
 [data-eink] .font-size-ctl button { border: 2px solid #000; min-width: 48px; min-height: 44px; }
+
+/* Page-turn buttons: big and outlined enough to see and hit on a tablet,
+   e-ink included (the light border vanished on a grey e-ink screen). */
+.chapter-nav .btn-icon { font-size: 1.6rem; min-width: 56px; min-height: 48px; padding: 0.35rem 0.9rem; border: 2px solid var(--muted); text-align: center; }
+.reader-docked .chapter-nav .btn-icon { padding: 0.35rem 0.9rem; }
+.paged .chapter-nav .btn-icon { min-width: 72px; min-height: 56px; font-size: 1.9rem; }
+.font-size-ctl button { border-color: var(--muted); }
