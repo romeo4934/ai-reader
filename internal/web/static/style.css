@@ -370,10 +370,11 @@ details[open] .word-row::after { content: '⌄'; }
   font-family: sans-serif;
   z-index: 1000;
 }
-.tp-loading, .tp-error { color: var(--muted); }
+.tp-loading, .tp-error { color: var(--muted); font-size: calc(1rem * var(--reader-scale, 1)); }
 .tp-error { color: var(--danger); }
+/* follows the reader's A−/A+ text size, like the book text */
 .tp-sentence {
-  font-size: 1.1rem;
+  font-size: calc(1.1rem * var(--reader-scale, 1));
   line-height: 1.5;
   padding-right: 2.8rem;
 }
@@ -711,7 +712,9 @@ details[open] .word-row::after { content: '⌄'; }
 }
 
 /* Docked reading: give the text as much of the screen as possible. */
-.reader-docked { --dock: clamp(128px, 20svh, 190px); }
+/* the panel grows with the reader's text size, so a translation in big
+   type still fits without scrolling */
+.reader-docked { --dock: clamp(128px, calc(20svh * var(--reader-scale, 1)), min(calc(190px * var(--reader-scale, 1)), 40svh)); }
 .reader-docked .topnav { padding-top: 0.55rem; padding-bottom: 0.55rem; }
 .reader-docked .reader-page { padding: 0.6rem 16px 0; }
 .reader-docked .reader-head { flex-wrap: nowrap; margin-bottom: 0.5rem; font-size: 0.85rem; overflow: hidden; white-space: nowrap; }
