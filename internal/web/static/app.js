@@ -27,7 +27,7 @@
 
   // --- reading mode ---
   // "pages": the section is laid out in screen-sized columns, turned by
-  // tapping the edges (or swiping, or the arrow keys) — what an e-ink
+  // the nav buttons (or swiping, or the arrow keys) — what an e-ink
   // screen needs, where scrolling smears. "scroll": the page scrolls.
   // Auto (no setting): pages on a tablet, scroll on a phone.
   var reading = chapterEl.dataset.reading;
@@ -396,7 +396,6 @@
   function setupPages() {
     document.documentElement.classList.add('paged');
     var GAP = 48;
-    var EDGE = 0.15; // a tap this close to the left/right edge turns the page
     var page = 0, pages = 1;
     var navEl = document.querySelector('.chapter-nav');
     var indicator = document.querySelector('.page-indicator');
@@ -446,18 +445,8 @@
     if (nextLink) nextLink.addEventListener('click', function (e) { e.preventDefault(); next(); });
     if (prevLink) prevLink.addEventListener('click', function (e) { e.preventDefault(); prev(); });
 
-    // Edge taps turn the page; taps anywhere else still translate (the
-    // word-tap handler runs after this one, which stops it for edge taps).
-    // Judged by position, not target: past the end of a short last page
-    // there's no text under the finger, only the page itself.
-    document.addEventListener('click', function (e) {
-      if (popover.contains(e.target) || (navEl && navEl.contains(e.target))) return;
-      var r = chapterEl.getBoundingClientRect();
-      if (e.clientY < r.top || e.clientY > r.bottom) return;
-      var x = (e.clientX - r.left) / r.width;
-      if (x < EDGE) { e.stopPropagation(); e.preventDefault(); prev(); }
-      else if (x > 1 - EDGE) { e.stopPropagation(); e.preventDefault(); next(); }
-    }, true);
+    // No edge taps: a word near the margin must stay tappable to translate.
+    // Pages turn with the buttons, a swipe or the arrow keys.
 
     var touch = null;
     chapterEl.addEventListener('touchstart', function (e) {
